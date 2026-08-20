@@ -1,0 +1,17 @@
+# Android Studio / Gradle
+*.iml
+.gradle/
+.idea/
+.kotlin/
+.cxx/
+.externalNativeBuild/
+captures/
+build/
+local.properties
+
+# Wydania
+*.apk
+*.aab
+app/release/
+
+.DS_Store
