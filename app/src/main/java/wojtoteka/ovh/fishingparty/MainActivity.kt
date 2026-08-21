@@ -417,7 +417,7 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "App stopped - deep freeze")
 
             globalWebView?.let { webView ->
-                // Ensure audio is fully dead — onStop may come without onPause on some devices
+                // Ensure audio is fully dead - onStop may come without onPause on some devices
                 webView.evaluateJavascript("""
                     (function() {
                         try {
@@ -494,7 +494,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// Custom WebView — passes ALL touch events to JS, blocks only WebView scroll/overscroll
+// Custom WebView - passes ALL touch events to JS, blocks only WebView scroll/overscroll
 class FixedWebView(context: Context) : WebView(context) {
 
     init {
@@ -505,13 +505,13 @@ class FixedWebView(context: Context) : WebView(context) {
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
-        // Always request parent not to intercept — game needs every touch event
+        // Always request parent not to intercept - game needs every touch event
         requestDisallowInterceptTouchEvent(true)
         return super.onTouchEvent(event)
     }
 
     override fun onOverScrolled(scrollX: Int, scrollY: Int, clampedX: Boolean, clampedY: Boolean) {
-        // Block all scrolling — game is fullscreen, no scrolling needed
+        // Block all scrolling - game is fullscreen, no scrolling needed
     }
 
     override fun overScrollBy(
