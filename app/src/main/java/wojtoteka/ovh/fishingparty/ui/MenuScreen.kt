@@ -67,8 +67,6 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     HSpace(2)
                     PixelText("${progress.totalStars()}/1500", size = 2)
                 }
-                HSpace(4)
-                PixelButton("", onClick = { onOpen(Destination.SETTINGS) }, style = ButtonStyle.WOOD, icon = "sailors/" + repo.save.sailor)
             }
             VSpace(14)
             Column(Modifier.offset { IntOffset(0, (wave * 2f * unit).toInt()) }, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -116,6 +114,13 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         Badge(stringResource(R.string.soon), Modifier.align(Alignment.TopEnd), color = ButtonStyle.SEA)
                     }
                 }
+                PixelButton(
+                    stringResource(R.string.settings_title),
+                    onClick = { onOpen(Destination.SETTINGS) },
+                    style = ButtonStyle.SEA,
+                    size = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
                 if (daily) {
                     PixelButton(
                         stringResource(R.string.daily_title),

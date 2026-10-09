@@ -33,13 +33,13 @@ class AudioEngine(context: Context) {
         .build()
     private val pool = SoundPool.Builder().setMaxStreams(8).setAudioAttributes(attributes).build()
     private val soundIds = java.util.concurrent.ConcurrentHashMap<String, Int>()
-    @Volatile
-    private var music: AudioTrack? = null
+    private val musicLock = Object()
     @Volatile
     private var musicWanted = false
 
     var sfxEnabled = true
     var vibrationEnabled = true
+    @Volatile
     var musicEnabled = true
         set(value) {
             field = value
@@ -65,30 +65,8 @@ class AudioEngine(context: Context) {
                 if (!file.exists()) writeWav(file, BeepSynth.toPcm16(SoundScript.render(lines, SAMPLE_RATE)))
                 soundIds[name] = pool.load(file.path, 1)
             }
-            val samples = SoundScript.render(SoundScript.MUSIC, SAMPLE_RATE, SoundScript.MUSIC_SECONDS)
-            val pcm = BeepSynth.toPcm16(samples)
-            val track = AudioTrack.Builder()
-                .setAudioAttributes(
-                    AudioAttributes.Builder()
-                        .setUsage(AudioAttributes.USAGE_GAME)
-                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                        .build(),
-                )
-                .setAudioFormat(
-                    AudioFormat.Builder()
-                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
-                        .setSampleRate(SAMPLE_RATE)
-                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
-                        .build(),
-                )
-                .setTransferMode(AudioTrack.MODE_STATIC)
-                .setBufferSizeInBytes(pcm.size * 2)
-                .build()
-            track.write(pcm, 0, pcm.size)
-            track.setLoopPoints(0, pcm.size, -1)
-            track.setVolume(MUSIC_VOLUME)
-            music = track
-            refreshMusic()
+            val pcm = BeepSynth.toPcm16(SoundScript.render(SoundScript.MUSIC, SAMPLE_RATE, SoundScript.MUSIC_SECONDS))
+            MusicThread(pcm).start()
         } catch (e: Exception) {
             Log.e(TAG, "Nie udało się przygotować dźwięku", e)
         }
@@ -163,15 +141,66 @@ class AudioEngine(context: Context) {
     }
 
     private fun refreshMusic() {
-        val track = music ?: return
-        try {
-            if (musicWanted && musicEnabled) {
-                if (track.playState != AudioTrack.PLAYSTATE_PLAYING) track.play()
-            } else if (track.playState == AudioTrack.PLAYSTATE_PLAYING) {
-                track.pause()
+        synchronized(musicLock) { musicLock.notifyAll() }
+    }
+
+    /**
+     * Muzyka (12-sekundowa pętla) jest strumieniowana małymi porcjami –
+     * duży statyczny bufor AudioTrack nie działa na wszystkich urządzeniach.
+     */
+    private inner class MusicThread(private val pcm: ShortArray) : Thread("fp-music") {
+        init {
+            isDaemon = true
+        }
+
+        override fun run() {
+            val minBuffer = AudioTrack.getMinBufferSize(SAMPLE_RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
+            val track = try {
+                AudioTrack.Builder()
+                    .setAudioAttributes(
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_GAME)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                            .build(),
+                    )
+                    .setAudioFormat(
+                        AudioFormat.Builder()
+                            .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                            .setSampleRate(SAMPLE_RATE)
+                            .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                            .build(),
+                    )
+                    .setTransferMode(AudioTrack.MODE_STREAM)
+                    .setBufferSizeInBytes(maxOf(minBuffer, CHUNK * 4))
+                    .build()
+            } catch (e: Exception) {
+                Log.e(TAG, "Muzyka niedostępna", e)
+                return
             }
-        } catch (e: IllegalStateException) {
-            Log.w(TAG, "Muzyka niedostępna", e)
+            track.setVolume(MUSIC_VOLUME)
+            var position = 0
+            var playing = false
+            try {
+                while (true) {
+                    val wanted = musicWanted && musicEnabled
+                    if (wanted != playing) {
+                        if (wanted) track.play() else track.pause()
+                        playing = wanted
+                    }
+                    if (!playing) {
+                        synchronized(musicLock) { musicLock.wait(500) }
+                        continue
+                    }
+                    val count = minOf(CHUNK, pcm.size - position)
+                    val written = track.write(pcm, position, count)
+                    if (written < 0) break
+                    position = (position + written) % pcm.size
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "Muzyka przerwana", e)
+            } finally {
+                track.release()
+            }
         }
     }
 
@@ -181,5 +210,6 @@ class AudioEngine(context: Context) {
         const val SAMPLE_RATE = 48000
         private const val SFX_VOLUME = 0.9f
         private const val MUSIC_VOLUME = 0.7f
+        private const val CHUNK = 4096
     }
 }

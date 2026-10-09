@@ -235,7 +235,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         )
 
         // Prawa strona (miejsce na przycisk pauzy zostaje): wynik i licznik ryb etapu.
-        val right = width - margin - 20 * p2
+        val right = width - margin - 40 * p1
         val scoreIcon = Sprites.sprite("fishscore")
         icon(canvas, scoreIcon, right - scoreIcon.width * p1 * 1.5f, top, p1 * 1.5f)
         val scoreRight = right - scoreIcon.width * p1 * 1.5f - 2 * p1

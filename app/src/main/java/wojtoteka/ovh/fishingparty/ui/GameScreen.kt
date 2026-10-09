@@ -167,6 +167,11 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, onExit: (GameExit) ->
         onDispose { lifecycle.removeObserver(observer) }
     }
     BackHandler(enabled = outcome == null) { paused = !paused }
+    // Po zakończeniu poziomu „wstecz” wraca na mapę (a nie zamyka gry).
+    BackHandler(enabled = outcome != null) {
+        outcome?.let { apply(it.result) }
+        onExit(GameExit.ToMap)
+    }
 
     Box(Modifier.fillMaxSize()) {
         Canvas(
