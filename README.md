@@ -1,4 +1,5 @@
-# Fishing Party
+# JUŻ NIEDŁUGO NOWA AKTUALIZACJA
+## Fishing Party
 
 Podwodna zręcznościówka na Androida: pływasz między piranhami, ośmiornicami i rekinami,
 zbierasz ryby i szukasz wyjścia z ośmiu ręcznie ułożonych map. Retro pixel art, sterowanie
