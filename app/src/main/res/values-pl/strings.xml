@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="play">GRAJ</string>
+    <string name="play_level">GRAJ POZIOM %d</string>
+    <string name="level_n">POZIOM %d</string>
+    <string name="map_title">MAPA</string>
+    <string name="shop_title">SKLEP</string>
+    <string name="achievements_title">OSIĄGNIĘCIA</string>
+    <string name="achievements_short">TROFEA</string>
+    <string name="achievements_count">ZDOBYTE %1$d/%2$d</string>
+    <string name="ranking_title">RANKING</string>
+    <string name="settings_title">USTAWIENIA</string>
+    <string name="soon">SOON</string>
+    <string name="world_label">ŚWIAT %1$d: %2$s</string>
+    <string name="cancel">ANULUJ</string>
+    <string name="confirm">TAK</string>
+    <string name="close">ZAMKNIJ</string>
+    <string name="achievement_unlocked">OSIĄGNIĘCIE!</string>
+    <string name="claimed">ODEBRANO</string>
+    <string name="hud_stage">ETAP %1$d/%2$d</string>
+    <string name="hud_gate_open">BRAMA OTWARTA!</string>
+    <string name="hud_finish_open">META OTWARTA!</string>
+    <string name="hud_finish">META!</string>
+    <string name="hud_last_life">OSTATNIE ŻYCIE!</string>
+    <string name="hud_shield">TARCZA CIĘ OCALIŁA!</string>
+    <string name="hud_time_low">ZOSTAŁO 10 SEKUND!</string>
+    <string name="hud_combo">COMBO x%d!</string>
+    <string name="hud_tutorial">PRZESUWAJ PALCEM, BY PŁYNĄĆ</string>
+    <string name="type_classic">POŁÓW</string>
+    <string name="type_classic_desc">Łów ryby, otwieraj bramy i dopłyń do mety.</string>
+    <string name="type_rocky">SKALISTA RAFA</string>
+    <string name="type_rocky_desc">Pełno skał – steruj ostrożnie.</string>
+    <string name="type_archipelago">ARCHIPELAG</string>
+    <string name="type_archipelago_desc">Wszędzie wysepki. Znajdź drogę.</string>
+    <string name="type_canal">KANAŁ</string>
+    <string name="type_canal_desc">Wąski kanał i ciasne zakręty.</string>
+    <string name="type_current">SILNY PRĄD</string>
+    <string name="type_current_desc">Prąd cały czas znosi twoją łódź.</string>
+    <string name="type_gold_rush">GORĄCZKA ZŁOTA</string>
+    <string name="type_gold_rush_desc">Mnóstwo złotych ryb – złap je, zanim odpłyną!</string>
+    <string name="type_time_attack">WYŚCIG Z CZASEM</string>
+    <string name="type_time_attack_desc">Dopłyń do mety, zanim skończy się czas.</string>
+    <string name="type_swarm">ŁAWICA PIRANII</string>
+    <string name="type_swarm_desc">Wszędzie piranie, ale potrzeba mniej ryb.</string>
+    <string name="type_boss">STARCIE Z BESTIĄ</string>
+    <string name="type_boss_desc">Ostatni poziom tego świata. Uważaj!</string>
+    <string name="goal_finish">Dopłyń do mety</string>
+    <string name="goal_no_damage">Nie strać życia</string>
+    <string name="goal_all_fish">Złów wszystkie ryby</string>
+    <string name="goal_par">Ukończ w %s</string>
+    <string name="goal_score">Zdobądź %d pkt</string>
+    <string name="goal_golden">Złów wszystkie złote ryby</string>
+    <string name="goal_combo">Zrób combo x%d</string>
+    <string name="intro_best">REKORD: %d</string>
+    <string name="intro_stages">ETAPY: %d</string>
+    <string name="intro_powerups">WZMOCNIENIA</string>
+    <string name="intro_powerups_hint">Dotknij wzmocnienia, aby zabrać je ze sobą.</string>
+    <string name="powerup_magnet">MAGNES</string>
+    <string name="powerup_magnet_desc">Przyciąga pobliskie ryby do łodzi</string>
+    <string name="powerup_shield">TARCZA</string>
+    <string name="powerup_shield_desc">Chroni przed jednym trafieniem</string>
+    <string name="powerup_turbo">TURBO</string>
+    <string name="powerup_turbo_desc" formatted="false">Łódź płynie o 20% szybciej</string>
+    <string name="powerup_life">DODATKOWE ŻYCIE</string>
+    <string name="powerup_life_desc">Zaczynasz z 4 życiami</string>
+    <string name="result_win">POZIOM UKOŃCZONY!</string>
+    <string name="result_lose">KONIEC GRY</string>
+    <string name="lose_caught">Morskie bestie cię dopadły.</string>
+    <string name="lose_time">Czas minął!</string>
+    <string name="result_score">WYNIK</string>
+    <string name="result_new_best">NOWY REKORD!</string>
+    <string name="result_rejected">Tego wyniku nie dało się zweryfikować – nie został zapisany.</string>
+    <string name="next">DALEJ</string>
+    <string name="retry">JESZCZE RAZ</string>
+    <string name="to_map">MAPA</string>
+    <string name="continue_play">KONTYNUUJ</string>
+    <string name="resume">WZNÓW</string>
+    <string name="restart">OD NOWA</string>
+    <string name="paused">PAUZA</string>
+    <string name="daily_title">NAGRODA DNIA</string>
+    <string name="daily_day">DZIEŃ %d</string>
+    <string name="daily_claim">ODBIERZ</string>
+    <string name="daily_bonus">Wracaj codziennie! Dzień 7 daje też po jednym wzmocnieniu każdego rodzaju.</string>
+    <string name="daily_clock">Zegar w telefonie wygląda na przestawiony. Nagrody wrócą, gdy będzie poprawny.</string>
+    <string name="shop_boats">ŁODZIE</string>
+    <string name="shop_sails">ŻAGLE</string>
+    <string name="shop_sailors">ZAŁOGA</string>
+    <string name="shop_powerups">BONUSY</string>
+    <string name="shop_equip">WYBIERZ</string>
+    <string name="shop_equipped">W UŻYCIU</string>
+    <string name="shop_owned">MASZ: %d</string>
+    <string name="boat_classic">KLASYCZNA</string>
+    <string name="boat_crimson">KARMAZYNOWA</string>
+    <string name="boat_navy">GRANATOWA</string>
+    <string name="boat_emerald">SZMARAGDOWA</string>
+    <string name="boat_ivory">PERŁOWA</string>
+    <string name="boat_royal">KRÓLEWSKA</string>
+    <string name="boat_shadow">MROCZNA</string>
+    <string name="boat_golden">ZŁOTA</string>
+    <string name="sail_white">BIAŁY</string>
+    <string name="sail_red">CZERWONY</string>
+    <string name="sail_blue">NIEBIESKI</string>
+    <string name="sail_yellow">ŻÓŁTY</string>
+    <string name="sail_green">ZIELONY</string>
+    <string name="sail_black">CZARNY</string>
+    <string name="sail_striped">W PASKI</string>
+    <string name="sail_rainbow">TĘCZOWY</string>
+    <string name="sailor_ginger">RUDY</string>
+    <string name="sailor_blond">BLONDYN</string>
+    <string name="sailor_brunet">BRUNET</string>
+    <string name="sailor_diver">NUREK</string>
+    <string name="sailor_punk">PUNK</string>
+    <string name="sailor_captain">KAPITAN</string>
+    <string name="ranking_points">TWOJE PUNKTY RANKINGOWE</string>
+    <string name="ranking_info">Punkty rankingowe to suma twoich najlepszych wyników z każdego poziomu. Ranking online już wkrótce!</string>
+    <string name="stat_levels">POZIOMY</string>
+    <string name="stat_stars">GWIAZDKI</string>
+    <string name="stat_fish">ZŁOWIONE RYBY</string>
+    <string name="stat_golden">ZŁOTE RYBY</string>
+    <string name="stat_combo">NAJLEPSZE COMBO</string>
+    <string name="set_music">MUZYKA</string>
+    <string name="set_sounds">DŹWIĘKI</string>
+    <string name="set_vibration">WIBRACJE</string>
+    <string name="on">WŁ.</string>
+    <string name="off">WYŁ.</string>
+    <string name="set_reset">RESETUJ POSTĘP</string>
+    <string name="set_reset_confirm">Usunąć cały postęp? Tego nie da się cofnąć.</string>
+    <string name="set_credits">Grafika: oryginalne sprity Fishing Party. Czcionka: BitCell (memesbruh03).</string>
+    <string name="version">WERSJA %s</string>
+    <string name="save_tampered">Plik zapisu został zmieniony poza grą i nie dało się go wczytać. Postęp został wyzerowany.</string>
+    <string name="ach_first_fish">Pierwszy połów</string>
+    <string name="ach_first_fish_desc">Złów pierwszą rybę</string>
+    <string name="ach_fish_100">Rybak</string>
+    <string name="ach_fish_100_desc">Złów 100 ryb</string>
+    <string name="ach_fish_1000">Mistrz wędki</string>
+    <string name="ach_fish_1000_desc">Złów 1000 ryb</string>
+    <string name="ach_fish_5000">Legenda mórz</string>
+    <string name="ach_fish_5000_desc">Złów 5000 ryb</string>
+    <string name="ach_fish_20000">Posejdon</string>
+    <string name="ach_fish_20000_desc">Złów 20000 ryb</string>
+    <string name="ach_golden_1">Złoty dotyk</string>
+    <string name="ach_golden_1_desc">Złów złotą rybę</string>
+    <string name="ach_golden_25">Łowca skarbów</string>
+    <string name="ach_golden_25_desc">Złów 25 złotych ryb</string>
+    <string name="ach_golden_100">Król Midas</string>
+    <string name="ach_golden_100_desc">Złów 100 złotych ryb</string>
+    <string name="ach_level_5">Wypływamy</string>
+    <string name="ach_level_5_desc">Ukończ 5 poziomów</string>
+    <string name="ach_level_25">Pierwszy świat</string>
+    <string name="ach_level_25_desc">Ukończ 25 poziomów</string>
+    <string name="ach_level_50">Odkrywca</string>
+    <string name="ach_level_50_desc">Ukończ 50 poziomów</string>
+    <string name="ach_level_100">Nawigator</string>
+    <string name="ach_level_100_desc">Ukończ 100 poziomów</string>
+    <string name="ach_level_200">Kapitan</string>
+    <string name="ach_level_200_desc">Ukończ 200 poziomów</string>
+    <string name="ach_level_350">Admirał</string>
+    <string name="ach_level_350_desc">Ukończ 350 poziomów</string>
+    <string name="ach_level_500">Władca mórz</string>
+    <string name="ach_level_500_desc">Ukończ wszystkie 500 poziomów</string>
+    <string name="ach_stars_15">Błysk</string>
+    <string name="ach_stars_15_desc">Zbierz 15 gwiazdek</string>
+    <string name="ach_stars_75">Łowca gwiazd</string>
+    <string name="ach_stars_75_desc">Zbierz 75 gwiazdek</string>
+    <string name="ach_stars_300">Gwiazdozbiór</string>
+    <string name="ach_stars_300_desc">Zbierz 300 gwiazdek</string>
+    <string name="ach_stars_750">Galaktyka</string>
+    <string name="ach_stars_750_desc">Zbierz 750 gwiazdek</string>
+    <string name="ach_stars_1500">Perfekcjonista</string>
+    <string name="ach_stars_1500_desc">Zbierz wszystkie 1500 gwiazdek</string>
+    <string name="ach_perfect_1">Bez skazy</string>
+    <string name="ach_perfect_1_desc">Zdobądź 3 gwiazdki na poziomie</string>
+    <string name="ach_perfect_25">Precyzja</string>
+    <string name="ach_perfect_25_desc">Zdobądź 3 gwiazdki na 25 poziomach</string>
+    <string name="ach_perfect_100">Wirtuoz</string>
+    <string name="ach_perfect_100_desc">Zdobądź 3 gwiazdki na 100 poziomach</string>
+    <string name="ach_nohit_10">Nietykalny</string>
+    <string name="ach_nohit_10_desc">Ukończ 10 poziomów bez utraty życia</string>
+    <string name="ach_nohit_50">Statek widmo</string>
+    <string name="ach_nohit_50_desc">Ukończ 50 poziomów bez utraty życia</string>
+    <string name="ach_combo_5">Król combo</string>
+    <string name="ach_combo_5_desc">Zrób combo x5</string>
+    <string name="ach_boss_1">Pogromca bestii</string>
+    <string name="ach_boss_1_desc">Pokonaj ostatni poziom świata</string>
+    <string name="ach_boss_10">Łowca potworów</string>
+    <string name="ach_boss_10_desc">Pokonaj 10 ostatnich poziomów światów</string>
+    <string name="ach_shopper">Na zakupach</string>
+    <string name="ach_shopper_desc">Kup coś w sklepie</string>
+    <string name="ach_fashion">Ikona stylu</string>
+    <string name="ach_fashion_desc">Zdobądź 5 elementów wyglądu</string>
+    <string name="ach_fleet">Armator</string>
+    <string name="ach_fleet_desc">Zdobądź wszystkie 8 łodzi</string>
+    <string name="ach_daily_3">Stały bywalec</string>
+    <string name="ach_daily_3_desc">Odbierz nagrodę dnia 3 dni z rzędu</string>
+    <string name="ach_daily_7">Wierny żeglarz</string>
+    <string name="ach_daily_7_desc">Odbierz nagrodę dnia 7 dni z rzędu</string>
+    <string name="ach_speed_1">Motorówka</string>
+    <string name="ach_speed_1_desc">Ukończ poziom w połowie czasu wzorcowego</string>
+    <string name="ach_speed_25">Błyskawica</string>
+    <string name="ach_speed_25_desc">Ukończ 25 poziomów w połowie czasu wzorcowego</string>
+    <string name="ach_rich">Skrzynia skarbów</string>
+    <string name="ach_rich_desc">Miej naraz 5000 monet</string>
+    <string name="ach_veteran">Weteran</string>
+    <string name="ach_veteran_desc">Gracz pierwszej wersji Fishing Party</string>
+    <string-array name="world_names">
+        <item>Słoneczna Zatoka</item>
+        <item>Rafa Koralowa</item>
+        <item>Laguna Zachodu</item>
+        <item>Mroźny Fiord</item>
+        <item>Mgliste Bagna</item>
+        <item>Wulkaniczne Wyspy</item>
+        <item>Szmaragdowy Atol</item>
+        <item>Morze o Północy</item>
+        <item>Pustynna Oaza</item>
+        <item>Otchłań</item>
+        <item>Piracka Zatoczka</item>
+        <item>Muszlowe Płycizny</item>
+        <item>Bursztynowa Cieśnina</item>
+        <item>Lodowa Zatoka</item>
+        <item>Labirynt Namorzynów</item>
+        <item>Żarzące Wybrzeże</item>
+        <item>Nefrytowa Laguna</item>
+        <item>Wody Gwiazd</item>
+        <item>Piaski Mirażu</item>
+        <item>Głębia Krakena</item>
+    </string-array>
+    <plurals name="hud_go">
+        <item quantity="one">ZŁÓW %d RYBĘ, BY OTWORZYĆ BRAMĘ</item>
+        <item quantity="few">ZŁÓW %d RYBY, BY OTWORZYĆ BRAMĘ</item>
+        <item quantity="many">ZŁÓW %d RYB, BY OTWORZYĆ BRAMĘ</item>
+        <item quantity="other">ZŁÓW %d RYBY, BY OTWORZYĆ BRAMĘ</item>
+    </plurals>
+</resources>

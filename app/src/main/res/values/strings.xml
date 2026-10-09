@@ -1,3 +1,232 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Fishing Party</string>
+    <string name="app_name" translatable="false">Fishing Party</string>
+    <string name="play">PLAY</string>
+    <string name="play_level">PLAY LEVEL %d</string>
+    <string name="level_n">LEVEL %d</string>
+    <string name="map_title">MAP</string>
+    <string name="shop_title">SHOP</string>
+    <string name="achievements_title">ACHIEVEMENTS</string>
+    <string name="achievements_short">TROPHIES</string>
+    <string name="achievements_count">UNLOCKED %1$d/%2$d</string>
+    <string name="ranking_title">RANKING</string>
+    <string name="settings_title">SETTINGS</string>
+    <string name="soon">SOON</string>
+    <string name="world_label">WORLD %1$d: %2$s</string>
+    <string name="cancel">CANCEL</string>
+    <string name="confirm">YES</string>
+    <string name="close">CLOSE</string>
+    <string name="achievement_unlocked">ACHIEVEMENT!</string>
+    <string name="claimed">DONE</string>
+    <string name="hud_stage">STAGE %1$d/%2$d</string>
+    <string name="hud_gate_open">GATE OPEN!</string>
+    <string name="hud_finish_open">THE FINISH IS OPEN!</string>
+    <string name="hud_finish">FINISH!</string>
+    <string name="hud_last_life">LAST LIFE!</string>
+    <string name="hud_shield">SHIELD SAVED YOU!</string>
+    <string name="hud_time_low">10 SECONDS LEFT!</string>
+    <string name="hud_combo">COMBO x%d!</string>
+    <string name="hud_tutorial">DRAG YOUR FINGER TO SAIL</string>
+    <string name="type_classic">FISHING</string>
+    <string name="type_classic_desc">Catch fish, open the gates and reach the finish.</string>
+    <string name="type_rocky">ROCKY REEF</string>
+    <string name="type_rocky_desc">Rocks everywhere – steer carefully.</string>
+    <string name="type_archipelago">ARCHIPELAGO</string>
+    <string name="type_archipelago_desc">Islands all around. Find your way through.</string>
+    <string name="type_canal">CANAL</string>
+    <string name="type_canal_desc">A narrow canal with tight turns.</string>
+    <string name="type_current">STRONG CURRENT</string>
+    <string name="type_current_desc">The current keeps pushing your boat.</string>
+    <string name="type_gold_rush">GOLD RUSH</string>
+    <string name="type_gold_rush_desc">Lots of golden fish – catch them before they swim away!</string>
+    <string name="type_time_attack">RACE AGAINST TIME</string>
+    <string name="type_time_attack_desc">Reach the finish before the time runs out.</string>
+    <string name="type_swarm">PIRANHA SWARM</string>
+    <string name="type_swarm_desc">Piranhas everywhere, but you need fewer fish.</string>
+    <string name="type_boss">BEAST BATTLE</string>
+    <string name="type_boss_desc">The last level of this world. Watch out!</string>
+    <string name="goal_finish">Reach the finish</string>
+    <string name="goal_no_damage">Don\'t lose a life</string>
+    <string name="goal_all_fish">Catch every fish</string>
+    <string name="goal_par">Finish within %s</string>
+    <string name="goal_score">Score %d points</string>
+    <string name="goal_golden">Catch all golden fish</string>
+    <string name="goal_combo">Reach a x%d combo</string>
+    <string name="intro_best">BEST: %d</string>
+    <string name="intro_stages">STAGES: %d</string>
+    <string name="intro_powerups">POWER-UPS</string>
+    <string name="intro_powerups_hint">Tap a power-up to take it with you.</string>
+    <string name="powerup_magnet">MAGNET</string>
+    <string name="powerup_magnet_desc">Pulls nearby fish to your boat</string>
+    <string name="powerup_shield">SHIELD</string>
+    <string name="powerup_shield_desc">Blocks one hit</string>
+    <string name="powerup_turbo">TURBO</string>
+    <string name="powerup_turbo_desc" formatted="false">Your boat sails 20% faster</string>
+    <string name="powerup_life">EXTRA LIFE</string>
+    <string name="powerup_life_desc">Start with 4 lives</string>
+    <string name="result_win">LEVEL COMPLETE!</string>
+    <string name="result_lose">GAME OVER</string>
+    <string name="lose_caught">The sea beasts got you.</string>
+    <string name="lose_time">Time is up!</string>
+    <string name="result_score">SCORE</string>
+    <string name="result_new_best">NEW RECORD!</string>
+    <string name="result_rejected">This result could not be verified and was not saved.</string>
+    <string name="next">NEXT</string>
+    <string name="retry">RETRY</string>
+    <string name="to_map">MAP</string>
+    <string name="continue_play">CONTINUE</string>
+    <string name="resume">RESUME</string>
+    <string name="restart">RESTART</string>
+    <string name="paused">PAUSE</string>
+    <string name="daily_title">DAILY REWARD</string>
+    <string name="daily_day">DAY %d</string>
+    <string name="daily_claim">CLAIM</string>
+    <string name="daily_bonus">Come back every day! Day 7 also gives one of each power-up.</string>
+    <string name="daily_clock">Your device clock looks wrong. Rewards will return once it is correct.</string>
+    <string name="shop_boats">BOATS</string>
+    <string name="shop_sails">SAILS</string>
+    <string name="shop_sailors">CREW</string>
+    <string name="shop_powerups">BOOSTS</string>
+    <string name="shop_equip">SELECT</string>
+    <string name="shop_equipped">IN USE</string>
+    <string name="shop_owned">YOU HAVE: %d</string>
+    <string name="boat_classic">CLASSIC</string>
+    <string name="boat_crimson">CRIMSON</string>
+    <string name="boat_navy">NAVY</string>
+    <string name="boat_emerald">EMERALD</string>
+    <string name="boat_ivory">IVORY</string>
+    <string name="boat_royal">ROYAL</string>
+    <string name="boat_shadow">SHADOW</string>
+    <string name="boat_golden">GOLDEN</string>
+    <string name="sail_white">WHITE</string>
+    <string name="sail_red">RED</string>
+    <string name="sail_blue">BLUE</string>
+    <string name="sail_yellow">YELLOW</string>
+    <string name="sail_green">GREEN</string>
+    <string name="sail_black">BLACK</string>
+    <string name="sail_striped">STRIPED</string>
+    <string name="sail_rainbow">RAINBOW</string>
+    <string name="sailor_ginger">GINGER</string>
+    <string name="sailor_blond">BLONDIE</string>
+    <string name="sailor_brunet">BRUNO</string>
+    <string name="sailor_diver">DIVER</string>
+    <string name="sailor_punk">PUNK</string>
+    <string name="sailor_captain">CAPTAIN</string>
+    <string name="ranking_points">YOUR RANKING POINTS</string>
+    <string name="ranking_info">Ranking points are the sum of your best scores on every level. The online ranking is coming soon!</string>
+    <string name="stat_levels">LEVELS</string>
+    <string name="stat_stars">STARS</string>
+    <string name="stat_fish">FISH CAUGHT</string>
+    <string name="stat_golden">GOLDEN FISH</string>
+    <string name="stat_combo">BEST COMBO</string>
+    <string name="set_music">MUSIC</string>
+    <string name="set_sounds">SOUNDS</string>
+    <string name="set_vibration">VIBRATION</string>
+    <string name="on">ON</string>
+    <string name="off">OFF</string>
+    <string name="set_reset">RESET PROGRESS</string>
+    <string name="set_reset_confirm">Erase all progress? This cannot be undone.</string>
+    <string name="set_credits">Graphics: original Fishing Party sprites. Font: BitCell by memesbruh03.</string>
+    <string name="version">VERSION %s</string>
+    <string name="save_tampered">Your save file was modified outside the game and could not be loaded. Progress has been reset.</string>
+    <string name="ach_first_fish">First Catch</string>
+    <string name="ach_first_fish_desc">Catch your first fish</string>
+    <string name="ach_fish_100">Fisherman</string>
+    <string name="ach_fish_100_desc">Catch 100 fish</string>
+    <string name="ach_fish_1000">Master Angler</string>
+    <string name="ach_fish_1000_desc">Catch 1000 fish</string>
+    <string name="ach_fish_5000">Sea Legend</string>
+    <string name="ach_fish_5000_desc">Catch 5000 fish</string>
+    <string name="ach_fish_20000">Poseidon</string>
+    <string name="ach_fish_20000_desc">Catch 20000 fish</string>
+    <string name="ach_golden_1">Golden Touch</string>
+    <string name="ach_golden_1_desc">Catch a golden fish</string>
+    <string name="ach_golden_25">Treasure Hunter</string>
+    <string name="ach_golden_25_desc">Catch 25 golden fish</string>
+    <string name="ach_golden_100">King Midas</string>
+    <string name="ach_golden_100_desc">Catch 100 golden fish</string>
+    <string name="ach_level_5">Setting Sail</string>
+    <string name="ach_level_5_desc">Complete 5 levels</string>
+    <string name="ach_level_25">First World</string>
+    <string name="ach_level_25_desc">Complete 25 levels</string>
+    <string name="ach_level_50">Explorer</string>
+    <string name="ach_level_50_desc">Complete 50 levels</string>
+    <string name="ach_level_100">Navigator</string>
+    <string name="ach_level_100_desc">Complete 100 levels</string>
+    <string name="ach_level_200">Captain</string>
+    <string name="ach_level_200_desc">Complete 200 levels</string>
+    <string name="ach_level_350">Admiral</string>
+    <string name="ach_level_350_desc">Complete 350 levels</string>
+    <string name="ach_level_500">Ruler of the Seas</string>
+    <string name="ach_level_500_desc">Complete all 500 levels</string>
+    <string name="ach_stars_15">Shining</string>
+    <string name="ach_stars_15_desc">Collect 15 stars</string>
+    <string name="ach_stars_75">Star Catcher</string>
+    <string name="ach_stars_75_desc">Collect 75 stars</string>
+    <string name="ach_stars_300">Constellation</string>
+    <string name="ach_stars_300_desc">Collect 300 stars</string>
+    <string name="ach_stars_750">Galaxy</string>
+    <string name="ach_stars_750_desc">Collect 750 stars</string>
+    <string name="ach_stars_1500">Perfectionist</string>
+    <string name="ach_stars_1500_desc">Collect all 1500 stars</string>
+    <string name="ach_perfect_1">Flawless</string>
+    <string name="ach_perfect_1_desc">Get 3 stars on a level</string>
+    <string name="ach_perfect_25">Precision</string>
+    <string name="ach_perfect_25_desc">Get 3 stars on 25 levels</string>
+    <string name="ach_perfect_100">Virtuoso</string>
+    <string name="ach_perfect_100_desc">Get 3 stars on 100 levels</string>
+    <string name="ach_nohit_10">Untouchable</string>
+    <string name="ach_nohit_10_desc">Finish 10 levels without losing a life</string>
+    <string name="ach_nohit_50">Ghost Ship</string>
+    <string name="ach_nohit_50_desc">Finish 50 levels without losing a life</string>
+    <string name="ach_combo_5">Combo King</string>
+    <string name="ach_combo_5_desc">Reach a x5 combo</string>
+    <string name="ach_boss_1">Beast Tamer</string>
+    <string name="ach_boss_1_desc">Beat the final level of a world</string>
+    <string name="ach_boss_10">Monster Hunter</string>
+    <string name="ach_boss_10_desc">Beat 10 final levels of worlds</string>
+    <string name="ach_shopper">Shopper</string>
+    <string name="ach_shopper_desc">Buy something in the shop</string>
+    <string name="ach_fashion">Style Icon</string>
+    <string name="ach_fashion_desc">Own 5 cosmetic items</string>
+    <string name="ach_fleet">Fleet Owner</string>
+    <string name="ach_fleet_desc">Own all 8 boats</string>
+    <string name="ach_daily_3">Regular</string>
+    <string name="ach_daily_3_desc">Claim the daily reward 3 days in a row</string>
+    <string name="ach_daily_7">Faithful Sailor</string>
+    <string name="ach_daily_7_desc">Claim the daily reward 7 days in a row</string>
+    <string name="ach_speed_1">Speedboat</string>
+    <string name="ach_speed_1_desc">Finish a level in half the target time</string>
+    <string name="ach_speed_25">Lightning</string>
+    <string name="ach_speed_25_desc">Finish 25 levels in half the target time</string>
+    <string name="ach_rich">Treasure Chest</string>
+    <string name="ach_rich_desc">Hold 5000 coins at once</string>
+    <string name="ach_veteran">Veteran</string>
+    <string name="ach_veteran_desc">Played the very first Fishing Party</string>
+    <string-array name="world_names">
+        <item>Sunny Bay</item>
+        <item>Coral Reef</item>
+        <item>Sunset Lagoon</item>
+        <item>Frozen Fjord</item>
+        <item>Misty Swamp</item>
+        <item>Volcanic Isles</item>
+        <item>Emerald Atoll</item>
+        <item>Midnight Sea</item>
+        <item>Desert Oasis</item>
+        <item>The Abyss</item>
+        <item>Pirate Cove</item>
+        <item>Shell Shallows</item>
+        <item>Amber Strait</item>
+        <item>Glacier Bay</item>
+        <item>Mangrove Maze</item>
+        <item>Ember Coast</item>
+        <item>Jade Lagoon</item>
+        <item>Starlit Waters</item>
+        <item>Mirage Sands</item>
+        <item>Kraken\'s Deep</item>
+    </string-array>
+    <plurals name="hud_go">
+        <item quantity="one">CATCH %d FISH TO OPEN THE GATE</item>
+        <item quantity="other">CATCH %d FISH TO OPEN THE GATE</item>
+    </plurals>
 </resources>

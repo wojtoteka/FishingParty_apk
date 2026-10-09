@@ -1,0 +1,108 @@
+package wojtoteka.ovh.fishingparty.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
+import wojtoteka.ovh.fishingparty.R
+import wojtoteka.ovh.fishingparty.data.PowerUp
+import wojtoteka.ovh.fishingparty.level.LevelGenerator
+
+/** Karta poziomu przed startem: typ, cele na gwiazdki i wybór wzmocnień. */
+@Composable
+fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) {
+    val repo = LocalServices.current.repo
+    repo.revision.intValue
+    val progress = repo.progress
+    val plan = remember(level) { LevelGenerator.plan(level) }
+    val spec = plan.spec
+    val worldNames = stringArrayResource(R.array.world_names)
+    val selected = remember(level) { mutableStateListOf<PowerUp>() }
+    val earned = progress.stars(level)
+
+    Overlay(onDismiss = onClose) {
+        Box(Modifier.fillMaxWidth()) {
+            PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 2, modifier = Modifier.align(Alignment.TopEnd))
+            Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelText(stringResource(R.string.level_n, level), size = 5)
+                PixelText(worldNames[spec.world], size = 1, color = Pal.Foam)
+            }
+        }
+        VSpace(6)
+        DarkCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelText(typeName(spec.type), size = 3, color = Pal.Gold)
+                VSpace(2)
+                PixelText(typeDescription(spec.type), size = 1, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                VSpace(2)
+                PixelText(
+                    stringResource(R.string.intro_stages, plan.stages.size),
+                    size = 1,
+                    color = Pal.SeaLight,
+                )
+            }
+        }
+        VSpace(6)
+        for ((i, goal) in goalTexts(spec).withIndex()) {
+            Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
+                SpriteImage(if (i < earned) "fishscore_gold" else "fishscore_grey", 2)
+                HSpace(4)
+                PixelText(goal, size = 2, color = Pal.Outline, outline = null)
+            }
+        }
+        if (progress.best(level) > 0) {
+            VSpace(3)
+            PixelText(stringResource(R.string.intro_best, progress.best(level)), size = 2, color = Pal.WoodDark, outline = null)
+        }
+        VSpace(6)
+        PixelText(stringResource(R.string.intro_powerups), size = 2, color = Pal.Outline, outline = null)
+        VSpace(3)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            for (p in PowerUp.entries) {
+                val count = progress.powerups(p)
+                val on = p in selected
+                PixelButton(
+                    text = "",
+                    onClick = { if (on) selected.remove(p) else if (count > 0) selected.add(p) },
+                    style = if (on) ButtonStyle.GREEN else ButtonStyle.SEA,
+                    enabled = count > 0 || on,
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(Modifier.height(px(18)), contentAlignment = Alignment.Center) { SpriteImage(powerUpIcon(p), 2) }
+                        PixelText("x$count", size = 1)
+                    }
+                }
+            }
+        }
+        VSpace(2)
+        val hint = selected.lastOrNull()
+        PixelText(
+            if (hint != null) powerUpName(hint) + ": " + powerUpDescription(hint) else stringResource(R.string.intro_powerups_hint),
+            size = 1,
+            color = Pal.WoodDark,
+            outline = null,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        VSpace(8)
+        PixelButton(
+            stringResource(R.string.play),
+            onClick = { onPlay(selected.toSet()) },
+            style = ButtonStyle.GREEN,
+            size = 5,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}

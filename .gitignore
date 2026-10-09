@@ -9,9 +9,11 @@ captures/
 build/
 local.properties
 
-# Wydania
+# Wydania i klucze
 *.apk
 *.aab
+*.jks
+*.keystore
 app/release/
 
 .DS_Store
