@@ -1,5 +1,8 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import androidx.compose.foundation.layout.widthIn
+import wojtoteka.ovh.fishingparty.game.TutorialStep
+import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -74,24 +77,29 @@ sealed interface GameExit {
 private class Outcome(val result: RunResult, val reason: LoseReason?)
 
 @Composable
-fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boolean = false, onExit: (GameExit) -> Unit) {
+fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = false, onExit: (GameExit) -> Unit) {
     val services = LocalServices.current
     val repo = services.repo
     val audio = services.audio
-    val tutorial = remember(level, attempt) { level == 1 && (replayTutorial || !repo.save.tutorialDone) }
-    val plan = remember(level) { LevelGenerator.plan(level) }
-    val layout = remember(level, attempt) { LevelGenerator.generate(level) }
+    // Samouczek to osobny poziom (dwa etapy: ryby, potem potwory) – nie liczy się do wyników.
+    val plan = remember(level, tutorial) { if (tutorial) LevelGenerator.tutorialPlan() else LevelGenerator.plan(level) }
+    val layout = remember(plan, attempt) { LevelGenerator.generate(plan) }
 
     var outcome by remember(attempt) { mutableStateOf<Outcome?>(null) }
     var reward by remember(attempt) { mutableStateOf<Reward?>(null) }
     var paused by remember(attempt) { mutableStateOf(false) }
     var applied by remember(attempt) { mutableStateOf(false) }
+    // Nowy gracz od razu trafia do wody – najpierw wyjaśniamy, że to krótki samouczek.
+    var welcome by remember(attempt) { mutableStateOf(tutorial) }
 
     fun apply(result: RunResult) {
         if (applied) return
         applied = true
-        reward = repo.progress.applyRun(result, plan)
-        if (result.completed && level == 1) repo.save.tutorialDone = true
+        if (tutorial) {
+            if (result.completed) repo.save.tutorialDone = true
+        } else {
+            reward = repo.progress.applyRun(result, plan)
+        }
         repo.changed()
     }
 
@@ -106,6 +114,19 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
         }
     }
     val world = remember(layout) { GameWorld(layout, loadout, tutorial, listener) }
+
+    // Polecenie samouczka sprawdzane kilka razy na sekundę – karta odświeża się tylko przy zmianie.
+    var tutorialStep by remember(world) { mutableStateOf<TutorialStep?>(null) }
+    var tutorialRemaining by remember(world) { mutableIntStateOf(0) }
+    if (tutorial) {
+        LaunchedEffect(world) {
+            while (isActive) {
+                tutorialStep = TutorialCoach.step(world)
+                tutorialRemaining = TutorialCoach.remaining(world)
+                delay(150)
+            }
+        }
+    }
 
     val hud = HudStrings(
         go = pluralStringResource(R.plurals.hud_go, layout.stages[0].quota, layout.stages[0].quota),
@@ -149,7 +170,7 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
                     stick.engaged = false
                 }
                 world.setInput(stick.active && stick.engaged, stick.angle)
-                world.paused = paused || outcome != null
+                world.paused = paused || welcome || outcome != null
                 if (last != 0L) world.advance(min((now - last) / 1e9f, 0.1f))
                 last = now
                 frame.longValue = now
@@ -170,7 +191,7 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
         lifecycle.addObserver(observer)
         onDispose { lifecycle.removeObserver(observer) }
     }
-    BackHandler(enabled = outcome == null) { paused = !paused }
+    BackHandler(enabled = outcome == null && !welcome) { paused = !paused }
     // Po zakończeniu poziomu „wstecz” wraca na mapę (a nie zamyka gry).
     BackHandler(enabled = outcome != null) {
         outcome?.let { apply(it.result) }
@@ -208,7 +229,20 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
             }
         }
 
-        if (outcome == null && !paused) {
+        if (tutorial && outcome == null && !welcome && !paused) {
+            tutorialStep?.let { step ->
+                TutorialCard(
+                    step,
+                    remaining = tutorialRemaining,
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+                        .padding(top = px(56), start = px(8), end = px(8)),
+                )
+            }
+        }
+
+        if (outcome == null && !paused && !welcome) {
             PixelButton(
                 "II",
                 onClick = { paused = true },
@@ -221,8 +255,20 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
             )
         }
 
+        if (welcome) {
+            TutorialWelcome(
+                onStart = { welcome = false },
+                onSkip = {
+                    repo.save.tutorialDone = true
+                    repo.changed()
+                    onExit(GameExit.ToMenu)
+                },
+            )
+        }
+
         val current = outcome
         when {
+            current != null && current.result.completed && tutorial -> TutorialDonePanel(onExit)
             current != null && current.result.completed -> WinPanel(level, current.result, reward, onExit)
             current != null -> LosePanel(
                 level = level,
@@ -239,6 +285,7 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boole
             )
             paused -> PausePanel(
                 level = level,
+                tutorial = tutorial,
                 world = world,
                 onResume = { paused = false },
                 onExit = { exit ->
@@ -351,8 +398,9 @@ private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: 
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
-    val cost = Catalog.reviveCost(world.continuesUsed)
-    val canRevive = world.continuesUsed < 3
+    // W samouczku kontynuacja jest darmowa i bez limitu – nowy gracz nie ma jeszcze monet.
+    val cost = if (world.tutorial) 0 else Catalog.reviveCost(world.continuesUsed)
+    val canRevive = world.tutorial || world.continuesUsed < 3
     Overlay {
         PixelText(stringResource(R.string.result_lose), size = 5, color = Pal.Red)
         PixelText(
@@ -395,16 +443,21 @@ private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: 
 }
 
 @Composable
-private fun PausePanel(level: Int, world: GameWorld, onResume: () -> Unit, onExit: (GameExit) -> Unit) {
+private fun PausePanel(level: Int, tutorial: Boolean, world: GameWorld, onResume: () -> Unit, onExit: (GameExit) -> Unit) {
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
     val flags = world.liveStarFlags()
     Overlay(onDismiss = onResume) {
         PixelText(stringResource(R.string.paused), size = 5)
-        PixelText(stringResource(R.string.level_n, level) + " · " + typeName(world.spec.type), size = 2, color = Pal.Outline, outline = null)
+        PixelText(
+            if (tutorial) stringResource(R.string.tutorial_badge) else stringResource(R.string.level_n, level) + " · " + typeName(world.spec.type),
+            size = 2,
+            color = Pal.Outline,
+            outline = null,
+        )
         VSpace(6)
-        for ((i, goal) in goalTexts(world.spec).withIndex()) {
+        for ((i, goal) in (if (tutorial) emptyList() else goalTexts(world.spec)).withIndex()) {
             Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
                 val on = i > 0 && flags[i]
                 Plate(pad = 1) { SpriteImage(if (on) "fishscore_gold" else "fishscore_grey", 2) }
@@ -439,5 +492,103 @@ private fun PausePanel(level: Int, world: GameWorld, onResume: () -> Unit, onExi
         PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
         VSpace(4)
         ExitButtons(stringResource(R.string.restart), level, onExit)
+    }
+}
+
+/** Powitanie nowego gracza: gra zaczyna się od razu w wodzie, więc mówimy, że to krótki samouczek. */
+@Composable
+private fun TutorialWelcome(onStart: () -> Unit, onSkip: () -> Unit) {
+    Overlay(onDismiss = onStart) {
+        PixelText(stringResource(R.string.tutorial_welcome_title), size = 4, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(2)
+        Badge(stringResource(R.string.tutorial_badge), color = ButtonStyle.GREEN)
+        VSpace(6)
+        PixelText(
+            stringResource(R.string.tutorial_welcome_text),
+            size = 2,
+            color = Pal.Outline,
+            outline = null,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        VSpace(4)
+        PixelText(
+            stringResource(R.string.tutorial_welcome_after),
+            size = 1,
+            color = Pal.WoodDark,
+            outline = null,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        VSpace(8)
+        PixelButton(stringResource(R.string.tutorial_start), onClick = onStart, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        VSpace(4)
+        PixelButton(stringResource(R.string.tutorial_skip), onClick = onSkip, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** Karta z bieżącym poleceniem samouczka – zawsze widoczna u góry ekranu. */
+@Composable
+private fun TutorialCard(step: TutorialStep, remaining: Int, modifier: Modifier = Modifier) {
+    // Po zmianie kroku karta przez chwilę świeci na złoto, żeby gracz zauważył nowe polecenie.
+    var fresh by remember(step) { mutableStateOf(true) }
+    LaunchedEffect(step) {
+        delay(1500)
+        fresh = false
+    }
+    DarkCard(modifier.widthIn(max = px(320)).fillMaxWidth(), highlight = fresh || step == TutorialStep.GOLDEN) {
+        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+            PixelText(
+                stringResource(R.string.tut_step, step.number, TutorialStep.COUNT),
+                size = 1,
+                color = Pal.Gold,
+            )
+            VSpace(2)
+            PixelText(
+                when (step) {
+                    TutorialStep.MOVE -> stringResource(R.string.tut_move)
+                    TutorialStep.FIRST_FISH -> stringResource(R.string.tut_first_fish)
+                    TutorialStep.FILL_QUOTA -> pluralStringResource(R.plurals.tut_fill_quota, remaining, remaining)
+                    TutorialStep.GATE -> stringResource(R.string.tut_gate)
+                    TutorialStep.MONSTER -> stringResource(R.string.tut_monster)
+                    TutorialStep.GOLDEN -> stringResource(R.string.tut_golden)
+                    TutorialStep.DODGE_AND_FISH -> pluralStringResource(R.plurals.tut_dodge, remaining, remaining)
+                    TutorialStep.FINISH -> stringResource(R.string.tut_finish)
+                },
+                size = 2,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** Koniec samouczka: najważniejsze zasady gry i przejście do pierwszego prawdziwego poziomu. */
+@Composable
+private fun TutorialDonePanel(onExit: (GameExit) -> Unit) {
+    Overlay {
+        PixelText(stringResource(R.string.tut_done_title), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(6)
+        for ((icon, text) in listOf(
+            "fishscore_gold" to R.string.tut_done_stars,
+            "fishgold1" to R.string.tut_done_shop,
+            "fishscore_blue" to R.string.tut_done_streak,
+        )) {
+            Row(Modifier.fillMaxWidth().padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
+                Plate(pad = 1) { SpriteImage(icon, 2) }
+                HSpace(4)
+                PixelText(stringResource(text), size = 2, color = Pal.Outline, outline = null, modifier = Modifier.weight(1f))
+            }
+        }
+        VSpace(8)
+        PixelButton(
+            stringResource(R.string.tut_play_first),
+            onClick = { onExit(GameExit.Next(1)) },
+            style = ButtonStyle.GREEN,
+            size = 4,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        VSpace(4)
+        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     }
 }

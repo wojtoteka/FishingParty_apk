@@ -10,6 +10,8 @@ import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.Phase
 import wojtoteka.ovh.fishingparty.game.Sfx
+import wojtoteka.ovh.fishingparty.game.TutorialCoach
+import wojtoteka.ovh.fishingparty.game.TutorialStep
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelLayout
@@ -49,19 +51,45 @@ class GameSimulationTest {
         crabs = layout.crabs,
     )
 
-    private fun play(number: Int): Pair<RunResult?, GameWorld> {
-        val layout = withoutEnemies(LevelGenerator.generate(number))
+    private fun play(number: Int): Pair<RunResult?, GameWorld> = play(LevelGenerator.generate(number), tutorial = false)
+
+    private fun play(source: LevelLayout, tutorial: Boolean, onFrame: (GameWorld) -> Unit = {}): Pair<RunResult?, GameWorld> {
+        val layout = withoutEnemies(source)
         val recorder = Recorder()
-        val world = GameWorld(layout, Loadout(), tutorial = false, listener = recorder)
+        val world = GameWorld(layout, Loadout(), tutorial = tutorial, listener = recorder)
         world.setViewport(180f, 390f)
         val frame = 1f / 60f
         var t = 0f
         while (recorder.result == null && t < 600f) {
             steer(world)
             world.advance(frame)
+            onFrame(world)
             t += frame
         }
         return recorder.result to world
+    }
+
+    @Test
+    fun tutorialGuidesStepByStep() {
+        val layout = LevelGenerator.generate(LevelGenerator.tutorialPlan())
+        // Etap 1 – same ryby, etap 2 – pirania i złota ryba.
+        assertEquals(2, layout.stages.size)
+        assertTrue(layout.stages[0].enemies.isEmpty())
+        assertEquals(1, layout.stages[1].enemies.size)
+        assertEquals(1, layout.stages[1].golden.size)
+        val seen = ArrayList<TutorialStep>()
+        val (result, _) = play(layout, tutorial = true) { w ->
+            val step = TutorialCoach.step(w)
+            if (step != null && step != TutorialStep.GOLDEN && seen.lastOrNull() != step) seen += step
+        }
+        assertTrue("samouczek nieukończony", result?.completed == true)
+        // Kroki idą tylko do przodu; „pierwsza ryba” może przepaść, gdy ryba wpadnie już podczas nauki sterowania.
+        val required = listOf(
+            TutorialStep.MOVE, TutorialStep.FILL_QUOTA, TutorialStep.GATE,
+            TutorialStep.MONSTER, TutorialStep.DODGE_AND_FISH, TutorialStep.FINISH,
+        )
+        assertEquals(required, seen.filter { it != TutorialStep.FIRST_FISH })
+        assertEquals(seen.map { it.number }.sorted(), seen.map { it.number })
     }
 
     private fun steer(world: GameWorld) {

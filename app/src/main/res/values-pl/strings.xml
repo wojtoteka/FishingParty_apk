@@ -314,4 +314,34 @@
     <string name="set_tutorial">POWTÓRZ SAMOUCZEK</string>
     <string name="stat_repairs">NAPRAWY PASSY</string>
     <string name="stat_wins">WYGRANE POZIOMY</string>
+    <string name="tutorial_badge">SAMOUCZEK</string>
+    <string name="tutorial_welcome_title">WITAJ NA POKŁADZIE!</string>
+    <string name="tutorial_welcome_text">Krok po kroku pokażemy ci, jak sterować łodzią, łowić ryby i omijać potwory. To tylko trening – w razie porażki po prostu spróbujesz jeszcze raz.</string>
+    <string name="tutorial_welcome_after">Potem trafisz do menu: mapa 500 poziomów, sklep, odznaki i codzienna passa. Samouczek możesz powtórzyć w ustawieniach.</string>
+    <string name="tutorial_start">ZACZYNAMY!</string>
+    <string name="tutorial_skip">POMIŃ SAMOUCZEK</string>
+    <string name="tut_step">SAMOUCZEK · KROK %1$d/%2$d</string>
+    <string name="tut_move">Przytrzymaj palec na ekranie i przesuwaj go – łódź popłynie w tę stronę.</string>
+    <string name="tut_first_fish">Widzisz ryby? Podpłyń do jednej, żeby ją złowić.</string>
+    <plurals name="tut_fill_quota">
+        <item quantity="one">Świetnie! Złów jeszcze %d rybę, a otworzy się brama u góry. Niebieskie ryby są warte więcej.</item>
+        <item quantity="few">Świetnie! Złów jeszcze %d ryby, a otworzy się brama u góry. Niebieskie ryby są warte więcej.</item>
+        <item quantity="many">Świetnie! Złów jeszcze %d ryb, a otworzy się brama u góry. Niebieskie ryby są warte więcej.</item>
+        <item quantity="other">Świetnie! Złów jeszcze %d ryby, a otworzy się brama u góry. Niebieskie ryby są warte więcej.</item>
+    </plurals>
+    <string name="tut_gate">Brama otwarta! Płyń w górę przez bramę do następnego etapu.</string>
+    <string name="tut_monster">Uwaga, pirania! Omijaj potwory – każde zderzenie zabiera jedno życie (lewy górny róg).</string>
+    <string name="tut_golden">Złota ryba! Jest warta najwięcej, ale po chwili ucieka – złap ją szybko!</string>
+    <plurals name="tut_dodge">
+        <item quantity="one">Złów jeszcze %d rybę, omijając piranię.</item>
+        <item quantity="few">Złów jeszcze %d ryby, omijając piranię.</item>
+        <item quantity="many">Złów jeszcze %d ryb, omijając piranię.</item>
+        <item quantity="other">Złów jeszcze %d ryby, omijając piranię.</item>
+    </plurals>
+    <string name="tut_finish">Meta otwarta! Wpłyń przez bramę na samą górę.</string>
+    <string name="tut_done_title">SAMOUCZEK UKOŃCZONY!</string>
+    <string name="tut_done_stars">Każdy poziom daje do 3 gwiazdek – cele zobaczysz przed startem.</string>
+    <string name="tut_done_shop">Za ryby dostajesz złote rybki. W sklepie kupisz za nie łodzie, żagle i bonusy.</string>
+    <string name="tut_done_streak">Ukończ co najmniej jeden poziom dziennie, by budować passę i zdobywać trofea.</string>
+    <string name="tut_play_first">GRAJ POZIOM 1</string>
 </resources>

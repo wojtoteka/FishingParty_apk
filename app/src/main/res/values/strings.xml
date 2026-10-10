@@ -309,4 +309,30 @@
     <string name="set_tutorial">REPLAY TUTORIAL</string>
     <string name="stat_repairs">STREAK REPAIRS</string>
     <string name="stat_wins">LEVELS WON</string>
+    <string name="tutorial_badge">TUTORIAL</string>
+    <string name="tutorial_welcome_title">WELCOME ABOARD!</string>
+    <string name="tutorial_welcome_text">Step by step we will show you how to steer your boat, catch fish and avoid monsters. It is only practice – if it goes wrong, just try again.</string>
+    <string name="tutorial_welcome_after">Then you will reach the menu: a map of 500 levels, the shop, badges and a daily streak. You can replay the tutorial in the settings.</string>
+    <string name="tutorial_start">LET\'S GO!</string>
+    <string name="tutorial_skip">SKIP TUTORIAL</string>
+    <string name="tut_step">TUTORIAL · STEP %1$d/%2$d</string>
+    <string name="tut_move">Hold your finger on the screen and slide it – the boat sails that way.</string>
+    <string name="tut_first_fish">See the fish? Sail up to one to catch it.</string>
+    <plurals name="tut_fill_quota">
+        <item quantity="one">Great! Catch %d more fish and the gate at the top opens. Blue fish are worth more.</item>
+        <item quantity="other">Great! Catch %d more fish and the gate at the top opens. Blue fish are worth more.</item>
+    </plurals>
+    <string name="tut_gate">The gate is open! Sail up through it to the next stage.</string>
+    <string name="tut_monster">Watch out, a piranha! Avoid monsters – every hit costs one life (top left corner).</string>
+    <string name="tut_golden">A golden fish! It is worth the most, but swims away soon – catch it quickly!</string>
+    <plurals name="tut_dodge">
+        <item quantity="one">Catch %d more fish while avoiding the piranha.</item>
+        <item quantity="other">Catch %d more fish while avoiding the piranha.</item>
+    </plurals>
+    <string name="tut_finish">The finish is open! Sail through the gate all the way to the top.</string>
+    <string name="tut_done_title">TUTORIAL COMPLETE!</string>
+    <string name="tut_done_stars">Every level gives up to 3 stars – you will see the goals before the start.</string>
+    <string name="tut_done_shop">Fish earn you gold fish. Spend them in the shop on boats, sails and power-ups.</string>
+    <string name="tut_done_streak">Finish at least one level a day to build your streak and earn trophies.</string>
+    <string name="tut_play_first">PLAY LEVEL 1</string>
 </resources>

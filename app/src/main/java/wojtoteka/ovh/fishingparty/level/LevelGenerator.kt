@@ -263,8 +263,44 @@ object LevelGenerator {
 
     // ------------------------------------------------------------------ siatka
 
-    fun generate(number: Int): LevelLayout {
-        val plan = plan(number)
+    fun generate(number: Int): LevelLayout = generate(plan(number))
+
+    /**
+     * Osobny poziom samouczka (spoza 500 poziomów, bez wpływu na wyniki):
+     * etap 1 uczy sterowania i łowienia, etap 2 – omijania potworów i złotej ryby.
+     */
+    fun tutorialPlan(): LevelPlan {
+        val base = plan(1).spec
+        val spec = LevelSpec(
+            number = 1,
+            world = 0,
+            type = LevelType.CLASSIC,
+            seed = Rng.mix(SEED_SALT, -1L),
+            secondGoal = SecondGoal.ALL_FISH,
+            thirdGoal = ThirdGoal.PAR_TIME,
+            parSeconds = base.parSeconds * 2,
+            timeLimitSeconds = 0,
+            scoreTarget = base.scoreTarget,
+            comboTarget = 3,
+            // Pirania w samouczku jest wolniejsza niż na zwykłych poziomach.
+            enemySpeed = 0.75f,
+            currentX = 0f,
+            currentY = 0f,
+        )
+        val center = WIDTH / 2
+        return LevelPlan(
+            spec,
+            listOf(
+                StagePlan(rows = 12, quota = TUTORIAL_QUOTA, common = 3, blue = 1, golden = 0, enemies = emptyList(), rocks = 1, islands = 0, doorCenter = center, wideBanks = false),
+                StagePlan(rows = 15, quota = TUTORIAL_QUOTA, common = 4, blue = 0, golden = 1, enemies = listOf(EnemyKind.PIRANHA), rocks = 1, islands = 0, doorCenter = center, wideBanks = false),
+            ),
+        )
+    }
+
+    /** Ile ryb trzeba złowić w każdym etapie samouczka. */
+    const val TUTORIAL_QUOTA = 3
+
+    fun generate(plan: LevelPlan): LevelLayout {
         val rng = Rng(Rng.mix(plan.spec.seed, 99))
         val stagesTopDown = plan.stages.indices.reversed()
 

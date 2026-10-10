@@ -42,7 +42,7 @@ fun AppRoot() {
         mutableStateOf<Screen>(
             when {
                 // Gracz, który ma już odblokowane dalsze poziomy, nie jest wrzucany do samouczka.
-                !repo.save.tutorialDone && repo.progress.highestUnlocked() == 1 -> Screen.Game(1, Loadout(), 0)
+                !repo.save.tutorialDone && repo.progress.highestUnlocked() == 1 -> Screen.Game(1, Loadout(), 0, tutorial = true)
                 // Zmiana języka odtwarza ekran – gracz zostaje w ustawieniach.
                 AppLanguage.reopenSettings -> Screen.Settings.also { AppLanguage.reopenSettings = false }
                 else -> Screen.Menu
@@ -113,7 +113,8 @@ fun AppRoot() {
                 when (exit) {
                     GameExit.ToMap -> screen = Screen.Map
                     GameExit.ToMenu -> screen = Screen.Menu
-                    is GameExit.Retry -> start(exit.level, lastSelection)
+                    is GameExit.Retry ->
+                        if (s.tutorial) screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true) else start(exit.level, lastSelection)
                     is GameExit.Next -> {
                         screen = Screen.Map
                         intro = exit.level
