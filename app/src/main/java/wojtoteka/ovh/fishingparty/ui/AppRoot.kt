@@ -29,7 +29,7 @@ private sealed interface Screen {
     data object Achievements : Screen
     data object Ranking : Screen
     data object Settings : Screen
-    data class Game(val level: Int, val loadout: Loadout, val attempt: Int) : Screen
+    data class Game(val level: Int, val loadout: Loadout, val attempt: Int, val tutorial: Boolean = false) : Screen
 }
 
 @Composable
@@ -41,7 +41,8 @@ fun AppRoot() {
     var screen by remember {
         mutableStateOf<Screen>(
             when {
-                !repo.save.tutorialDone -> Screen.Game(1, Loadout(), 0)
+                // Gracz, który ma już odblokowane dalsze poziomy, nie jest wrzucany do samouczka.
+                !repo.save.tutorialDone && repo.progress.highestUnlocked() == 1 -> Screen.Game(1, Loadout(), 0)
                 // Zmiana języka odtwarza ekran – gracz zostaje w ustawieniach.
                 AppLanguage.reopenSettings -> Screen.Settings.also { AppLanguage.reopenSettings = false }
                 else -> Screen.Menu
@@ -67,7 +68,7 @@ fun AppRoot() {
 
     // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna.
     LaunchedEffect(screen, showRepair) {
-        if (screen != Screen.Menu || showRepair || !repo.save.tutorialDone) return@LaunchedEffect
+        if (screen != Screen.Menu || showRepair || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
         if (!repairOffered && repo.progress.streakRepair() != null) {
             repairOffered = true
             delay(600)
@@ -105,13 +106,10 @@ fun AppRoot() {
             Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu })
             Screen.Settings -> SettingsScreen(
                 onBack = { screen = Screen.Menu },
-                onTutorial = {
-                    repo.save.tutorialDone = false
-                    repo.changed()
-                    screen = Screen.Game(1, Loadout(), ++attempts)
-                },
+                // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
+                onTutorial = { screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true) },
             )
-            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt) { exit ->
+            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial) { exit ->
                 when (exit) {
                     GameExit.ToMap -> screen = Screen.Map
                     GameExit.ToMenu -> screen = Screen.Menu

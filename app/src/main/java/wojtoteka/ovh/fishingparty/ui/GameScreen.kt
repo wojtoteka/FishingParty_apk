@@ -74,11 +74,11 @@ sealed interface GameExit {
 private class Outcome(val result: RunResult, val reason: LoseReason?)
 
 @Composable
-fun GameScreen(level: Int, loadout: Loadout, attempt: Int, onExit: (GameExit) -> Unit) {
+fun GameScreen(level: Int, loadout: Loadout, attempt: Int, replayTutorial: Boolean = false, onExit: (GameExit) -> Unit) {
     val services = LocalServices.current
     val repo = services.repo
     val audio = services.audio
-    val tutorial = remember(level, attempt) { level == 1 && !repo.save.tutorialDone }
+    val tutorial = remember(level, attempt) { level == 1 && (replayTutorial || !repo.save.tutorialDone) }
     val plan = remember(level) { LevelGenerator.plan(level) }
     val layout = remember(level, attempt) { LevelGenerator.generate(level) }
 

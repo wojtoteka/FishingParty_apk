@@ -44,6 +44,7 @@ import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.gfx.ShipPainter
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import kotlin.math.PI
+import kotlin.math.floor
 import kotlin.math.sin
 
 /** Łódź narysowana w powiększeniu (podgląd w sklepie). */
@@ -61,18 +62,27 @@ fun ShipPreview(look: ShipLook, scale: Int, modifier: Modifier = Modifier, sway:
     val u = LocalUnit.current
     Canvas(modifier) {
         val t = time.floatValue
-        val k = (scale * u).toFloat()
+        // Łódź z masztem i żaglem ma ok. 25×16 pikseli spritu (z kołysaniem więcej) – skala
+        // dobrana tak, żeby zawsze mieściła się w polu, w całych pikselach ekranu (ostre krawędzie).
+        // Bez kołysania wystarczy mniejszy zapas.
+        val fit = if (sway) floor(minOf(size.height / SHIP_H, size.width / SHIP_W)) else floor(minOf(size.height / 26f, size.width / 18f))
+        val k = minOf((scale * u).toFloat(), fit).coerceAtLeast(1f)
         val heading = (-PI / 2).toFloat() + if (sway) sin(t * 0.9f) * 0.5f else 0f
         drawIntoCanvas { c ->
             val canvas = c.nativeCanvas
             canvas.save()
-            canvas.translate(size.width / 2f, size.height / 2f + 4f * k)
+            // Punkt łodzi leży niżej niż środek rysunku (maszt i żagiel sięgają ok. 17 px w górę, kadłub 8 w dół).
+            canvas.translate(size.width / 2f, size.height / 2f + 4.5f * k)
             canvas.scale(k, k)
             painter.draw(canvas, 0f, 0f, heading, true, t, look)
             canvas.restore()
         }
     }
 }
+
+/** Wymiary rysunku łodzi (w pikselach spritu) z zapasem na kołysanie. */
+private const val SHIP_H = 28f
+private const val SHIP_W = 24f
 
 private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
 
@@ -102,7 +112,7 @@ fun ShopScreen(onBack: () -> Unit) {
         SeaBackdrop(LevelGenerator.worldOf(progress.highestUnlocked()), Modifier.fillMaxSize(), dim = 0.2f)
         Column(Modifier.fillMaxSize()) {
             TopBar(stringResource(R.string.shop_title), onBack)
-            ShipPreview(look, 5, Modifier.fillMaxWidth().height(px(70)))
+            ShipPreview(look, 5, Modifier.fillMaxWidth().height(px(96)).padding(vertical = px(3)))
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = px(6)),
                 horizontalArrangement = Arrangement.spacedBy(px(3)),
@@ -166,10 +176,10 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
     val equipped = progress.isEquipped(item)
     DarkCard(Modifier.fillMaxWidth().noRippleClick(onPreview), highlight = selected || equipped) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(Modifier.height(px(40)).fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Box(Modifier.height(px(54)).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when (item.kind) {
                     ItemKind.BOAT -> SpriteImage("boats/${item.id}/ship", 3)
-                    ItemKind.SAIL -> ShipPreview(ShipLook(sail = item.id), 3, Modifier.size(px(40)), sway = false)
+                    ItemKind.SAIL -> ShipPreview(ShipLook(sail = item.id), 3, Modifier.size(px(54)), sway = false)
                     ItemKind.SAILOR -> SpriteImage("sailors/${item.id}", 4)
                     ItemKind.POWERUP -> SpriteImage(powerUpIcon(PowerUp.entries.first { it.id == item.id }), 3)
                 }
