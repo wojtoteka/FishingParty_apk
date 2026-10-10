@@ -2,6 +2,7 @@ package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -520,23 +522,36 @@ fun DailyRewardDialog(onClose: () -> Unit) {
     Overlay(onDismiss = onClose) {
         PixelText(stringResource(R.string.daily_title), size = 4)
         VSpace(6)
-        for (rowStart in listOf(0, 4)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-                for (i in rowStart until minOf(rowStart + 4, DailyRewards.coins.size)) {
-                    val day = i + 1
-                    val today = state.available && day == state.day
-                    val done = if (state.available) day < state.day else day <= state.day
-                    DarkCard(Modifier.weight(1f), highlight = today) {
-                        Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-                            PixelText(stringResource(R.string.daily_day, day), size = 1, color = if (today) Pal.Gold else Pal.Foam)
-                            SpriteImage(if (done) "fishscore_grey" else "fishscore_gold", 2)
-                            PixelText(DailyRewards.coins[i].toString(), size = 1)
-                            if (day == DailyRewards.BONUS_DAY) PixelText("+4", size = 1, color = Pal.GreenLight)
+        // Siatka 4 równych kolumn; dzień 7 zajmuje dwie ostatnie kolumny drugiego rzędu.
+        val gap = px(3)
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val col = (maxWidth - gap * 3) / 4
+            Column {
+                for (rowStart in listOf(0, 4)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        for (i in rowStart until minOf(rowStart + 4, DailyRewards.coins.size)) {
+                            val day = i + 1
+                            val today = state.available && day == state.day
+                            val done = if (state.available) day < state.day else day <= state.day
+                            val wide = day == DailyRewards.BONUS_DAY
+                            DarkCard(Modifier.width(if (wide) col * 2 + gap else col), highlight = today) {
+                                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                                    PixelText(stringResource(R.string.daily_day, day), size = 1, color = if (today) Pal.Gold else Pal.Foam)
+                                    SpriteImage(if (done) "fishscore_grey" else "fishscore_gold", 2)
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        PixelText(DailyRewards.coins[i].toString(), size = 1)
+                                        if (wide) {
+                                            HSpace(3)
+                                            PixelText("+4", size = 1, color = Pal.GreenLight)
+                                        }
+                                    }
+                                }
+                            }
                         }
                     }
+                    VSpace(3)
                 }
             }
-            VSpace(3)
         }
         PixelText(stringResource(R.string.daily_bonus), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         if (state.clockTampered) {
