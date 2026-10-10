@@ -87,9 +87,11 @@ fun AchievementsScreen(onBack: () -> Unit) {
         }.map { it.id }
     }
     val sorted = order.mapNotNull { id -> visible.firstOrNull { it.id == id } }
+    val unlockedCount = visible.count { progress.isUnlocked(it) }
+    val percent = if (visible.isEmpty()) 0 else unlockedCount * 100 / visible.size
     ScreenFrame(stringResource(R.string.achievements_title), onBack) {
         PixelText(
-            stringResource(R.string.achievements_count, visible.count { progress.isUnlocked(it) }, visible.size),
+            stringResource(R.string.achievements_count, unlockedCount, visible.size, percent),
             size = 2,
             color = Pal.Foam,
             modifier = Modifier.align(Alignment.CenterHorizontally),
