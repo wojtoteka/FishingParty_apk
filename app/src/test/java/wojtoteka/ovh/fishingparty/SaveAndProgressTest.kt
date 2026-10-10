@@ -17,6 +17,7 @@ import wojtoteka.ovh.fishingparty.data.Progress
 import wojtoteka.ovh.fishingparty.data.SaveCodec
 import wojtoteka.ovh.fishingparty.data.SaveCrypto
 import wojtoteka.ovh.fishingparty.data.SaveData
+import wojtoteka.ovh.fishingparty.data.StreakRewards
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Tile
@@ -219,9 +220,9 @@ class SaveAndProgressTest {
         val second = p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
         assertEquals(2, second.streakDays)
         nextDay()
-        // Trzeci dzień: 3 trofea + premia za okrągłą passę.
-        assertEquals(3 + 5, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).trophies)
-        assertEquals(1L + 2 + 8, p.trophies)
+        // Trzeci dzień tygodnia passy: 3 trofea.
+        assertEquals(3, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).trophies)
+        assertEquals(1L + 2 + 3, p.trophies)
         assertEquals(3, save.streakBest)
         // Dzień przerwy przerywa passę, trofea zostają.
         nextDay(2)
@@ -232,6 +233,18 @@ class SaveAndProgressTest {
         now -= 5 * 86_400_000L
         day += 1
         assertEquals(0, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
+    }
+
+    @Test
+    fun streakWeeksGetRicher() {
+        assertEquals(listOf(1, 2, 3, 4, 5, 6, 10), (1..7).map { StreakRewards.trophiesFor(it) })
+        // Po 7 dniach tydzień zaczyna się od nowa, ale stawki rosną.
+        assertEquals(listOf(2, 4, 6, 8, 10, 12, 20), (8..14).map { StreakRewards.trophiesFor(it) })
+        assertEquals(2, StreakRewards.week(8))
+        assertEquals(1, StreakRewards.week(7))
+        // Mnożnik ma sufit.
+        assertEquals(100, StreakRewards.trophiesFor(7 * 30))
+        assertEquals(0, StreakRewards.trophiesFor(0))
     }
 
     @Test

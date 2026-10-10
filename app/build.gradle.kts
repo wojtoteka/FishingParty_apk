@@ -35,6 +35,10 @@ android {
         // Język gry w ustawieniach systemu (Android 13+); domyślnie wg języka telefonu.
         generateLocaleConfig = true
     }
+    bundle {
+        // Język można zmienić w grze, więc oba muszą być zawsze w paczce z Google Play.
+        language { enableSplit = false }
+    }
     buildFeatures {
         compose = true
         buildConfig = true

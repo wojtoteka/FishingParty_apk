@@ -24,7 +24,10 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.res.pluralStringResource
+import wojtoteka.ovh.fishingparty.data.StreakRewards
 import wojtoteka.ovh.fishingparty.data.StreakState
+import androidx.compose.ui.text.style.TextAlign
+import wojtoteka.ovh.fishingparty.level.LevelConstants
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,15 +72,15 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                CoinCounter(progress.coins, size = 3)
+                Plate(pad = 2) { CoinCounter(progress.coins, size = 3) }
                 Box(Modifier.weight(1f))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Plate(pad = 2) {
                     SpriteImage("fishscore_gold", 2)
                     HSpace(2)
-                    PixelText("${progress.totalStars()}/1500", size = 2)
+                    PixelText("${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}", size = 2)
                 }
             }
-            VSpace(4)
+            VSpace(5)
             StreakCard(streak, Modifier.noRippleClick { onOpen(Destination.RANKING) })
             VSpace(8)
             Column(Modifier.offset { IntOffset(0, (wave * 2f * unit).toInt()) }, horizontalAlignment = Alignment.CenterHorizontally) {
@@ -144,33 +147,86 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     )
                 }
             }
+            Box(Modifier.weight(0.6f))
             VSpace(6)
         }
     }
 }
 
+/**
+ * Karta passy: bieżący tydzień jako 7 pól z trofeami do zdobycia. Po 7. dniu
+ * pola zaczynają się od nowa, a stawki rosną z każdym tygodniem.
+ */
 @Composable
 private fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
-    Plate(modifier, pad = 2) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+    val u = LocalUnit.current.toFloat()
+    // Dzień, o który teraz toczy się gra: dzisiejszy zaliczony albo następny do zaliczenia.
+    val focus = if (streak.playedToday) streak.days else streak.days + 1
+    val week = StreakRewards.week(focus)
+    val first = (week - 1) * StreakRewards.WEEK + 1
+    Column(
+        modifier
+            .widthIn(max = px(300))
+            .fillMaxWidth()
+            .drawBehind { pixelBox(u, Pal.SeaDark.copy(alpha = 0.94f), Pal.Navy, Pal.Outline, shadow = 0f) }
+            .padding(horizontal = px(5), vertical = px(4)),
+    ) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             PixelText(
                 stringResource(R.string.streak_title) + ": " +
                     pluralStringResource(R.plurals.streak_days, streak.days, streak.days),
                 size = 2,
-                color = if (streak.playedToday) Pal.Gold else Pal.Foam,
+                color = if (streak.playedToday) Pal.Gold else Pal.White,
+                modifier = Modifier.weight(1f),
             )
-            PixelText(
-                stringResource(
-                    when {
-                        streak.playedToday -> R.string.streak_safe
-                        streak.days > 0 -> R.string.streak_keep
-                        else -> R.string.streak_start
-                    },
-                ),
-                size = 1,
-                color = if (streak.playedToday) Pal.GreenLight else Pal.SeaLight,
-            )
+            PixelText(stringResource(R.string.streak_week, week), size = 1, color = Pal.SeaLight)
+            if (week > 1) {
+                HSpace(2)
+                PixelText("x${StreakRewards.multiplier(week)}", size = 1, color = Pal.GreenLight)
+            }
         }
+        VSpace(3)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+            for (i in 0 until StreakRewards.WEEK) {
+                val day = first + i
+                StreakDay(i + 1, StreakRewards.trophiesFor(day), done = day <= streak.days, today = day == focus, Modifier.weight(1f))
+            }
+        }
+        VSpace(3)
+        PixelText(
+            stringResource(
+                when {
+                    streak.playedToday -> R.string.streak_safe
+                    streak.days > 0 -> R.string.streak_keep
+                    else -> R.string.streak_start
+                },
+            ),
+            size = 1,
+            color = if (streak.playedToday) Pal.GreenLight else Pal.SeaLight,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun StreakDay(dayOfWeek: Int, trophies: Int, done: Boolean, today: Boolean, modifier: Modifier) {
+    val u = LocalUnit.current.toFloat()
+    val style = when {
+        done -> ButtonStyle.SAND
+        today -> ButtonStyle.SEA
+        else -> null
+    }
+    Column(
+        modifier.drawBehind {
+            if (style != null) pixelBox(u, style.base, style.light, style.dark, shadow = 1f)
+            else pixelBox(u, Pal.Navy, Pal.LevelBlue, Pal.Outline, shadow = 1f)
+        }.padding(top = px(2), bottom = px(3)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        PixelText(dayOfWeek.toString(), size = 1, color = if (style == null) Pal.SeaLight else Pal.White)
+        SpriteImage(if (done || today) "fishscore_blue" else "fishscore_grey", 2)
+        PixelText("+$trophies", size = 1, color = if (dayOfWeek == StreakRewards.WEEK) Pal.Gold else Pal.White)
     }
 }
 

@@ -125,7 +125,8 @@
     <string name="off">WYŁ.</string>
     <string name="set_reset">RESETUJ POSTĘP</string>
     <string name="set_reset_confirm">Usunąć cały postęp? Tego nie da się cofnąć.</string>
-    <string name="set_credits">Grafika: oryginalne sprity Fishing Party. Czcionka: BitCell (memesbruh03).</string>
+    <string name="set_author">AUTOR: WOJTOTEKA</string>
+    <string name="set_credits">Czcionka: BitCell (memesbruh03).</string>
     <string name="version">WERSJA %s</string>
     <string name="save_tampered">Plik zapisu został zmieniony poza grą i nie dało się go wczytać. Postęp został wyzerowany.</string>
     <string name="ach_first_fish">Pierwszy połów</string>
@@ -236,7 +237,7 @@
     <string name="streak_start">UKOŃCZ DZIŚ POZIOM, BY ZACZĄĆ PASSĘ</string>
     <string name="streak_keep">UKOŃCZ DZIŚ POZIOM, BY JEJ NIE STRACIĆ</string>
     <string name="streak_safe">NA DZIŚ ZALICZONA</string>
-    <string name="streak_info">Ukończ co najmniej jeden poziom każdego dnia. Każdy dzień passy daje trofea (do 10 dziennie), a okrągłe passy dają premię. Trofea liczą się jako punkty rankingowe.</string>
+    <string name="streak_info">Ukończ co najmniej jeden poziom każdego dnia. Każdy dzień passy daje trofea, najwięcej 7. dzień. Po tygodniu passa zaczyna nowy, bogatszy tydzień. Trofea liczą się jako punkty rankingowe.</string>
     <string name="stat_trophies">TROFEA ZA PASSĘ</string>
     <string name="stat_streak">NAJDŁUŻSZA PASSA</string>
     <plurals name="streak_days">
@@ -244,12 +245,6 @@
         <item quantity="few">%d DNI</item>
         <item quantity="many">%d DNI</item>
         <item quantity="other">%d DNIA</item>
-    </plurals>
-    <plurals name="trophies_gain">
-        <item quantity="one">+%d TROFEUM</item>
-        <item quantity="few">+%d TROFEA</item>
-        <item quantity="many">+%d TROFEÓW</item>
-        <item quantity="other">+%d TROFEUM</item>
     </plurals>
     <string name="ach_streak_3">Dobra passa</string>
     <string name="ach_streak_3_desc">Utrzymaj passę przez 3 dni</string>
@@ -268,4 +263,12 @@
         <item quantity="many">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dni).</item>
         <item quantity="other">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dnia).</item>
     </plurals>
+
+    <!-- Język i nowe elementy interfejsu -->
+    <string name="set_language">JĘZYK</string>
+    <string name="lang_auto">AUTO</string>
+    <string name="lang_auto_hint">JĘZYK TELEFONU</string>
+    <string name="main_menu">MENU</string>
+    <string name="result_coins">MONETY</string>
+    <string name="streak_week">TYDZIEŃ %d</string>
 </resources>

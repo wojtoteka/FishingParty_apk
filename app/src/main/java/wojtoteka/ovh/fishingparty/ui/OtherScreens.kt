@@ -29,7 +29,19 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
+import android.content.res.Resources
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import wojtoteka.ovh.fishingparty.AppLanguage
 import wojtoteka.ovh.fishingparty.BuildConfig
+import wojtoteka.ovh.fishingparty.Language
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
@@ -228,6 +240,8 @@ fun SettingsScreen(onBack: () -> Unit) {
                     if (it) services.audio.vibrate(40)
                     repo.changed()
                 }
+                VSpace(4)
+                LanguagePicker()
                 VSpace(10)
                 PixelButton(
                     stringResource(R.string.set_reset),
@@ -236,6 +250,7 @@ fun SettingsScreen(onBack: () -> Unit) {
                     size = 2,
                 )
                 VSpace(10)
+                PixelText(stringResource(R.string.set_author), size = 3, color = Pal.Gold)
                 PixelText(
                     stringResource(R.string.set_credits),
                     size = 1,
@@ -258,6 +273,97 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
         }
     }
+}
+
+/** Wybór języka: AUTO (wg telefonu), polski, angielski – każdy z pikselową flagą. */
+@Composable
+private fun LanguagePicker() {
+    val context = LocalContext.current
+    val current = remember { AppLanguage.current(context) }
+    val phonePolish = remember { Resources.getSystem().configuration.locales[0].language == "pl" }
+    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(320))) {
+        Column(Modifier.fillMaxWidth()) {
+            PixelText(stringResource(R.string.set_language), size = 3)
+            VSpace(4)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                for (language in Language.entries) {
+                    val selected = language == current
+                    PixelButton(
+                        text = "",
+                        onClick = { context.findActivity()?.let { AppLanguage.set(it, language) } },
+                        style = if (selected) ButtonStyle.GREEN else ButtonStyle.SEA,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            val flag = if (language == Language.AUTO) {
+                                if (phonePolish) Language.PL else Language.EN
+                            } else {
+                                language
+                            }
+                            Flag(flag)
+                            VSpace(2)
+                            PixelText(
+                                stringResource(
+                                    when (language) {
+                                        Language.AUTO -> R.string.lang_auto
+                                        Language.PL -> R.string.lang_pl
+                                        Language.EN -> R.string.lang_en
+                                    },
+                                ),
+                                size = 2,
+                                color = if (selected) Pal.White else Pal.Foam,
+                            )
+                        }
+                    }
+                }
+            }
+            VSpace(2)
+            PixelText(
+                stringResource(R.string.lang_auto) + " = " + stringResource(R.string.lang_auto_hint),
+                size = 1,
+                color = Pal.SeaLight,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** Flaga 17×12 pikseli interfejsu, rysowana na tej samej siatce co ramki i przyciski. */
+@Composable
+private fun Flag(language: Language) {
+    val u = LocalUnit.current.toFloat()
+    Box(
+        Modifier.size(px(17), px(12)).drawBehind {
+            fun cell(x: Int, y: Int, w: Int, h: Int, c: Color) = drawRect(c, Offset(x * u, y * u), Size(w * u, h * u))
+            cell(0, 0, 17, 12, Pal.Outline)
+            if (language == Language.PL) {
+                cell(1, 1, 15, 5, Pal.White)
+                cell(1, 6, 15, 5, Pal.Red)
+                cell(1, 10, 15, 1, Pal.RedDark)
+            } else {
+                // Pole 15×10: granat, białe przekątne, biały krzyż z czerwonym środkiem.
+                cell(1, 1, 15, 10, Pal.Navy)
+                for (y in 0 until 10) {
+                    val x = y * 13 / 9
+                    cell(1 + x, 1 + y, 2, 1, Pal.White)
+                    cell(1 + 13 - x, 1 + y, 2, 1, Pal.White)
+                    cell(1 + x + (if (y < 5) 1 else 0), 1 + y, 1, 1, Pal.Red)
+                    cell(1 + 13 - x + (if (y < 5) 0 else 1), 1 + y, 1, 1, Pal.Red)
+                }
+                cell(1, 4, 15, 4, Pal.White)
+                cell(7, 1, 3, 10, Pal.White)
+                cell(1, 5, 15, 2, Pal.Red)
+                cell(8, 1, 1, 10, Pal.Red)
+            }
+        },
+    )
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable

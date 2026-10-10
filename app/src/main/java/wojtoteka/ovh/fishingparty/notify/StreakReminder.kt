@@ -13,6 +13,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import wojtoteka.ovh.fishingparty.AppLanguage
 import wojtoteka.ovh.fishingparty.MainActivity
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.StreakState
@@ -20,7 +21,7 @@ import java.time.ZonedDateTime
 
 /**
  * Przypomnienie o passie. Planowane za każdym razem, gdy gra schodzi w tło,
- * więc zawsze odpowiada ostatniemu stanowi passy. Teksty biorą język telefonu.
+ * więc zawsze odpowiada ostatniemu stanowi passy. Teksty biorą język gry (ustawienia albo język telefonu).
  */
 object StreakReminder {
     private const val CHANNEL = "streak"
@@ -86,5 +87,5 @@ object StreakReminder {
 }
 
 class StreakReminderReceiver : BroadcastReceiver() {
-    override fun onReceive(context: Context, intent: Intent) = StreakReminder.show(context, intent)
+    override fun onReceive(context: Context, intent: Intent) = StreakReminder.show(AppLanguage.wrap(context), intent)
 }

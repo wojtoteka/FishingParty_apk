@@ -126,7 +126,8 @@
     <string name="off">OFF</string>
     <string name="set_reset">RESET PROGRESS</string>
     <string name="set_reset_confirm">Erase all progress? This cannot be undone.</string>
-    <string name="set_credits">Graphics: original Fishing Party sprites. Font: BitCell by memesbruh03.</string>
+    <string name="set_author">AUTHOR: WOJTOTEKA</string>
+    <string name="set_credits">Font: BitCell by memesbruh03.</string>
     <string name="version">VERSION %s</string>
     <string name="save_tampered">Your save file was modified outside the game and could not be loaded. Progress has been reset.</string>
     <string name="ach_first_fish">First Catch</string>
@@ -235,16 +236,12 @@
     <string name="streak_start">FINISH A LEVEL TODAY TO START A STREAK</string>
     <string name="streak_keep">FINISH A LEVEL TODAY TO KEEP IT</string>
     <string name="streak_safe">SAFE FOR TODAY</string>
-    <string name="streak_info">Finish at least one level every day. Each day of the streak earns trophies (up to 10 a day) and round streaks give a bonus. Trophies count as ranking points.</string>
+    <string name="streak_info">Finish at least one level every day. Each day of the streak earns trophies, the 7th day the most. After a week the streak starts a new, richer week. Trophies count as ranking points.</string>
     <string name="stat_trophies">STREAK TROPHIES</string>
     <string name="stat_streak">BEST STREAK</string>
     <plurals name="streak_days">
         <item quantity="one">%d DAY</item>
         <item quantity="other">%d DAYS</item>
-    </plurals>
-    <plurals name="trophies_gain">
-        <item quantity="one">+%d TROPHY</item>
-        <item quantity="other">+%d TROPHIES</item>
     </plurals>
     <string name="ach_streak_3">On a Roll</string>
     <string name="ach_streak_3_desc">Keep a 3-day streak</string>
@@ -261,4 +258,14 @@
         <item quantity="one">Finish one level today to keep your %d-day streak.</item>
         <item quantity="other">Finish one level today to keep your %d-day streak.</item>
     </plurals>
+
+    <!-- Język i nowe elementy interfejsu -->
+    <string name="set_language">LANGUAGE</string>
+    <string name="lang_auto">AUTO</string>
+    <string name="lang_auto_hint">PHONE LANGUAGE</string>
+    <string name="lang_pl" translatable="false">POLSKI</string>
+    <string name="lang_en" translatable="false">ENGLISH</string>
+    <string name="main_menu">MENU</string>
+    <string name="result_coins">COINS</string>
+    <string name="streak_week">WEEK %d</string>
 </resources>

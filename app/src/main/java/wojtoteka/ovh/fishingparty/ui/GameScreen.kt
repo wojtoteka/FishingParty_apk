@@ -28,6 +28,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -64,6 +66,7 @@ import kotlin.math.sqrt
 
 sealed interface GameExit {
     data object ToMap : GameExit
+    data object ToMenu : GameExit
     data class Retry(val level: Int) : GameExit
     data class Next(val level: Int) : GameExit
 }
@@ -277,25 +280,21 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
         if (reward?.newBest == true && shownScore == result.score) {
             PixelText(stringResource(R.string.result_new_best), size = 2, color = Pal.Red)
         }
-        VSpace(4)
-        if (reward != null && reward.coins > 0) {
-            Plate(pad = 2) {
-                PixelText("+${reward.coins}", size = 3, color = Pal.Gold)
-                HSpace(2)
-                SpriteImage("fishscore_gold", 2)
-            }
-        }
-        if (reward != null && reward.streakDays > 0) {
-            VSpace(3)
-            Plate(pad = 2) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    PixelText(
-                        stringResource(R.string.streak_title) + " " +
-                            pluralStringResource(R.plurals.streak_days, reward.streakDays, reward.streakDays) + "!",
-                        size = 2,
-                        color = Pal.Gold,
+        VSpace(5)
+        if (reward != null && (reward.coins > 0 || reward.streakDays > 0)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+                if (reward.coins > 0) {
+                    RewardTile(stringResource(R.string.result_coins), reward.coins, "fishscore_gold", Pal.Gold, Modifier.weight(1f))
+                }
+                if (reward.streakDays > 0) {
+                    RewardTile(
+                        stringResource(R.string.streak_title) + ": " +
+                            pluralStringResource(R.plurals.streak_days, reward.streakDays, reward.streakDays),
+                        reward.trophies,
+                        "fishscore_blue",
+                        Pal.SeaLight,
+                        Modifier.weight(1f),
                     )
-                    PixelText(pluralStringResource(R.plurals.trophies_gain, reward.trophies, reward.trophies), size = 2, color = Pal.GreenLight)
                 }
             }
         }
@@ -313,10 +312,37 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             )
             VSpace(4)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelButton(stringResource(R.string.retry), onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, modifier = Modifier.weight(1f))
+        ExitButtons(stringResource(R.string.retry), level, onExit)
+    }
+}
+
+/** Kafelek nagrody na panelu wygranej – monety i passa stoją obok siebie w tym samym kształcie. */
+@Composable
+private fun RewardTile(label: String, amount: Int, icon: String, labelColor: Color, modifier: Modifier = Modifier) {
+    val u = LocalUnit.current.toFloat()
+    Column(
+        modifier
+            .drawBehind { pixelBox(u, Pal.SeaDark, Pal.Navy, Pal.Outline, shadow = 0f) }
+            .padding(horizontal = px(3), vertical = px(3)),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        PixelText(label, size = 1, color = labelColor, maxLines = 1)
+        VSpace(1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            PixelText("+$amount", size = 3, color = Pal.Gold)
+            HSpace(2)
+            SpriteImage(icon, 2)
         }
+    }
+}
+
+/** Wspólny rząd wyjść z poziomu: od nowa, mapa, menu główne. */
+@Composable
+private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.weight(1f))
+        PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
+        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
     }
 }
 
@@ -364,10 +390,7 @@ private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: 
             }
             VSpace(4)
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelButton(stringResource(R.string.retry), onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, modifier = Modifier.weight(1f))
-        }
+        ExitButtons(stringResource(R.string.retry), level, onExit)
     }
 }
 
@@ -415,9 +438,6 @@ private fun PausePanel(level: Int, world: GameWorld, onResume: () -> Unit, onExi
         VSpace(8)
         PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
         VSpace(4)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelButton(stringResource(R.string.restart), onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, modifier = Modifier.weight(1f))
-        }
+        ExitButtons(stringResource(R.string.restart), level, onExit)
     }
 }

@@ -62,10 +62,19 @@ object DailyRewards {
     const val BONUS_DAY = 7
 }
 
-/** Trofea za passę: tyle, ile dni trwa passa (maks. 10 dziennie), plus premie za okrągłe passy. */
+/** Trofea za passę liczone tygodniami: po 7 dniach zaczyna się nowy tydzień z wyższymi stawkami. */
 object StreakRewards {
-    const val DAILY_CAP = 10
-    val milestones = mapOf(3 to 5, 7 to 20, 14 to 40, 30 to 100, 60 to 200, 100 to 400, 180 to 700, 365 to 1500)
+    const val WEEK = 7
+    const val MAX_MULTIPLIER = 10
 
-    fun trophiesFor(day: Int): Int = if (day <= 0) 0 else minOf(day, DAILY_CAP) + (milestones[day] ?: 0)
+    /** Stawki dni tygodnia passy – 7. dzień jest najcenniejszy. */
+    val base = intArrayOf(1, 2, 3, 4, 5, 6, 10)
+
+    /** Numer tygodnia passy (od 1), w którym wypada dany dzień. */
+    fun week(day: Int): Int = (day - 1).coerceAtLeast(0) / WEEK + 1
+
+    /** Każdy kolejny tydzień mnoży stawki (x2, x3 … do x10). */
+    fun multiplier(week: Int): Int = week.coerceIn(1, MAX_MULTIPLIER)
+
+    fun trophiesFor(day: Int): Int = if (day <= 0) 0 else base[(day - 1) % WEEK] * multiplier(week(day))
 }

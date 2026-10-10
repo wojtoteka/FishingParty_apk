@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.coroutines.delay
+import wojtoteka.ovh.fishingparty.AppLanguage
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.game.Loadout
@@ -38,7 +39,14 @@ fun AppRoot() {
     var attempts by remember { mutableIntStateOf(0) }
     // Pierwsze uruchomienie: od razu do wody – samouczek jest wbudowany w poziom 1.
     var screen by remember {
-        mutableStateOf<Screen>(if (repo.save.tutorialDone) Screen.Menu else Screen.Game(1, Loadout(), 0))
+        mutableStateOf<Screen>(
+            when {
+                !repo.save.tutorialDone -> Screen.Game(1, Loadout(), 0)
+                // Zmiana języka odtwarza ekran – gracz zostaje w ustawieniach.
+                AppLanguage.reopenSettings -> Screen.Settings.also { AppLanguage.reopenSettings = false }
+                else -> Screen.Menu
+            },
+        )
     }
     var intro by remember { mutableStateOf<Int?>(null) }
     var showDaily by remember { mutableStateOf(false) }
@@ -90,6 +98,7 @@ fun AppRoot() {
             is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt) { exit ->
                 when (exit) {
                     GameExit.ToMap -> screen = Screen.Map
+                    GameExit.ToMenu -> screen = Screen.Menu
                     is GameExit.Retry -> start(exit.level, lastSelection)
                     is GameExit.Next -> {
                         screen = Screen.Map

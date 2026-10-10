@@ -1,6 +1,8 @@
 package wojtoteka.ovh.fishingparty
 
+import android.content.Context
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -14,9 +16,15 @@ import wojtoteka.ovh.fishingparty.ui.ProvideUi
 class MainActivity : ComponentActivity() {
     private val app get() = application as FishingPartyApp
 
+    override fun attachBaseContext(newBase: Context) {
+        super.attachBaseContext(AppLanguage.wrap(newBase))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         hideSystemBars()
         setContent {
             ProvideUi(app) { AppRoot() }
