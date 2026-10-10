@@ -1,5 +1,4 @@
-# JUŻ NIEDŁUGO NOWA AKTUALIZACJA
-## Fishing Party
+# Fishing Party
 
 Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolejnych etapów i dopłyń do mety, omijając piranie, ośmiornice i rekiny.
 
