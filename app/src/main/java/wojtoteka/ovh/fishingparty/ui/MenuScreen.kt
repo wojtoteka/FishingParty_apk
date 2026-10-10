@@ -104,8 +104,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
             VSpace(8)
             Column(
                 Modifier
-                    .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom }
-                    .offset { IntOffset(0, (wave * 2f * unit).toInt()) },
+                    .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 PixelText("FISHING", size = 7)
