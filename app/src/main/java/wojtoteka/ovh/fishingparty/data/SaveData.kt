@@ -50,6 +50,15 @@ class SaveData {
     var dailyLastDay = -1L
     var dailyStreak = 0
     var dailyBestStreak = 0
+
+    /** Passa: dzień (epoch day) ostatniego ukończonego poziomu i liczba dni z rzędu. */
+    var streakLastDay = -1L
+    var streak = 0
+    var streakBest = 0
+
+    /** Trofea za passę – liczą się do punktów rankingowych. */
+    val trophies = GuardedLong(0)
+    var notificationsAsked = false
     var lastSeenWall = 0L
     var music = true
     var sfx = true
@@ -69,7 +78,7 @@ class SaveData {
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 1
+    private const val VERSION = 2
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -125,6 +134,12 @@ object SaveCodec {
                 o.writeByte(r.stages)
                 o.writeLong(r.at)
             }
+            // v2
+            o.writeLong(d.streakLastDay)
+            o.writeInt(d.streak)
+            o.writeInt(d.streakBest)
+            o.writeLong(d.trophies.get())
+            o.writeBoolean(d.notificationsAsked)
         }
         return bytes.toByteArray()
     }
@@ -192,6 +207,13 @@ object SaveCodec {
                     stages = i.readByte().toInt(),
                     at = i.readLong(),
                 )
+            }
+            if (version >= 2) {
+                d.streakLastDay = i.readLong()
+                d.streak = i.readInt()
+                d.streakBest = i.readInt()
+                d.trophies.set(i.readLong())
+                d.notificationsAsked = i.readBoolean()
             }
         }
         return d

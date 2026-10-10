@@ -15,7 +15,16 @@ class Reward(
     val previousBest: Int,
     val newBest: Boolean,
     val newStars: Int,
+    /** Passa po tym przejeździe, jeśli właśnie została przedłużona (0 = bez zmian). */
+    val streakDays: Int = 0,
+    val trophies: Int = 0,
 )
+
+/**
+ * @param days aktualna passa (0 = brak albo przerwana)
+ * @param playedToday czy dziś ukończono już poziom (passa bezpieczna)
+ */
+class StreakState(val days: Int, val playedToday: Boolean)
 
 class DailyState(val available: Boolean, val day: Int, val clockTampered: Boolean)
 
@@ -35,8 +44,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
 
     fun completedLevels(): Int = save.stars.count { it > 0 }
 
-    /** Punkty rankingowe: suma najlepszych wyników ze wszystkich poziomów. */
-    fun rankingPoints(): Long = save.best.sum()
+    /** Punkty rankingowe: suma najlepszych wyników ze wszystkich poziomów plus trofea za passę. */
+    fun rankingPoints(): Long = save.best.sum() + save.trophies.get()
+
+    val trophies: Long get() = save.trophies.get()
 
     fun highestUnlocked(): Int = save.unlocked.get().toInt().coerceIn(1, LevelConstants.LEVEL_COUNT)
 
@@ -57,7 +68,14 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         val previousBest = best(level)
         var newStars = 0
         var newBest = false
+        var streakDays = 0
+        var trophies = 0
         if (result.completed) {
+            if (extendStreak()) {
+                streakDays = save.streak
+                trophies = StreakRewards.trophiesFor(save.streak)
+                save.trophies.add(trophies.toLong())
+            }
             save.levelWins++
             if (result.hits == 0) save.noHitWins++
             if (plan.spec.type == LevelType.BOSS) save.bossWins++
@@ -84,7 +102,30 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
             result.commonCaught, result.blueCaught, result.goldenCaught, result.completed, plan.spec.world, newStars,
         )
         addCoins(coins.toLong())
-        return Reward(true, coins, previousBest, newBest, newStars)
+        return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies)
+    }
+
+    // ------------------------------------------------------------ passa
+
+    fun streakState(): StreakState {
+        if (clockTampered()) return StreakState(0, false)
+        val day = today()
+        return when (save.streakLastDay) {
+            day -> StreakState(save.streak, true)
+            day - 1 -> StreakState(save.streak, false)
+            else -> StreakState(0, false)
+        }
+    }
+
+    /** Pierwszy ukończony poziom danego dnia przedłuża passę (albo zaczyna nową). */
+    private fun extendStreak(): Boolean {
+        if (clockTampered()) return false
+        val day = today()
+        if (day <= save.streakLastDay) return false
+        save.streak = if (save.streakLastDay == day - 1) save.streak + 1 else 1
+        save.streakLastDay = day
+        save.streakBest = max(save.streakBest, save.streak)
+        return true
     }
 
     fun addCoins(amount: Long) {
@@ -193,6 +234,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         Metric.COSMETICS -> save.owned.count { it !in Catalog.defaults }.toLong()
         Metric.BOATS -> save.owned.count { it.startsWith("boat:") }.toLong()
         Metric.DAILY_STREAK -> save.dailyBestStreak.toLong()
+        Metric.STREAK -> save.streakBest.toLong()
         Metric.SPEED -> save.speedWins.toLong()
         Metric.COINS_HELD -> save.maxCoinsHeld
         Metric.VETERAN -> if (save.veteran) 1 else 0
@@ -246,6 +288,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         save.dailyLastDay = -1
         save.dailyStreak = 0
         save.dailyBestStreak = 0
+        save.streakLastDay = -1
+        save.streak = 0
+        save.streakBest = 0
+        save.trophies.set(0)
         save.veteran = false
         save.records.clear()
     }

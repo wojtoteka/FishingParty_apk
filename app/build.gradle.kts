@@ -31,6 +31,10 @@ android {
         sourceCompatibility = JavaVersion.toVersion(26)
         targetCompatibility = JavaVersion.toVersion(26)
     }
+    androidResources {
+        // Język gry w ustawieniach systemu (Android 13+); domyślnie wg języka telefonu.
+        generateLocaleConfig = true
+    }
     buildFeatures {
         compose = true
         buildConfig = true

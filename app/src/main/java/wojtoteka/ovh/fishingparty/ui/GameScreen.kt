@@ -6,6 +6,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
@@ -269,7 +270,7 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
         PixelText(stringResource(R.string.result_win), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         PixelText(stringResource(R.string.level_n, level), size = 2, color = Pal.Outline, outline = null)
         VSpace(6)
-        StarRow(shownStars, scale = 4, gap = 4)
+        Plate { StarRow(shownStars, scale = 4, gap = 4) }
         VSpace(6)
         PixelText(stringResource(R.string.result_score), size = 2, color = Pal.Outline, outline = null)
         PixelText(shownScore.toString(), size = 5)
@@ -278,10 +279,24 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
         }
         VSpace(4)
         if (reward != null && reward.coins > 0) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Plate(pad = 2) {
                 PixelText("+${reward.coins}", size = 3, color = Pal.Gold)
                 HSpace(2)
                 SpriteImage("fishscore_gold", 2)
+            }
+        }
+        if (reward != null && reward.streakDays > 0) {
+            VSpace(3)
+            Plate(pad = 2) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PixelText(
+                        stringResource(R.string.streak_title) + " " +
+                            pluralStringResource(R.plurals.streak_days, reward.streakDays, reward.streakDays) + "!",
+                        size = 2,
+                        color = Pal.Gold,
+                    )
+                    PixelText(pluralStringResource(R.plurals.trophies_gain, reward.trophies, reward.trophies), size = 2, color = Pal.GreenLight)
+                }
             }
         }
         if (reward?.accepted == false) {
@@ -369,7 +384,7 @@ private fun PausePanel(level: Int, world: GameWorld, onResume: () -> Unit, onExi
         for ((i, goal) in goalTexts(world.spec).withIndex()) {
             Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
                 val on = i > 0 && flags[i]
-                SpriteImage(if (on) "fishscore_gold" else "fishscore_grey", 2)
+                Plate(pad = 1) { SpriteImage(if (on) "fishscore_gold" else "fishscore_grey", 2) }
                 HSpace(4)
                 PixelText(goal, size = 2, color = Pal.Outline, outline = null)
             }

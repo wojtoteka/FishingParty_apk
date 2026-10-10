@@ -1,6 +1,6 @@
 package wojtoteka.ovh.fishingparty.data
 
-enum class Metric { FISH, GOLDEN, LEVELS, STARS, PERFECT, NO_HIT, COMBO, BOSS, PURCHASES, COSMETICS, BOATS, DAILY_STREAK, SPEED, COINS_HELD, VETERAN }
+enum class Metric { FISH, GOLDEN, LEVELS, STARS, PERFECT, NO_HIT, COMBO, BOSS, PURCHASES, COSMETICS, BOATS, DAILY_STREAK, STREAK, SPEED, COINS_HELD, VETERAN }
 
 /**
  * @param icon ścieżka spritu względem assets/sprites (np. "fishgold1", "boats/golden/ship")
@@ -42,6 +42,9 @@ object Achievements {
         Achievement("fleet", Metric.BOATS, 8, 1000, "boats/royal/ship"),
         Achievement("daily_3", Metric.DAILY_STREAK, 3, 50, "fishscore_blue"),
         Achievement("daily_7", Metric.DAILY_STREAK, 7, 200, "fishscore_blue"),
+        Achievement("streak_3", Metric.STREAK, 3, 50, "fishscore_blue"),
+        Achievement("streak_7", Metric.STREAK, 7, 200, "fishscore_blue"),
+        Achievement("streak_30", Metric.STREAK, 30, 1000, "fishscore_gold"),
         Achievement("speed_1", Metric.SPEED, 1, 50, "piranhared1"),
         Achievement("speed_25", Metric.SPEED, 25, 300, "piranhared2"),
         Achievement("rich", Metric.COINS_HELD, 5_000, 250, "fishscore_gold"),
@@ -57,4 +60,12 @@ object DailyRewards {
 
     /** Siódmego dnia dodatkowo po jednym wzmocnieniu każdego rodzaju. */
     const val BONUS_DAY = 7
+}
+
+/** Trofea za passę: tyle, ile dni trwa passa (maks. 10 dziennie), plus premie za okrągłe passy. */
+object StreakRewards {
+    const val DAILY_CAP = 10
+    val milestones = mapOf(3 to 5, 7 to 20, 14 to 40, 30 to 100, 60 to 200, 100 to 400, 180 to 700, 365 to 1500)
+
+    fun trophiesFor(day: Int): Int = if (day <= 0) 0 else minOf(day, DAILY_CAP) + (milestones[day] ?: 0)
 }

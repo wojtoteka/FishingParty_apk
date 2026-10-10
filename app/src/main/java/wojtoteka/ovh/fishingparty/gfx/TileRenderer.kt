@@ -56,15 +56,15 @@ class TileRenderer {
                 when (grid[c, r]) {
                     Tile.SEA -> blit(canvas, seaSprite(grid, rowSet, c, r, frame), x, y)
                     Tile.SAND -> blit(canvas, sandSprite(grid, rowSet, c, r, frame), x, y)
-                    Tile.ROCK -> blit(canvas, rowSet.rocks[(floor((r * 3 + c + frame) / 2f).toInt()) % 3], x, y)
+                    Tile.ROCK -> blit(canvas, rowSet.rocks[anim(r * 3 + c + frame, 3)], x, y)
                     Tile.WALL -> {
                         val below = grid[c, r + 1]
                         val sprite = if (below == Tile.SAND) rowSet.wallSand
-                        else rowSet.walls[(floor((r * 3 + c + frame) / 2f).toInt()) % 2]
+                        else rowSet.walls[anim(r * 3 + c + frame, 2)]
                         blit(canvas, sprite, x, y)
                     }
                     Tile.WALL_BOTTOM -> {
-                        val sprite = rowSet.walls[(floor((r * 3 + c + frame) / 2f).toInt()) % 2]
+                        val sprite = rowSet.walls[anim(r * 3 + c + frame, 2)]
                         canvas.save()
                         canvas.scale(1f, -1f, x + TILE / 2f, y + TILE / 2f)
                         blit(canvas, sprite, x, y)
@@ -72,7 +72,7 @@ class TileRenderer {
                     }
                     Tile.DOOR -> {
                         if (doorOpen(r)) blit(canvas, seaSprite(grid, rowSet, c, r, frame), x, y)
-                        else blit(canvas, rowSet.doors[(floor((r * 3 + c + frame) / 2f).toInt()) % 2], x, y)
+                        else blit(canvas, rowSet.doors[anim(r * 3 + c + frame, 2)], x, y)
                     }
                 }
             }
@@ -80,7 +80,10 @@ class TileRenderer {
     }
 
     private fun seaSprite(grid: TileGrid, set: TileSet, c: Int, r: Int, frame: Int): Bitmap =
-        if (grid.isWave(c, r)) set.waves[(c * 3 + r * 7 + floor((c + r + frame) / 2f).toInt()) % 5] else set.sea
+        if (grid.isWave(c, r)) set.waves[Math.floorMod(c * 3 + r * 7 + Math.floorDiv(c + r + frame, 2), 5)] else set.sea
+
+    /** Klatka animacji co 2 kroki; wiersze bywają ujemne (zapętlone tło), stąd floorMod. */
+    private fun anim(v: Int, n: Int) = Math.floorMod(Math.floorDiv(v, 2), n)
 
     private fun waterLike(t: Tile) = t == Tile.SEA || t == Tile.ROCK
 
@@ -89,7 +92,7 @@ class TileRenderer {
         val s = waterLike(grid[c, r + 1])
         val w = waterLike(grid[c - 1, r])
         val e = waterLike(grid[c + 1, r])
-        val f = (floor((r * 3 + c * 7 + frame) / 2f).toInt()) % 2
+        val f = anim(r * 3 + c * 7 + frame, 2)
         return when {
             n && w -> set.sandBottomRight[f]
             n && e -> set.sandLeftBottom[f]

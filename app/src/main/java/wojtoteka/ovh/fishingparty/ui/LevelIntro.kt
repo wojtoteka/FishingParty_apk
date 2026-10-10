@@ -56,7 +56,7 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
         VSpace(6)
         for ((i, goal) in goalTexts(spec).withIndex()) {
             Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
-                SpriteImage(if (i < earned) "fishscore_gold" else "fishscore_grey", 2)
+                Plate(pad = 1) { SpriteImage(if (i < earned) "fishscore_gold" else "fishscore_grey", 2) }
                 HSpace(4)
                 PixelText(goal, size = 2, color = Pal.Outline, outline = null)
             }

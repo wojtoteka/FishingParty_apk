@@ -44,6 +44,10 @@ class SaveAndProgressTest {
         claimed += "first_fish"
         dailyStreak = 4
         tutorialDone = true
+        streakLastDay = 20_123
+        streak = 9
+        streakBest = 12
+        trophies.set(321)
     }
 
     @Test
@@ -59,6 +63,10 @@ class SaveAndProgressTest {
         assertTrue("boat:navy" in copy.owned)
         assertEquals(5, copy.powerups[1])
         assertTrue(copy.tutorialDone)
+        assertEquals(20_123L, copy.streakLastDay)
+        assertEquals(9, copy.streak)
+        assertEquals(12, copy.streakBest)
+        assertEquals(321L, copy.trophies.get())
         assertArrayEquals(SaveCodec.encode(original), SaveCodec.encode(copy))
     }
 
@@ -124,7 +132,9 @@ class SaveAndProgressTest {
         assertFalse(second.newBest)
         assertEquals(200, p.best(1))
         assertEquals(2, p.stars(1))
-        assertEquals(200L, p.rankingPoints())
+        // Pierwszy wygrany poziom dnia zaczyna passę: 1 trofeum doliczone do rankingu.
+        assertEquals(1L, p.trophies)
+        assertEquals(201L, p.rankingPoints())
     }
 
     @Test
@@ -180,6 +190,48 @@ class SaveAndProgressTest {
         now += 10 * 86_400_000L
         day += 10
         assertEquals(1, p.dailyState().day)
+    }
+
+    @Test
+    fun streakNeedsOneLevelEveryDay() {
+        val save = SaveData()
+        var now = 1_000_000_000L
+        var day = 20_000L
+        val p = Progress(save, { now }, { day })
+        p.touchClock()
+        assertEquals(0, p.streakState().days)
+        // Porażka nie liczy się do passy.
+        p.applyRun(RunResult(1, false, 0, 0, BooleanArray(3), 10_000, 0, 0, 0, 0, 0, 0), LevelGenerator.plan(1))
+        assertEquals(0, p.streakState().days)
+        val first = p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
+        assertEquals(1, first.streakDays)
+        assertEquals(1, first.trophies)
+        assertTrue(p.streakState().playedToday)
+        // Drugi poziom tego samego dnia nie daje kolejnych trofeów.
+        assertEquals(0, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
+        fun nextDay(n: Int = 1) {
+            day += n
+            now += n * 86_400_000L
+        }
+        nextDay()
+        assertEquals(1, p.streakState().days)
+        assertFalse(p.streakState().playedToday)
+        val second = p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
+        assertEquals(2, second.streakDays)
+        nextDay()
+        // Trzeci dzień: 3 trofea + premia za okrągłą passę.
+        assertEquals(3 + 5, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).trophies)
+        assertEquals(1L + 2 + 8, p.trophies)
+        assertEquals(3, save.streakBest)
+        // Dzień przerwy przerywa passę, trofea zostają.
+        nextDay(2)
+        assertEquals(0, p.streakState().days)
+        assertEquals(1, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
+        assertEquals(3, save.streakBest)
+        // Cofnięty zegar nie przedłuża passy.
+        now -= 5 * 86_400_000L
+        day += 1
+        assertEquals(0, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
     }
 
     @Test

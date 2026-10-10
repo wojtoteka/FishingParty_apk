@@ -7,7 +7,7 @@
     <string name="map_title">MAP</string>
     <string name="shop_title">SHOP</string>
     <string name="achievements_title">ACHIEVEMENTS</string>
-    <string name="achievements_short">TROPHIES</string>
+    <string name="achievements_short">BADGES</string>
     <string name="achievements_count">UNLOCKED %1$d/%2$d</string>
     <string name="ranking_title">RANKING</string>
     <string name="settings_title">SETTINGS</string>
@@ -113,7 +113,7 @@
     <string name="sailor_punk">PUNK</string>
     <string name="sailor_captain">CAPTAIN</string>
     <string name="ranking_points">YOUR RANKING POINTS</string>
-    <string name="ranking_info">Ranking points are the sum of your best scores on every level. The online ranking is coming soon!</string>
+    <string name="ranking_info">Ranking points are the sum of your best scores on every level plus your streak trophies. The online ranking is coming soon!</string>
     <string name="stat_levels">LEVELS</string>
     <string name="stat_stars">STARS</string>
     <string name="stat_fish">FISH CAUGHT</string>
@@ -228,5 +228,37 @@
     <plurals name="hud_go">
         <item quantity="one">CATCH %d FISH TO OPEN THE GATE</item>
         <item quantity="other">CATCH %d FISH TO OPEN THE GATE</item>
+    </plurals>
+
+    <!-- Passa -->
+    <string name="streak_title">STREAK</string>
+    <string name="streak_start">FINISH A LEVEL TODAY TO START A STREAK</string>
+    <string name="streak_keep">FINISH A LEVEL TODAY TO KEEP IT</string>
+    <string name="streak_safe">SAFE FOR TODAY</string>
+    <string name="streak_info">Finish at least one level every day. Each day of the streak earns trophies (up to 10 a day) and round streaks give a bonus. Trophies count as ranking points.</string>
+    <string name="stat_trophies">STREAK TROPHIES</string>
+    <string name="stat_streak">BEST STREAK</string>
+    <plurals name="streak_days">
+        <item quantity="one">%d DAY</item>
+        <item quantity="other">%d DAYS</item>
+    </plurals>
+    <plurals name="trophies_gain">
+        <item quantity="one">+%d TROPHY</item>
+        <item quantity="other">+%d TROPHIES</item>
+    </plurals>
+    <string name="ach_streak_3">On a Roll</string>
+    <string name="ach_streak_3_desc">Keep a 3-day streak</string>
+    <string name="ach_streak_7">Week at Sea</string>
+    <string name="ach_streak_7_desc">Keep a 7-day streak</string>
+    <string name="ach_streak_30">Old Salt</string>
+    <string name="ach_streak_30_desc">Keep a 30-day streak</string>
+
+    <!-- Powiadomienia -->
+    <string name="notif_channel">Streak reminders</string>
+    <string name="notif_channel_desc">A reminder when your streak is about to end</string>
+    <string name="notif_title">Your streak is at risk!</string>
+    <plurals name="notif_text">
+        <item quantity="one">Finish one level today to keep your %d-day streak.</item>
+        <item quantity="other">Finish one level today to keep your %d-day streak.</item>
     </plurals>
 </resources>

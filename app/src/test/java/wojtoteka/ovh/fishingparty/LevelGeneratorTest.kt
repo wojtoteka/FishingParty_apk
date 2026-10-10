@@ -44,6 +44,17 @@ class LevelGeneratorTest {
     private fun water(t: Tile) = t == Tile.SEA || t == Tile.ROCK
 
     @Test
+    fun noUnreachableWaterPockets() {
+        for (layout in all) {
+            val g = layout.grid
+            val reach = LevelGenerator.reachableFromStart(g, layout.startCol, layout.startRow)
+            for (r in 1 until g.height - 1) for (c in 0 until g.width) {
+                if (g[c, r] == Tile.SEA) assertTrue("poziom ${layout.spec.number} pole $c,$r", reach[r * g.width + c])
+            }
+        }
+    }
+
+    @Test
     fun finishIsReachableFromStart() {
         for (layout in all) {
             val reached = flood(layout.grid, layout.startCol, layout.startRow)

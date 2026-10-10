@@ -17,7 +17,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.res.pluralStringResource
+import wojtoteka.ovh.fishingparty.data.StreakState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,6 +47,8 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val claimable = progress.claimable().size
     val daily = progress.dailyState().available
+    val streak = progress.streakState()
+    StreakNotificationPermission(streak.days > 0)
 
     val unit = LocalUnit.current
     val bob = rememberInfiniteTransition(label = "logo")
@@ -68,7 +77,9 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     PixelText("${progress.totalStars()}/1500", size = 2)
                 }
             }
-            VSpace(14)
+            VSpace(4)
+            StreakCard(streak, Modifier.noRippleClick { onOpen(Destination.RANKING) })
+            VSpace(8)
             Column(Modifier.offset { IntOffset(0, (wave * 2f * unit).toInt()) }, horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelText("FISHING", size = 7)
                 PixelText("PARTY", size = 7, color = Pal.Sand)
@@ -134,6 +145,46 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                 }
             }
             VSpace(6)
+        }
+    }
+}
+
+@Composable
+private fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
+    Plate(modifier, pad = 2) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PixelText(
+                stringResource(R.string.streak_title) + ": " +
+                    pluralStringResource(R.plurals.streak_days, streak.days, streak.days),
+                size = 2,
+                color = if (streak.playedToday) Pal.Gold else Pal.Foam,
+            )
+            PixelText(
+                stringResource(
+                    when {
+                        streak.playedToday -> R.string.streak_safe
+                        streak.days > 0 -> R.string.streak_keep
+                        else -> R.string.streak_start
+                    },
+                ),
+                size = 1,
+                color = if (streak.playedToday) Pal.GreenLight else Pal.SeaLight,
+            )
+        }
+    }
+}
+
+/** Na Androidzie 13+ prosimy o zgodę na powiadomienia, gdy gracz zacznie pierwszą passę (raz). */
+@Composable
+private fun StreakNotificationPermission(hasStreak: Boolean) {
+    if (Build.VERSION.SDK_INT < 33) return
+    val repo = LocalServices.current.repo
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    LaunchedEffect(hasStreak) {
+        if (hasStreak && !repo.save.notificationsAsked) {
+            repo.save.notificationsAsked = true
+            repo.changed()
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 }

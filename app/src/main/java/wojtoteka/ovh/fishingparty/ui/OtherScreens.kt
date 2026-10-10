@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.BuildConfig
@@ -163,7 +164,24 @@ fun RankingScreen(onBack: () -> Unit) {
                     StatRow(stringResource(R.string.stat_fish), repo.save.totalFish.get().toString())
                     StatRow(stringResource(R.string.stat_golden), repo.save.totalGolden.get().toString())
                     StatRow(stringResource(R.string.stat_combo), "x${repo.save.maxCombo}")
+                    StatRow(stringResource(R.string.stat_trophies), progress.trophies.toString())
+                    StatRow(stringResource(R.string.stat_streak), pluralStringResource(R.plurals.streak_days, repo.save.streakBest, repo.save.streakBest))
                 }
+            }
+            VSpace(8)
+            PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
+                val streak = progress.streakState()
+                PixelText(stringResource(R.string.streak_title), size = 2, color = Pal.Outline, outline = null)
+                PixelText(pluralStringResource(R.plurals.streak_days, streak.days, streak.days), size = 4)
+                VSpace(3)
+                PixelText(
+                    stringResource(R.string.streak_info),
+                    size = 1,
+                    color = Pal.WoodDark,
+                    outline = null,
+                    align = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         }
     }

@@ -331,6 +331,22 @@ fun PixelPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
     )
 }
 
+/**
+ * Ciemna wnęka pod złote ikony na piaskowym panelu – złota rybka nie ma
+ * obrysu i bez tła zlewa się z piaskiem.
+ */
+@Composable
+fun Plate(modifier: Modifier = Modifier, pad: Int = 3, content: @Composable RowScope.() -> Unit) {
+    val u = LocalUnit.current.toFloat()
+    Row(
+        modifier
+            .drawBehind { pixelBox(u, Pal.SeaDark, Pal.Navy, Pal.Outline, shadow = 0f) }
+            .padding(horizontal = px(pad + 1), vertical = px(pad)),
+        verticalAlignment = Alignment.CenterVertically,
+        content = content,
+    )
+}
+
 /** Ciemna tabliczka (do list i kart). */
 @Composable
 fun DarkCard(modifier: Modifier = Modifier, highlight: Boolean = false, content: @Composable BoxScope.() -> Unit) {

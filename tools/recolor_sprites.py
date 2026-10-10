@@ -232,9 +232,23 @@ def build_sailors():
         save(recolor(load("sailor"), mapping(table or {})), OUT_SPRITES / "sailors" / f"{sailor_id}.png")
 
 
+def build_notification_icon():
+    """Ikona na pasku powiadomień: biała sylwetka oryginalnej rybki, powiększona bez wygładzania."""
+    src = load("fishscore")
+    icon = Image.new("RGBA", src.size, (0, 0, 0, 0))
+    for y in range(src.height):
+        for x in range(src.width):
+            if src.getpixel((x, y))[3] > 0:
+                icon.putpixel((x, y), (255, 255, 255, 255))
+    out = ROOT / "app" / "src" / "main" / "res" / "drawable-nodpi" / "ic_stat_fish.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
+    icon.resize((src.width * 12, src.height * 12), Image.NEAREST).save(out)
+
+
 if __name__ == "__main__":
     build_tiles()
     build_characters()
     build_boats()
     build_sailors()
+    build_notification_icon()
     print("OK")

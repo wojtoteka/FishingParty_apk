@@ -350,6 +350,7 @@ object LevelGenerator {
         }
 
         fixSand(grid)
+        fillUnreachableWater(grid, startCol, bottomRow - 1)
 
         // Dekoracyjne fale.
         val waveRng = Rng(Rng.mix(plan.spec.seed, 5))
@@ -508,6 +509,58 @@ object LevelGenerator {
                 }
             }
         }
+    }
+
+    /**
+     * Woda, do której łódź nie ma jak wpłynąć (kieszeń między wyspą a brzegiem),
+     * wygląda jak błąd – zasypujemy ją piaskiem. Zasypanie może zostawić piasek
+     * bez pasującego sprite'a, który [fixSand] zmieni z powrotem w wodę, więc
+     * powtarzamy do skutku; gdyby to nie zbiegło, resztę kieszeni zajmują skały.
+     */
+    fun fillUnreachableWater(grid: TileGrid, startCol: Int, startRow: Int) {
+        repeat(8) {
+            val reach = reachableFromStart(grid, startCol, startRow)
+            var filled = false
+            for (r in 1 until grid.height - 1) for (c in 0 until grid.width) {
+                if (grid[c, r] == Tile.SEA && !reach[r * grid.width + c]) {
+                    grid[c, r] = Tile.SAND
+                    filled = true
+                }
+            }
+            if (!filled) return
+            fixSand(grid)
+        }
+        val reach = reachableFromStart(grid, startCol, startRow)
+        for (r in 1 until grid.height - 1) for (c in 0 until grid.width) {
+            if (grid[c, r] == Tile.SEA && !reach[r * grid.width + c]) grid[c, r] = Tile.ROCK
+        }
+    }
+
+    /** Pola morza osiągalne łodzią ze startu przez wszystkie (otwierane) wrota. */
+    fun reachableFromStart(grid: TileGrid, startCol: Int, startRow: Int): BooleanArray {
+        val seen = BooleanArray(grid.width * grid.height)
+        val queue = ArrayDeque<Int>()
+        fun passable(t: Tile) = t == Tile.SEA || t == Tile.DOOR
+        if (passable(grid[startCol, startRow])) {
+            seen[startRow * grid.width + startCol] = true
+            queue += startRow * grid.width + startCol
+        }
+        while (queue.isNotEmpty()) {
+            val cell = queue.removeFirst()
+            val c = cell % grid.width
+            val r = cell / grid.width
+            for ((dc, dr) in NEIGHBOURS) {
+                val nc = c + dc
+                val nr = r + dr
+                if (!grid.inside(nc, nr)) continue
+                val idx = nr * grid.width + nc
+                if (!seen[idx] && passable(grid[nc, nr])) {
+                    seen[idx] = true
+                    queue += idx
+                }
+            }
+        }
+        return seen
     }
 
     private fun isSolidSand(grid: TileGrid, c: Int, r: Int): Boolean =

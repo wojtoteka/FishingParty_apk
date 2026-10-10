@@ -7,6 +7,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
 import wojtoteka.ovh.fishingparty.ui.ProvideUi
 
@@ -26,10 +27,12 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         hideSystemBars()
         app.audio.setForeground(true)
+        StreakReminder.dismiss(this)
     }
 
     override fun onPause() {
         app.audio.setForeground(false)
+        StreakReminder.schedule(this, app.repository.progress.streakState())
         super.onPause()
     }
 
