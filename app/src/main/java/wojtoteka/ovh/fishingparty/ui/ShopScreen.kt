@@ -27,10 +27,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.isActive
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Catalog
@@ -120,7 +122,7 @@ fun ShopScreen(onBack: () -> Unit) {
                             preview = null
                         },
                         style = if (t == tab) ButtonStyle.GREEN else ButtonStyle.SEA,
-                        size = 1,
+                        size = 2,
                         modifier = Modifier.weight(1f),
                     )
                 }
@@ -175,17 +177,22 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
             PixelText(itemName(item), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth(), maxLines = 1)
             if (item.kind == ItemKind.POWERUP) {
                 val p = PowerUp.entries.first { it.id == item.id }
-                PixelText(powerUpDescription(p), size = 1, color = Pal.Foam, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                // Zawsze dwie linijki opisu, żeby karty w rzędzie miały równą wysokość.
+                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                    PixelText("A\nA", size = 1, color = Color.Transparent, outline = null)
+                    PixelText(powerUpDescription(p), size = 1, color = Pal.Foam, align = TextAlign.Center, maxLines = 2, modifier = Modifier.fillMaxWidth())
+                }
                 PixelText(stringResource(R.string.shop_owned, progress.powerups(p)), size = 1, color = Pal.Gold)
             }
             VSpace(3)
+            // Wszystkie warianty przycisku mają tę samą wysokość co przycisk z ceną (ikona + tekst).
             when {
                 item.kind != ItemKind.POWERUP && equipped -> PixelButton(
-                    stringResource(R.string.shop_equipped), onClick = {}, enabled = false, size = 1, modifier = Modifier.fillMaxWidth(),
-                )
+                    text = "", onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
+                ) { ButtonLabel(stringResource(R.string.shop_equipped)) }
                 item.kind != ItemKind.POWERUP && owned -> PixelButton(
-                    stringResource(R.string.shop_equip), onClick = onEquip, style = ButtonStyle.SEA, size = 1, modifier = Modifier.fillMaxWidth(),
-                )
+                    text = "", onClick = onEquip, style = ButtonStyle.SEA, modifier = Modifier.fillMaxWidth(),
+                ) { ButtonLabel(stringResource(R.string.shop_equip)) }
                 else -> PixelButton(
                     text = "",
                     onClick = onBuy,
@@ -200,4 +207,10 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
             }
         }
     }
+}
+
+@Composable
+private fun ButtonLabel(text: String) {
+    Box(Modifier.size(width = 0.dp, height = px(8)))
+    PixelText(text, size = 2)
 }

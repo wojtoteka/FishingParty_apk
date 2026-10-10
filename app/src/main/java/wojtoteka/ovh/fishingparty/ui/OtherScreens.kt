@@ -68,13 +68,18 @@ fun AchievementsScreen(onBack: () -> Unit) {
     repo.revision.intValue
     val progress = repo.progress
     val visible = Achievements.all.filter { !it.hidden || progress.isUnlocked(it) }
-    val sorted = visible.sortedBy {
-        when {
-            progress.isUnlocked(it) && !progress.isClaimed(it) -> 0
-            !progress.isUnlocked(it) -> 1
-            else -> 2
-        }
+    // Kolejność ustalana raz przy wejściu – odebrana odznaka zostaje na miejscu,
+    // inaczej lista przeskakiwała za nią na sam dół.
+    val order = remember {
+        visible.sortedBy {
+            when {
+                progress.isUnlocked(it) && !progress.isClaimed(it) -> 0
+                !progress.isUnlocked(it) -> 1
+                else -> 2
+            }
+        }.map { it.id }
     }
+    val sorted = order.mapNotNull { id -> visible.firstOrNull { it.id == id } }
     ScreenFrame(stringResource(R.string.achievements_title), onBack) {
         PixelText(
             stringResource(R.string.achievements_count, visible.count { progress.isUnlocked(it) }, visible.size),
