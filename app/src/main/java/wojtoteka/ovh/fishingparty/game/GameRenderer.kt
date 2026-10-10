@@ -9,9 +9,12 @@ import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.gfx.ShipPainter
 import wojtoteka.ovh.fishingparty.gfx.Sprites
 import wojtoteka.ovh.fishingparty.gfx.TileRenderer
+import wojtoteka.ovh.fishingparty.gfx.TileSet
 import wojtoteka.ovh.fishingparty.level.EnemyKind
 import wojtoteka.ovh.fishingparty.level.FishKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
+import wojtoteka.ovh.fishingparty.level.LevelSpec
+import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.Worlds
 import kotlin.math.PI
 import kotlin.math.cos
@@ -33,6 +36,9 @@ class HudStrings(
     val timeLow: String,
     val combo: String,
     val tutorial: String,
+    /** Napis na start Wielkiego Finału i nazwy światów jego kolejnych etapów. */
+    val finale: String = "",
+    val finaleStages: List<String> = emptyList(),
 )
 
 /** Pływający joystick – stan dotyku w pikselach ekranu. */
@@ -56,17 +62,23 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     }
     private val fill = Paint()
     private val rect = RectF()
-    private var themeWorld = -1
+    private var themeSpec: LevelSpec? = null
     private var currentTiles = Sprites.tiles(Worlds.theme(0))
+
+    /** Paleta każdego wiersza – w Wielkim Finale każdy etap leży w innym świecie (null = jedna paleta). */
+    private var rowWorlds: IntArray? = null
+    private var rowTiles: Array<TileSet>? = null
 
     /** Skala: ile pikseli ekranu na piksel spritu. */
     var scale = 6
         private set
 
     fun draw(canvas: Canvas, world: GameWorld, width: Int, height: Int, topInset: Float, stick: TouchStick) {
-        if (themeWorld != world.spec.world) {
-            themeWorld = world.spec.world
-            currentTiles = Sprites.tiles(Worlds.theme(themeWorld))
+        if (themeSpec !== world.spec) {
+            themeSpec = world.spec
+            currentTiles = Sprites.tiles(Worlds.theme(world.spec.world))
+            rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else null
+            rowTiles = rowWorlds?.let { rows -> Array(rows.size) { Sprites.tiles(Worlds.theme(rows[it])) } }
         }
         scale = scaleFor(width)
         val s = scale.toFloat()
@@ -77,14 +89,15 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         val camY = (world.camY * s).roundToInt() / s
         val t = world.animTime
 
-        canvas.drawColor(Worlds.seaColor(world.spec.world))
+        val centerRow = ((camY + viewH / 2f) / TILE).toInt()
+        canvas.drawColor(Worlds.seaColor(rowWorlds?.let { it[centerRow.coerceIn(0, it.size - 1)] } ?: world.spec.world))
         canvas.save()
         canvas.scale(s, s)
         canvas.translate(-camX, -camY)
 
         tiles.draw(
             canvas, world.grid, camX, camY, viewW, viewH, t,
-            tilesForRow = { currentTiles },
+            tilesForRow = { r -> tilesAt(r) },
             doorOpen = { row -> world.stageOfGateRow(row).let { it >= 0 && world.isDoorOpen(it) } },
         )
         drawCrabs(canvas, world, t)
@@ -112,14 +125,29 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         }
     }
 
+    private fun tilesAt(row: Int): TileSet = rowTiles?.let { it[row.coerceIn(0, it.size - 1)] } ?: currentTiles
+
+    /**
+     * Świat (paleta) każdego wiersza Wielkiego Finału: etap razem z bramą nad nim ma
+     * barwy swojego świata, a port na mecie – złote barwy finału.
+     */
+    private fun finaleRowWorlds(world: GameWorld): IntArray {
+        val rows = IntArray(world.grid.height) { Worlds.FINALE }
+        for ((k, stage) in world.stages.withIndex()) {
+            val w = Worlds.FINALE_STAGE_WORLDS[k % Worlds.FINALE_STAGE_WORLDS.size]
+            for (r in stage.gateRow..stage.bottomRow) rows[r] = w
+        }
+        rows[rows.lastIndex] = Worlds.FINALE_STAGE_WORLDS[0]
+        return rows
+    }
+
     private fun drawCrabs(canvas: Canvas, world: GameWorld, t: Float) {
-        val crab = currentTiles.crab
         for ((i, pos) in world.layout.crabs.withIndex()) {
             val (c, r) = pos
             val walk = sin(t * 1.3f + i * 2.1f) * 3f
             val x = c * TILE + 8f + walk
             val y = r * TILE + 8f
-            ship.sprite(canvas, crab, x, y, if ((t * 4f + i).toInt() % 2 == 0) -8f else 8f)
+            ship.sprite(canvas, tilesAt(r).crab, x, y, if ((t * 4f + i).toInt() % 2 == 0) -8f else 8f)
         }
     }
 
@@ -226,7 +254,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (world.shield) icon(canvas, Sprites.boat("navy", "ship"), margin + world.maxLives * lifeStep, lifeTop, p1)
 
         val stageTop = lifeTop + lifeIcon.height * p1 + 3 * p1
-        val door = currentTiles.doors[0]
+        val door = tilesAt(world.currentStage.gateRow).doors[0]
         val doorK = max(1f, floor(p1 * 0.67f))
         icon(canvas, door, margin, stageTop, doorK)
         text.draw(
@@ -272,7 +300,8 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         val msg = world.message ?: return
         val label = when (msg.kind) {
             MessageKind.GO -> strings.go
-            MessageKind.STAGE -> strings.stage.format(msg.arg, msg.arg2)
+            MessageKind.FINALE -> strings.finale
+            MessageKind.STAGE -> strings.finaleStages.getOrNull(msg.arg - 1) ?: strings.stage.format(msg.arg, msg.arg2)
             MessageKind.GATE_OPEN -> strings.gateOpen
             MessageKind.FINISH_OPEN -> strings.finishOpen
             MessageKind.FINISH -> strings.finish
@@ -293,7 +322,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (p < 0.5f) return
         val color = when (msg.kind) {
             MessageKind.LAST_LIFE, MessageKind.TIME_LOW -> PixelText.RED
-            MessageKind.COMBO, MessageKind.FINISH, MessageKind.FINISH_OPEN -> PixelText.GOLD
+            MessageKind.COMBO, MessageKind.FINISH, MessageKind.FINISH_OPEN, MessageKind.FINALE -> PixelText.GOLD
             else -> PixelText.WHITE
         }
         text.draw(canvas, label, width / 2f, height * 0.3f - 3.5f * p, p, color, align = 0)

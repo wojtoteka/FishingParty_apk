@@ -2,8 +2,10 @@ package wojtoteka.ovh.fishingparty.level
 
 import wojtoteka.ovh.fishingparty.core.Rng
 import wojtoteka.ovh.fishingparty.level.LevelConstants.FINISH_ROWS
+import wojtoteka.ovh.fishingparty.level.LevelConstants.FIRST_VOYAGE_LEVELS
 import wojtoteka.ovh.fishingparty.level.LevelConstants.LEVELS_PER_WORLD
 import wojtoteka.ovh.fishingparty.level.LevelConstants.LEVEL_COUNT
+import wojtoteka.ovh.fishingparty.level.LevelConstants.MAX_COMBO
 import wojtoteka.ovh.fishingparty.level.LevelConstants.WIDTH
 import kotlin.math.abs
 import kotlin.math.ceil
@@ -35,8 +37,10 @@ class LevelPlan(val spec: LevelSpec, val stages: List<StagePlan>) {
 }
 
 /**
- * Generator 500 poziomów. Wszystko wynika z numeru poziomu, więc poziomy nie
+ * Generator 1000 poziomów. Wszystko wynika z numeru poziomu, więc poziomy nie
  * muszą być nigdzie zapisane, a każdy gracz dostaje identyczną planszę.
+ * Poziomy 1–500 są takie same jak przed rozszerzeniem gry, 501–999 to druga,
+ * trudniejsza wyprawa, a poziom 1000 to ręcznie ułożony Wielki Finał.
  */
 object LevelGenerator {
 
@@ -46,17 +50,32 @@ object LevelGenerator {
 
     fun worldOf(number: Int): Int = (number - 1) / LEVELS_PER_WORLD
 
-    fun isBoss(number: Int): Boolean = number % LEVELS_PER_WORLD == 0
+    fun isFinale(number: Int): Boolean = number == LEVEL_COUNT
 
-    /** Trudność 0..1 – rośnie przez całą grę i lekko w obrębie każdego świata. */
+    fun isBoss(number: Int): Boolean = number % LEVELS_PER_WORLD == 0 && !isFinale(number)
+
+    /** O ile druga wyprawa (poziomy 501–999) podnosi trudność ponad poziom 500. */
+    private const val SECOND_VOYAGE_BOOST = 0.3f
+
+    /**
+     * Postęp przez grę: 0..1 w pierwszej wyprawie (jak przed rozszerzeniem gry),
+     * a w drugiej dalej rośnie aż do 1 + [SECOND_VOYAGE_BOOST] na poziomie 999.
+     */
+    private fun voyage(number: Int): Float =
+        if (number <= FIRST_VOYAGE_LEVELS) (number - 1) / (FIRST_VOYAGE_LEVELS - 1f)
+        else 1f + SECOND_VOYAGE_BOOST * (number - FIRST_VOYAGE_LEVELS) / (LEVEL_COUNT - 1 - FIRST_VOYAGE_LEVELS).toFloat()
+
+    /** Trudność: 0..1 w pierwszych 500 poziomach, potem do ok. 1,25 – rośnie przez całą grę i lekko w obrębie świata. */
     fun difficulty(number: Int): Float {
-        val global = (number - 1) / (LEVEL_COUNT - 1f)
+        val global = voyage(number)
         val local = ((number - 1) % LEVELS_PER_WORLD) / (LEVELS_PER_WORLD - 1f)
-        return (global * 0.82f + local * 0.18f * (0.4f + 0.6f * global)).coerceIn(0f, 1f)
+        val e = global * 0.82f + local * 0.18f * (0.4f + 0.6f * min(global, 1f))
+        return if (number <= FIRST_VOYAGE_LEVELS) e.coerceIn(0f, 1f) else e
     }
 
     private fun rawType(number: Int): LevelType {
         if (number <= 5) return LevelType.CLASSIC
+        if (isFinale(number)) return LevelType.FINALE
         if (isBoss(number)) return LevelType.BOSS
         val rng = Rng(Rng.mix(seedOf(number), 7))
         val options = buildList {
@@ -79,18 +98,19 @@ object LevelGenerator {
 
     fun typeOf(number: Int): LevelType {
         val type = rawType(number)
-        if (type == LevelType.CLASSIC || type == LevelType.BOSS || number <= 5) return type
+        if (type == LevelType.CLASSIC || type == LevelType.BOSS || type == LevelType.FINALE || number <= 5) return type
         // Unikamy dwóch takich samych „specjalnych” poziomów pod rząd.
         return if (rawType(number - 1) == type) LevelType.CLASSIC else type
     }
 
     fun plan(number: Int): LevelPlan {
         require(number in 1..LEVEL_COUNT) { "Nieprawidłowy numer poziomu: $number" }
+        if (isFinale(number)) return finalePlan()
         val seed = seedOf(number)
         val rng = Rng(seed)
         val type = typeOf(number)
         val e = difficulty(number)
-        val d = (number - 1) / (LEVEL_COUNT - 1f)
+        val d = voyage(number)
 
         var stageCount = when {
             number == 1 -> 1
@@ -201,8 +221,9 @@ object LevelGenerator {
             parSeconds = par,
             timeLimitSeconds = timeLimit,
             scoreTarget = scoreTarget,
-            comboTarget = 3 + (e * 2.5f).toInt(),
-            enemySpeed = 1f + 0.35f * e,
+            comboTarget = min(MAX_COMBO, 3 + (e * 2.5f).toInt()),
+            // W drugiej wyprawie potwory przyspieszają już wolniej, żeby łódź wciąż mogła im uciec.
+            enemySpeed = 1f + 0.35f * min(e, 1f) + 0.15f * max(0f, e - 1f),
             currentX = currentX,
             currentY = currentY,
         )
@@ -266,7 +287,7 @@ object LevelGenerator {
     fun generate(number: Int): LevelLayout = generate(plan(number))
 
     /**
-     * Osobny poziom samouczka (spoza 500 poziomów, bez wpływu na wyniki):
+     * Osobny poziom samouczka (spoza 1000 poziomów, bez wpływu na wyniki):
      * etap 1 uczy sterowania i łowienia, etap 2 – omijania potworów i złotej ryby.
      */
     fun tutorialPlan(): LevelPlan {
@@ -299,6 +320,59 @@ object LevelGenerator {
 
     /** Ile ryb trzeba złowić w każdym etapie samouczka. */
     const val TUTORIAL_QUOTA = 3
+
+    /**
+     * Poziom 1000 – Wielki Finał, ułożony ręcznie. Siedem etapów, każdy w barwach innego
+     * świata ([Worlds.FINALE_STAGE_WORLDS]) i z własnym zestawem potworów: od cieśniny piranii,
+     * przez rafę, archipelag, kanał i gorączkę złota, po czerwony legion i leże Krakena.
+     * Druga gwiazdka – bez trafienia, trzecia – wszystkie złote ryby.
+     */
+    fun finalePlan(): LevelPlan {
+        val p = EnemyKind.PIRANHA
+        val pv = EnemyKind.PIRANHA_VERTICAL
+        val o = EnemyKind.OCTOPUS
+        val s = EnemyKind.SHARK
+        val rp = EnemyKind.RED_PIRANHA
+        val ro = EnemyKind.RED_OCTOPUS
+        val ds = EnemyKind.DARK_SHARK
+        fun stage(
+            rows: Int, quota: Int, blue: Int, golden: Int, enemies: List<EnemyKind>,
+            rocks: Int, islands: Int, door: Int, canal: Boolean = false,
+        ) = StagePlan(
+            rows = rows, quota = quota, common = quota + max(1, quota / 3) - blue, blue = blue, golden = golden,
+            enemies = enemies, rocks = rocks, islands = islands, doorCenter = door, wideBanks = canal,
+        )
+        val stages = listOf(
+            stage(20, 9, 2, 1, listOf(p, p, p, pv, pv, pv, rp, rp), rocks = 2, islands = 1, door = 7),
+            stage(22, 10, 3, 1, listOf(o, o, o, ro, ro, p, p), rocks = 7, islands = 0, door = 3),
+            stage(24, 10, 3, 1, listOf(s, s, s, pv, pv, o, o), rocks = 2, islands = 4, door = 6),
+            stage(24, 10, 2, 1, listOf(rp, rp, rp, rp, s, s), rocks = 1, islands = 0, door = 5, canal = true),
+            stage(22, 9, 3, 3, listOf(p, p, o, s), rocks = 2, islands = 1, door = 2),
+            stage(24, 11, 3, 1, listOf(rp, rp, rp, ro, ro, ro, ds, ds), rocks = 4, islands = 2, door = 8),
+            stage(24, 12, 4, 2, listOf(ds, ds, ds, ro, ro, rp, rp, s, s, pv), rocks = 3, islands = 2, door = 5),
+        )
+        check(stages.size == Worlds.FINALE_STAGE_WORLDS.size)
+        val par = ceil(stages.sumOf { it.quota * 2.6 + it.rows * 0.32 + it.enemies.size * 0.6 } + 3.0).toInt()
+        val regularPoints = stages.sumOf { it.common * FishKind.COMMON.points + it.blue * FishKind.BLUE.points }
+        val goldenTotal = stages.sumOf { it.golden }
+        val spec = LevelSpec(
+            number = LEVEL_COUNT,
+            world = worldOf(LEVEL_COUNT),
+            type = LevelType.FINALE,
+            seed = seedOf(LEVEL_COUNT),
+            secondGoal = SecondGoal.NO_DAMAGE,
+            thirdGoal = ThirdGoal.ALL_GOLDEN,
+            parSeconds = par,
+            timeLimitSeconds = 0,
+            scoreTarget = ((regularPoints * 1.6f + goldenTotal * FishKind.GOLDEN.points * 0.5f +
+                stages.size * LevelConstants.STAGE_BONUS) / 10f).roundToInt() * 10,
+            comboTarget = MAX_COMBO,
+            enemySpeed = 1.35f,
+            currentX = 0f,
+            currentY = 0f,
+        )
+        return LevelPlan(spec, stages)
+    }
 
     fun generate(plan: LevelPlan): LevelLayout {
         val rng = Rng(Rng.mix(plan.spec.seed, 99))

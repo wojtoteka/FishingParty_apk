@@ -20,6 +20,7 @@ import wojtoteka.ovh.fishingparty.data.SaveCrypto
 import wojtoteka.ovh.fishingparty.data.SaveData
 import wojtoteka.ovh.fishingparty.data.StreakRepairs
 import wojtoteka.ovh.fishingparty.data.StreakRewards
+import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import wojtoteka.ovh.fishingparty.ui.Backdrop
@@ -27,6 +28,9 @@ import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Tile
 import wojtoteka.ovh.fishingparty.level.WorldMap
+import wojtoteka.ovh.fishingparty.level.Worlds
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.security.GeneralSecurityException
 import java.time.LocalDate
 import java.time.LocalTime
@@ -401,6 +405,95 @@ class SaveAndProgressTest {
     }
 
     @Test
+    fun grandFinaleHasItsOwnHarbourOnTheMap() {
+        val finale = LevelConstants.LEVEL_COUNT
+        val last = LevelConstants.WORLD_COUNT - 1
+        // Duża wyspa na środku portu, za ostatnimi wrotami, w złotej palecie.
+        assertEquals(5, WorldMap.islandW[finale - 1])
+        assertEquals(3, WorldMap.islandH[finale - 1])
+        assertEquals(LevelConstants.WIDTH * TILE / 2f, WorldMap.nodeX(finale))
+        assertTrue(WorldMap.nodeY(finale) < WorldMap.gateRow[last] * TILE)
+        assertEquals(Worlds.FINALE, WorldMap.worldOfRow(WorldMap.islandRow[finale - 1]))
+        assertEquals(Worlds.FINALE_THEME, Worlds.theme(WorldMap.worldOfRow(0)))
+        assertEquals(last, WorldMap.worldOfRow(WorldMap.gateRow[last]))
+        // Ostatnie wrota otwierają się dopiero, gdy finał jest odblokowany.
+        assertEquals(finale, WorldMap.gateOpensAt(last))
+        assertEquals(Worlds.firstLevel(1), WorldMap.gateOpensAt(0))
+        assertEquals(Worlds.FINALE, Worlds.paletteOf(finale))
+        assertEquals(last, Worlds.paletteOf(finale - 1))
+    }
+
+    @Test
+    fun everyWorldHasANameInEveryLanguage() {
+        for (dir in listOf("values", "values-pl")) {
+            val xml = java.io.File("src/main/res/$dir/strings.xml").readText()
+            val array = xml.substringAfter("<string-array name=\"world_names\">").substringBefore("</string-array>")
+            val names = Regex("<item>(.+?)</item>").findAll(array).map { it.groupValues[1] }.toList()
+            assertEquals(dir, LevelConstants.WORLD_COUNT, names.size)
+            assertEquals(dir, names.size, names.toSet().size)
+        }
+    }
+
+    /** Zapis z czasów, gdy gra miała [levels] poziomów (tyle wpisów zamiast 1000). */
+    private fun legacyBytes(save: SaveData, levels: Int): ByteArray {
+        val bytes = SaveCodec.encode(save)
+        val header = 4 + 2 + 8
+        val entries = header + 2
+        val out = ByteArrayOutputStream()
+        out.write(bytes, 0, header)
+        DataOutputStream(out).writeShort(levels)
+        out.write(bytes, entries, levels * 5)
+        val rest = entries + LevelConstants.LEVEL_COUNT * 5
+        out.write(bytes, rest, bytes.size - rest)
+        return out.toByteArray()
+    }
+
+    @Test
+    fun oldSaveWithAllLevelsDoneUnlocksTheSecondVoyage() {
+        val old = SaveData().apply {
+            for (i in 0 until 500) {
+                stars[i] = 2
+                best[i] = 1000 + i
+            }
+            unlocked.set(500)
+            coins.set(777)
+        }
+        val loaded = SaveCodec.decode(legacyBytes(old, 500))
+        assertEquals(501L, loaded.unlocked.get())
+        assertEquals(1499, loaded.best[499])
+        assertEquals(0, loaded.stars[500].toInt())
+        assertEquals(777L, loaded.coins.get())
+        // Kto nie skończył jeszcze poziomu 500, nie dostaje nic za darmo.
+        val midway = SaveData().apply {
+            stars[0] = 1
+            unlocked.set(2)
+        }
+        assertEquals(2L, SaveCodec.decode(legacyBytes(midway, 500)).unlocked.get())
+    }
+
+    @Test
+    fun grandFinaleRewardsOnceAndEndsTheGame() {
+        val save = SaveData().apply { unlocked.set(LevelConstants.LEVEL_COUNT.toLong()) }
+        val p = progress(save)
+        val n = LevelConstants.LEVEL_COUNT
+        val plan = LevelGenerator.plan(n)
+        val first = p.applyRun(win(n, 5000, 1, time = 300_000), plan)
+        assertTrue(first.accepted)
+        assertEquals(Progress.FINALE_BONUS, first.finaleBonus)
+        assertTrue(first.coins > Progress.FINALE_BONUS)
+        assertEquals(n, p.highestUnlocked())
+        assertEquals(1, save.bossWins)
+        // Kolejne przejście finału nie płaci bonusu drugi raz.
+        val again = p.applyRun(win(n, 6000, 2, time = 300_000), plan)
+        assertEquals(0, again.finaleBonus)
+        assertEquals(n, p.highestUnlocked())
+        // Ukończenie wszystkich poziomów daje odznakę finału.
+        for (i in 0 until n) save.stars[i] = 1
+        assertTrue(p.isUnlocked(Achievements.byId("level_1000")!!))
+        assertFalse(p.isUnlocked(Achievements.byId("stars_3000")!!))
+    }
+
+    @Test
     fun musicLoopsAreTwelveSeconds() {
         val beeper = Beeper()
         for (voice in SoundScript.MUSIC) {
@@ -419,12 +512,16 @@ class SaveAndProgressTest {
     @Test
     fun worldMapIslandsAreValid() {
         val g = WorldMap.grid
-        for (n in 1..500) {
+        for (n in 1..LevelConstants.LEVEL_COUNT) {
             val c = WorldMap.islandCol[n - 1]
             val r = WorldMap.islandRow[n - 1]
-            for (dr in 0..1) for (dc in 0..1) assertEquals(Tile.SAND, g[c + dc, r + dr])
+            for (dr in 0 until WorldMap.islandH[n - 1]) for (dc in 0 until WorldMap.islandW[n - 1]) {
+                assertEquals("wyspa $n", Tile.SAND, g[c + dc, r + dr])
+            }
             assertEquals(n, WorldMap.levelAt(WorldMap.nodeX(n), WorldMap.nodeY(n)))
         }
+        // Wyspy nie nachodzą na siebie: każda leży wyżej od poprzedniej.
+        for (n in 2..LevelConstants.LEVEL_COUNT) assertTrue("wyspa $n", WorldMap.nodeY(n) < WorldMap.nodeY(n - 1))
         for (r in 1 until g.height - 1) for (c in 0 until g.width) {
             if (g[c, r] != Tile.SAND) continue
             val w = { t: Tile -> t == Tile.SEA || t == Tile.ROCK }

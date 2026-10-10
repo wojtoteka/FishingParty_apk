@@ -54,13 +54,13 @@ import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
-import wojtoteka.ovh.fishingparty.level.LevelGenerator
+import wojtoteka.ovh.fishingparty.level.Worlds
 
 @Composable
 private fun ScreenFrame(title: String, onBack: () -> Unit, dim: Float = 0.35f, content: @Composable ColumnScope.() -> Unit) {
     val repo = LocalServices.current.repo
     Box(Modifier.fillMaxSize()) {
-        SeaBackdrop(LevelGenerator.worldOf(repo.progress.highestUnlocked()), Modifier.fillMaxSize(), dim = dim)
+        SeaBackdrop(Worlds.paletteOf(repo.progress.highestUnlocked()), Modifier.fillMaxSize(), dim = dim)
         Column(Modifier.fillMaxSize()) {
             TopBar(title, onBack)
             content()

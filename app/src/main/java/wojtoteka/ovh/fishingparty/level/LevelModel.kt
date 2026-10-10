@@ -57,6 +57,9 @@ enum class LevelType {
     TIME_ATTACK,
     SWARM,
     BOSS,
+
+    /** Poziom 1000 – Wielki Finał. */
+    FINALE,
 }
 
 enum class EnemyKind(
@@ -149,7 +152,10 @@ class LevelLayout(
 object LevelConstants {
     const val TILE = 16
     const val WIDTH = 11
-    const val LEVEL_COUNT = 500
+    const val LEVEL_COUNT = 1000
+
+    /** Pierwsze 500 poziomów (pierwsza wyprawa) ma niezmienioną krzywą trudności. */
+    const val FIRST_VOYAGE_LEVELS = 500
     const val LEVELS_PER_WORLD = 25
     const val WORLD_COUNT = LEVEL_COUNT / LEVELS_PER_WORLD
     const val FINISH_ROWS = 6

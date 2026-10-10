@@ -4,10 +4,11 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 
 ## Zawartość
 
-- **500 poziomów** w 20 światach (10 palet kolorów). Każdy poziom ma od 1 do 7 etapów – brama otwiera się po złowieniu wymaganej liczby ryb.
+- **1000 poziomów** w 40 światach (10 palet kolorów). Każdy poziom ma od 1 do 7 etapów – brama otwiera się po złowieniu wymaganej liczby ryb. Poziomy 501–999 to druga, trudniejsza wyprawa (pierwsze 500 jest bez zmian).
+- **Poziom 1000 – Wielki Finał**: ręcznie ułożony, 7 etapów w barwach 7 różnych światów, każdy z innym zestawem potworów, port na mecie w osobnej złotej palecie (`legend`). Na mapie ma własny port z dużą wyspą za ostatnimi wrotami, a za pierwsze ukończenie – bonus 5000 monet i odznakę „Żywa legenda”.
 - Poziomy są generowane deterministycznie z numeru poziomu (`LevelGenerator`), więc każdy gracz dostaje identyczną planszę – to podstawa uczciwego rankingu.
-- 9 typów poziomów (skalista rafa, archipelag, kanał, prąd, gorączka złota, wyścig z czasem, ławica piranii, starcie z bestią…), 7 rodzajów przeciwników, złote i niebieskie ryby, combo do x5.
-- 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 37 osiągnięć, nagroda dnia.
+- 9 typów poziomów (skalista rafa, archipelag, kanał, prąd, gorączka złota, wyścig z czasem, ławica piranii, starcie z bestią…) plus Wielki Finał, 7 rodzajów przeciwników, złote i niebieskie ryby, combo do x5.
+- 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 43 osiągnięcia, nagroda dnia.
 - Ranking: ekran „SOON”. Punkty rankingowe = suma najlepszych wyników z każdego poziomu.
 
 ## Ochrona wyników

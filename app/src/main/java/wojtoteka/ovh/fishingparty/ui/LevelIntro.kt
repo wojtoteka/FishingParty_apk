@@ -18,6 +18,7 @@ import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
+import wojtoteka.ovh.fishingparty.level.LevelType
 
 /** Karta poziomu przed startem: typ, cele na gwiazdki i wybór wzmocnień. */
 @Composable
@@ -30,17 +31,20 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
     val worldNames = stringArrayResource(R.array.world_names)
     val selected = remember(level) { mutableStateListOf<PowerUp>() }
     val earned = progress.stars(level)
+    val finale = spec.type == LevelType.FINALE
 
     Overlay(onDismiss = onClose) {
         Box(Modifier.fillMaxWidth()) {
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                PixelText(stringResource(R.string.level_n, level), size = 5)
-                PixelText(worldNames[spec.world], size = 1, color = Pal.Foam)
+                // Czterocyfrowy numer finału w pełnym rozmiarze wchodziłby na przycisk zamknięcia.
+                PixelText(stringResource(R.string.level_n, level), size = if (finale) 4 else 5, color = if (finale) Pal.Gold else Pal.White)
+                if (finale) PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
+                else PixelText(worldNames[spec.world], size = 1, color = Pal.Foam)
             }
         }
         VSpace(6)
-        DarkCard(Modifier.fillMaxWidth()) {
+        DarkCard(Modifier.fillMaxWidth(), highlight = finale) {
             Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelText(typeName(spec.type), size = 3, color = Pal.Gold)
                 VSpace(2)

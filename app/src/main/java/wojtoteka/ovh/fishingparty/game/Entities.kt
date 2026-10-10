@@ -47,7 +47,7 @@ class Popup(var x: Float, var y: Float, val value: Int, val golden: Boolean) {
     var age = 0f
 }
 
-enum class MessageKind { GO, STAGE, GATE_OPEN, FINISH_OPEN, FINISH, LAST_LIFE, SHIELD, TIME_LOW, COMBO }
+enum class MessageKind { GO, FINALE, STAGE, GATE_OPEN, FINISH_OPEN, FINISH, LAST_LIFE, SHIELD, TIME_LOW, COMBO }
 
 class GameMessage(val kind: MessageKind, val arg: Int, val arg2: Int) {
     var age = 0f

@@ -78,6 +78,10 @@ THEMES = [
     ("abyss", dict(water=(25, 30, 75), foam=(90, 220, 255), sand=(70, 45, 95), sand_light=(140, 90, 190),
                    rock=[(30, 28, 50), (55, 50, 80), (90, 85, 120)], wall=(0.55, 0.5, 0.75),
                    wood=(0.55, 0.5, 0.7), crab=(120, 255, 200))),
+    # Tylko poziom 1000 (Wielki Finał): królewska woda, złoty piasek i złote skały.
+    ("legend", dict(water=(55, 25, 120), foam=(255, 225, 120), sand=(255, 205, 50), sand_light=(255, 245, 170),
+                    rock=[(150, 95, 0), (210, 150, 20), (255, 215, 80)], wall=(1.15, 1.0, 0.55),
+                    wood=(1.0, 0.85, 0.6), crab=(255, 70, 70))),
 ]
 
 

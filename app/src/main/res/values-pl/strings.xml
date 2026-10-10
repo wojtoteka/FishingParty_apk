@@ -44,6 +44,12 @@
     <string name="type_swarm_desc">Wszędzie piranie, ale potrzeba mniej ryb.</string>
     <string name="type_boss">STARCIE Z BESTIĄ</string>
     <string name="type_boss_desc">Ostatni poziom tego świata. Uważaj!</string>
+    <string name="type_finale">WIELKI FINAŁ</string>
+    <string name="type_finale_desc">Poziom 1000! Siedem etapów przez siedem światów i wszystkie morskie potwory naraz.</string>
+    <string name="finale_subtitle">OSTATNI POZIOM GRY</string>
+    <string name="finale_win">WIELKI FINAŁ UKOŃCZONY!</string>
+    <string name="finale_win_text">Wszystkie 1000 poziomów ukończone. Dziękujemy za grę!</string>
+    <string name="finale_bonus">BONUS ZA FINAŁ</string>
     <string name="goal_finish">Dopłyń do mety</string>
     <string name="goal_no_damage">Nie strać życia</string>
     <string name="goal_all_fish">Złów wszystkie ryby</string>
@@ -158,7 +164,11 @@
     <string name="ach_level_350">Admirał</string>
     <string name="ach_level_350_desc">Ukończ 350 poziomów</string>
     <string name="ach_level_500">Władca mórz</string>
-    <string name="ach_level_500_desc">Ukończ wszystkie 500 poziomów</string>
+    <string name="ach_level_500_desc">Ukończ 500 poziomów</string>
+    <string name="ach_level_750">Admirał floty</string>
+    <string name="ach_level_750_desc">Ukończ 750 poziomów</string>
+    <string name="ach_level_1000">Żywa legenda</string>
+    <string name="ach_level_1000_desc">Pokonaj Wielki Finał – poziom 1000</string>
     <string name="ach_stars_15">Błysk</string>
     <string name="ach_stars_15_desc">Zbierz 15 gwiazdek</string>
     <string name="ach_stars_75">Łowca gwiazd</string>
@@ -168,7 +178,9 @@
     <string name="ach_stars_750">Galaktyka</string>
     <string name="ach_stars_750_desc">Zbierz 750 gwiazdek</string>
     <string name="ach_stars_1500">Perfekcjonista</string>
-    <string name="ach_stars_1500_desc">Zbierz wszystkie 1500 gwiazdek</string>
+    <string name="ach_stars_1500_desc">Zbierz 1500 gwiazdek</string>
+    <string name="ach_stars_3000">Mistrz gwiazd</string>
+    <string name="ach_stars_3000_desc">Zbierz wszystkie 3000 gwiazdek</string>
     <string name="ach_perfect_1">Bez skazy</string>
     <string name="ach_perfect_1_desc">Zdobądź 3 gwiazdki na poziomie</string>
     <string name="ach_perfect_25">Precyzja</string>
@@ -224,6 +236,26 @@
         <item>Wody Gwiazd</item>
         <item>Piaski Mirażu</item>
         <item>Głębia Krakena</item>
+        <item>Żółwie Mielizny</item>
+        <item>Perłowa Zatoka</item>
+        <item>Przylądek Burz</item>
+        <item>Cieśnina Zórz</item>
+        <item>Trzcinowa Delta</item>
+        <item>Obsydianowa Zatoka</item>
+        <item>Las Wodorostów</item>
+        <item>Wody Latarni</item>
+        <item>Laguna Wydm</item>
+        <item>Rów Cieni</item>
+        <item>Zatoka Przemytników</item>
+        <item>Wybrzeże Muszelek</item>
+        <item>Szafranowe Morze</item>
+        <item>Aleja Gór Lodowych</item>
+        <item>Żabie Moczary</item>
+        <item>Lawowa Rafa</item>
+        <item>Laguna Świateł</item>
+        <item>Zatoka Księżyca</item>
+        <item>Złote Piaski</item>
+        <item>Ostatnia Głębia</item>
     </string-array>
     <plurals name="hud_go">
         <item quantity="one">ZŁÓW %d RYBĘ, BY OTWORZYĆ BRAMĘ</item>
@@ -317,7 +349,7 @@
     <string name="tutorial_badge">SAMOUCZEK</string>
     <string name="tutorial_welcome_title">WITAJ NA POKŁADZIE!</string>
     <string name="tutorial_welcome_text">Krok po kroku pokażemy ci, jak sterować łodzią, łowić ryby i omijać potwory. To tylko trening – w razie porażki po prostu spróbujesz jeszcze raz.</string>
-    <string name="tutorial_welcome_after">Potem trafisz do menu: mapa 500 poziomów, sklep, odznaki i codzienna passa. Samouczek możesz powtórzyć w ustawieniach.</string>
+    <string name="tutorial_welcome_after">Potem trafisz do menu: mapa 1000 poziomów, sklep, odznaki i codzienna passa. Samouczek możesz powtórzyć w ustawieniach.</string>
     <string name="tutorial_start">ZACZYNAMY!</string>
     <string name="tutorial_skip">POMIŃ SAMOUCZEK</string>
     <string name="tut_step">SAMOUCZEK · KROK %1$d/%2$d</string>

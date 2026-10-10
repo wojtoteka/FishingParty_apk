@@ -249,6 +249,9 @@ object SaveCodec {
                 d.streakStartDay = d.streakLastDay - d.streak + 1
             }
         }
+        // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.
+        val unlocked = d.unlocked.get().toInt().coerceIn(1, LevelConstants.LEVEL_COUNT)
+        if (unlocked < LevelConstants.LEVEL_COUNT && d.stars[unlocked - 1] > 0) d.unlocked.set(unlocked + 1L)
         return d
     }
 

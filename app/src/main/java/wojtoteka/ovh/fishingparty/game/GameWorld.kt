@@ -145,7 +145,9 @@ class GameWorld(
         spawnStage(0, fadeIn = 1.6f)
         flushSpawns()
         stageEnter[0] = 0f
-        message = GameMessage(MessageKind.GO, stages[0].quota, 0)
+        // Wielki Finał zaczyna się od własnego napisu, polecenie łowienia pojawia się po nim.
+        message = if (spec.type == LevelType.FINALE) GameMessage(MessageKind.FINALE, 0, 0)
+        else GameMessage(MessageKind.GO, stages[0].quota, 0)
     }
 
     fun setViewport(width: Float, height: Float) {
@@ -676,7 +678,9 @@ class GameWorld(
         }
         message?.let {
             it.age += dt
-            if (it.age > MESSAGE_TIME) message = null
+            if (it.age > MESSAGE_TIME) {
+                message = if (it.kind == MessageKind.FINALE) GameMessage(MessageKind.GO, stages[0].quota, 0) else null
+            }
         }
     }
 

@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
-import wojtoteka.ovh.fishingparty.level.LevelGenerator
+import wojtoteka.ovh.fishingparty.level.Worlds
 
 enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, SETTINGS, DAILY, REPAIR }
 
@@ -51,7 +51,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
     repo.revision.intValue
     val progress = repo.progress
     val current = progress.highestUnlocked()
-    val world = LevelGenerator.worldOf(current)
+    val world = Worlds.paletteOf(current)
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val claimable = progress.claimable().size
     val daily = progress.dailyState().available

@@ -3,11 +3,16 @@ package wojtoteka.ovh.fishingparty
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import wojtoteka.ovh.fishingparty.level.EnemyKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
+import wojtoteka.ovh.fishingparty.level.SecondGoal
+import wojtoteka.ovh.fishingparty.level.ThirdGoal
 import wojtoteka.ovh.fishingparty.level.Tile
 import wojtoteka.ovh.fishingparty.level.TileGrid
+import wojtoteka.ovh.fishingparty.level.Worlds
+import java.security.MessageDigest
 
 class LevelGeneratorTest {
 
@@ -15,7 +20,7 @@ class LevelGeneratorTest {
 
     @Test
     fun generationIsDeterministic() {
-        for (n in listOf(1, 2, 37, 250, 500)) {
+        for (n in listOf(1, 2, 37, 250, 500, 501, 777, 999, 1000)) {
             val a = LevelGenerator.generate(n)
             val b = LevelGenerator.generate(n)
             assertEquals(a.grid.height, b.grid.height)
@@ -117,8 +122,87 @@ class LevelGeneratorTest {
         val early = (2..50).sumOf { LevelGenerator.plan(it).enemyCount } / 49f
         val late = (451..500).sumOf { LevelGenerator.plan(it).enemyCount } / 50f
         assertTrue("trudność nie rośnie: $early vs $late", late > early * 2)
+        // Druga wyprawa (501–999) jest jeszcze trudniejsza od końca pierwszej.
+        val second = (950..999).sumOf { LevelGenerator.plan(it).enemyCount } / 50f
+        assertTrue("druga wyprawa nie jest trudniejsza: $late vs $second", second > late)
         for (n in 1..LevelConstants.LEVEL_COUNT) {
             if (LevelGenerator.isBoss(n)) assertEquals(LevelType.BOSS, LevelGenerator.typeOf(n))
+            if (n != LevelConstants.LEVEL_COUNT) assertTrue(LevelGenerator.typeOf(n) != LevelType.FINALE)
         }
+        assertEquals(LevelType.FINALE, LevelGenerator.typeOf(LevelConstants.LEVEL_COUNT))
+    }
+
+    @Test
+    fun laterLevelsStayFair() {
+        for (n in 501..LevelConstants.LEVEL_COUNT) {
+            val spec = LevelGenerator.plan(n).spec
+            assertTrue("poziom $n: combo ${spec.comboTarget}", spec.comboTarget <= LevelConstants.MAX_COMBO)
+            // Łódź (72 j/s) musi być szybsza od rekina i od prądu.
+            assertTrue("poziom $n: potwory ${spec.enemySpeed}", spec.enemySpeed < 1.45f)
+            assertTrue("poziom $n: prąd", kotlin.math.abs(spec.currentX) + kotlin.math.abs(spec.currentY) < 30f)
+        }
+    }
+
+    @Test
+    fun grandFinaleIsSpecial() {
+        val plan = LevelGenerator.plan(LevelConstants.LEVEL_COUNT)
+        assertEquals(LevelType.FINALE, plan.spec.type)
+        assertTrue(LevelGenerator.isFinale(LevelConstants.LEVEL_COUNT))
+        assertEquals(SecondGoal.NO_DAMAGE, plan.spec.secondGoal)
+        assertEquals(ThirdGoal.ALL_GOLDEN, plan.spec.thirdGoal)
+        // Najdłuższy poziom gry: każdy etap w innym świecie.
+        assertEquals(Worlds.FINALE_STAGE_WORLDS.size, plan.stages.size)
+        assertEquals(Worlds.FINALE_STAGE_WORLDS.size, Worlds.FINALE_STAGE_WORLDS.distinct().size)
+        val longest = (1 until LevelConstants.LEVEL_COUNT).maxOf { LevelGenerator.plan(it).stages.size }
+        assertTrue(plan.stages.size >= longest)
+        // Wszystkie potwory oceanu i złote ryby w każdym etapie.
+        assertEquals(EnemyKind.entries.toSet(), plan.stages.flatMap { it.enemies }.toSet())
+        assertTrue(plan.stages.all { it.golden > 0 })
+        assertTrue(plan.stages.all { it.common + it.blue >= it.quota })
+        assertTrue(plan.stages.any { it.wideBanks })
+        // Plan finału jest stały – za każdym razem ta sama plansza.
+        val again = LevelGenerator.generate(LevelConstants.LEVEL_COUNT)
+        val first = all.last()
+        assertEquals(first.grid.height, again.grid.height)
+        assertEquals(first.stages.map { it.enemies.size }, again.stages.map { it.enemies.size })
+    }
+
+    /**
+     * Rozszerzenie gry do 1000 poziomów nie mogło zmienić pierwszych 500: gracze mają
+     * na nich rekordy i gwiazdki. Odcisk policzony na wersji sprzed rozszerzenia.
+     */
+    @Test
+    fun firstVoyageLevelsAreUnchanged() {
+        assertEquals(FIRST_VOYAGE_FINGERPRINT, fingerprint(1..LevelConstants.FIRST_VOYAGE_LEVELS))
+    }
+
+    private fun fingerprint(range: IntRange): String {
+        val md = MessageDigest.getInstance("SHA-256")
+        fun put(v: Any) = md.update(v.toString().toByteArray())
+        for (n in range) {
+            val plan = LevelGenerator.plan(n)
+            val sp = plan.spec
+            put("L$n|${sp.type}|${sp.seed}|${sp.secondGoal}|${sp.thirdGoal}|${sp.parSeconds}|${sp.timeLimitSeconds}|")
+            put("${sp.scoreTarget}|${sp.comboTarget}|${sp.enemySpeed.toBits()}|${sp.currentX.toBits()}|${sp.currentY.toBits()}|${sp.world}|")
+            for (st in plan.stages) {
+                put("S${st.rows},${st.quota},${st.common},${st.blue},${st.golden},${st.enemies},${st.rocks},${st.islands},${st.doorCenter},${st.wideBanks}|")
+            }
+            val layout = all[n - 1]
+            val g = layout.grid
+            for (r in 0 until g.height) for (c in 0 until g.width) put(g[c, r].ordinal)
+            put(g.waves.joinToString("") { if (it) "1" else "0" })
+            for (st in layout.stages) {
+                put("G${st.gateRow},${st.topRow},${st.bottomRow},${st.doorCols},${st.quota},${st.reachable.contentHashCode()}|")
+                for (f in st.fish) put("f${f.kind}${f.col},${f.row}")
+                for (f in st.golden) put("g${f.delaySeconds}${f.col},${f.row}")
+                for (e in st.enemies) put("e${e.kind}${e.col},${e.row}")
+            }
+            put("c${layout.crabs}s${layout.startCol},${layout.startRow}")
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    private companion object {
+        const val FIRST_VOYAGE_FINGERPRINT = "8a85a72a69b121fbe8daaf20a8b1e08ac7c6977e2af8ecf4dc9a8495ecb16271"
     }
 }

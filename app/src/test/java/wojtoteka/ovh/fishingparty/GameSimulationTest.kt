@@ -8,10 +8,12 @@ import wojtoteka.ovh.fishingparty.game.GameListener
 import wojtoteka.ovh.fishingparty.game.GameWorld
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
+import wojtoteka.ovh.fishingparty.game.MessageKind
 import wojtoteka.ovh.fishingparty.game.Phase
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import wojtoteka.ovh.fishingparty.game.TutorialStep
+import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelLayout
@@ -179,6 +181,31 @@ class GameSimulationTest {
             val (result, world) = play(n)
             assertTrue("poziom $n nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
         }
+    }
+
+    @Test
+    fun botCompletesSecondVoyage() {
+        for (n in listOf(501, 502, 525, 550, 600, 650, 700, 725, 750, 800, 850, 875, 900, 950, 975, 990, 998, 999)) {
+            val (result, world) = play(n)
+            assertTrue("poziom $n nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            assertTrue("poziom $n: wynik niewiarygodny", ScoreValidator.isPlausible(LevelGenerator.plan(n), result!!))
+        }
+    }
+
+    @Test
+    fun botCompletesGrandFinale() {
+        val n = LevelConstants.LEVEL_COUNT
+        val messages = ArrayList<MessageKind>()
+        val (result, world) = play(LevelGenerator.generate(n), tutorial = false) { w ->
+            w.message?.kind?.let { if (messages.lastOrNull() != it) messages += it }
+        }
+        assertTrue("finał nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+        assertEquals(Phase.WON, world.phase)
+        assertEquals(world.stages.size, result!!.stagesCleared)
+        assertTrue(ScoreValidator.isPlausible(LevelGenerator.plan(n), result))
+        // Najpierw napis Wielkiego Finału, potem zwykłe polecenie łowienia.
+        assertEquals(listOf(MessageKind.FINALE, MessageKind.GO), messages.take(2))
+        assertTrue(MessageKind.STAGE in messages)
     }
 
     @Test

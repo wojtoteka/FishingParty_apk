@@ -18,6 +18,8 @@ class Reward(
     /** Passa po tym przejeździe, jeśli właśnie została przedłużona (0 = bez zmian). */
     val streakDays: Int = 0,
     val trophies: Int = 0,
+    /** Jednorazowa nagroda za pierwsze ukończenie Wielkiego Finału (już wliczona w [coins]). */
+    val finaleBonus: Int = 0,
 )
 
 /**
@@ -81,6 +83,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         var newBest = false
         var streakDays = 0
         var trophies = 0
+        var finaleBonus = 0
         if (result.completed) {
             if (extendStreak()) {
                 streakDays = save.streak
@@ -89,9 +92,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
             }
             save.levelWins++
             if (result.hits == 0) save.noHitWins++
-            if (plan.spec.type == LevelType.BOSS) save.bossWins++
+            if (plan.spec.type == LevelType.BOSS || plan.spec.type == LevelType.FINALE) save.bossWins++
             if (result.timeMillis <= plan.spec.parSeconds * 500L) save.speedWins++
             val previousStars = stars(level)
+            if (plan.spec.type == LevelType.FINALE && previousStars == 0) finaleBonus = FINALE_BONUS
             if (result.stars > previousStars) {
                 newStars = result.stars - previousStars
                 save.stars[level - 1] = result.stars.toByte()
@@ -111,9 +115,9 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         }
         val coins = Scoring.coinsFor(
             result.commonCaught, result.blueCaught, result.goldenCaught, result.completed, plan.spec.world, newStars,
-        )
+        ) + finaleBonus
         addCoins(coins.toLong())
-        return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies)
+        return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies, finaleBonus)
     }
 
     // ------------------------------------------------------------ passa
@@ -353,5 +357,8 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
 
     companion object {
         private const val CLOCK_TOLERANCE = 2 * 60 * 60 * 1000L
+
+        /** Monety za pierwsze ukończenie poziomu 1000. */
+        const val FINALE_BONUS = 5000
     }
 }

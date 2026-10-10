@@ -26,6 +26,7 @@ fun typeName(type: LevelType): String = stringResource(
         LevelType.TIME_ATTACK -> R.string.type_time_attack
         LevelType.SWARM -> R.string.type_swarm
         LevelType.BOSS -> R.string.type_boss
+        LevelType.FINALE -> R.string.type_finale
     },
 )
 
@@ -41,6 +42,7 @@ fun typeDescription(type: LevelType): String = stringResource(
         LevelType.TIME_ATTACK -> R.string.type_time_attack_desc
         LevelType.SWARM -> R.string.type_swarm_desc
         LevelType.BOSS -> R.string.type_boss_desc
+        LevelType.FINALE -> R.string.type_finale_desc
     },
 )
 
@@ -135,11 +137,14 @@ private val ACHIEVEMENT_TEXTS: Map<String, Pair<Int, Int>> = mapOf(
     "level_200" to (R.string.ach_level_200 to R.string.ach_level_200_desc),
     "level_350" to (R.string.ach_level_350 to R.string.ach_level_350_desc),
     "level_500" to (R.string.ach_level_500 to R.string.ach_level_500_desc),
+    "level_750" to (R.string.ach_level_750 to R.string.ach_level_750_desc),
+    "level_1000" to (R.string.ach_level_1000 to R.string.ach_level_1000_desc),
     "stars_15" to (R.string.ach_stars_15 to R.string.ach_stars_15_desc),
     "stars_75" to (R.string.ach_stars_75 to R.string.ach_stars_75_desc),
     "stars_300" to (R.string.ach_stars_300 to R.string.ach_stars_300_desc),
     "stars_750" to (R.string.ach_stars_750 to R.string.ach_stars_750_desc),
     "stars_1500" to (R.string.ach_stars_1500 to R.string.ach_stars_1500_desc),
+    "stars_3000" to (R.string.ach_stars_3000 to R.string.ach_stars_3000_desc),
     "perfect_1" to (R.string.ach_perfect_1 to R.string.ach_perfect_1_desc),
     "perfect_25" to (R.string.ach_perfect_25 to R.string.ach_perfect_25_desc),
     "perfect_100" to (R.string.ach_perfect_100 to R.string.ach_perfect_100_desc),

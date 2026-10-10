@@ -40,6 +40,7 @@ import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,7 +63,9 @@ import wojtoteka.ovh.fishingparty.game.TouchStick
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
+import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
+import wojtoteka.ovh.fishingparty.level.Worlds
 import kotlin.math.atan2
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -128,6 +131,8 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
         }
     }
 
+    val worldNames = stringArrayResource(R.array.world_names)
+    val finale = plan.spec.type == LevelType.FINALE
     val hud = HudStrings(
         go = pluralStringResource(R.plurals.hud_go, layout.stages[0].quota, layout.stages[0].quota),
         stage = stringResource(R.string.hud_stage),
@@ -139,6 +144,8 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
         timeLow = stringResource(R.string.hud_time_low),
         combo = stringResource(R.string.hud_combo),
         tutorial = stringResource(R.string.hud_tutorial),
+        finale = stringResource(R.string.type_finale),
+        finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
     )
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val renderer = remember(attempt) { GameRenderer(hud, look) }
@@ -299,6 +306,7 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
 @Composable
 private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (GameExit) -> Unit) {
     val audio = LocalServices.current.audio
+    val finale = LevelGenerator.isFinale(level)
     var shownStars by remember { mutableIntStateOf(0) }
     var shownScore by remember { mutableIntStateOf(0) }
     LaunchedEffect(result) {
@@ -317,8 +325,32 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
         if ((reward?.coins ?: 0) > 0) audio.play(Sfx.COIN)
     }
     Overlay {
-        PixelText(stringResource(R.string.result_win), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        PixelText(
+            stringResource(if (finale) R.string.finale_win else R.string.result_win),
+            size = 4,
+            color = Pal.Gold,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         PixelText(stringResource(R.string.level_n, level), size = 2, color = Pal.Outline, outline = null)
+        if (finale) {
+            // Koniec gry: złote ryby wokół podziękowania.
+            VSpace(4)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Plate(pad = 1) { SpriteImage("fishgold1", 3) }
+                HSpace(3)
+                PixelText(
+                    stringResource(R.string.finale_win_text),
+                    size = 2,
+                    color = Pal.WoodDark,
+                    outline = null,
+                    align = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                HSpace(3)
+                Plate(pad = 1) { SpriteImage("fishgold2", 3) }
+            }
+        }
         VSpace(6)
         Plate { StarRow(shownStars, scale = 4, gap = 4) }
         VSpace(6)
@@ -328,10 +360,14 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             PixelText(stringResource(R.string.result_new_best), size = 2, color = Pal.Red)
         }
         VSpace(5)
-        if (reward != null && (reward.coins > 0 || reward.streakDays > 0)) {
+        if (reward != null && reward.finaleBonus > 0) {
+            RewardTile(stringResource(R.string.finale_bonus), reward.finaleBonus, "fishscore_gold", Pal.Gold, Modifier.fillMaxWidth())
+            VSpace(4)
+        }
+        if (reward != null && (reward.coins - reward.finaleBonus > 0 || reward.streakDays > 0)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-                if (reward.coins > 0) {
-                    RewardTile(stringResource(R.string.result_coins), reward.coins, "fishscore_gold", Pal.Gold, Modifier.weight(1f))
+                if (reward.coins - reward.finaleBonus > 0) {
+                    RewardTile(stringResource(R.string.result_coins), reward.coins - reward.finaleBonus, "fishscore_gold", Pal.Gold, Modifier.weight(1f))
                 }
                 if (reward.streakDays > 0) {
                     RewardTile(

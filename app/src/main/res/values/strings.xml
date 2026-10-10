@@ -45,6 +45,12 @@
     <string name="type_swarm_desc">Piranhas everywhere, but you need fewer fish.</string>
     <string name="type_boss">BEAST BATTLE</string>
     <string name="type_boss_desc">The last level of this world. Watch out!</string>
+    <string name="type_finale">GRAND FINALE</string>
+    <string name="type_finale_desc">Level 1000! Seven stages through seven worlds and every sea monster at once.</string>
+    <string name="finale_subtitle">THE LAST LEVEL OF THE GAME</string>
+    <string name="finale_win">GRAND FINALE COMPLETE!</string>
+    <string name="finale_win_text">All 1000 levels are done. Thank you for playing!</string>
+    <string name="finale_bonus">FINALE BONUS</string>
     <string name="goal_finish">Reach the finish</string>
     <string name="goal_no_damage">Don\'t lose a life</string>
     <string name="goal_all_fish">Catch every fish</string>
@@ -159,7 +165,11 @@
     <string name="ach_level_350">Admiral</string>
     <string name="ach_level_350_desc">Complete 350 levels</string>
     <string name="ach_level_500">Ruler of the Seas</string>
-    <string name="ach_level_500_desc">Complete all 500 levels</string>
+    <string name="ach_level_500_desc">Complete 500 levels</string>
+    <string name="ach_level_750">Fleet Admiral</string>
+    <string name="ach_level_750_desc">Complete 750 levels</string>
+    <string name="ach_level_1000">Living Legend</string>
+    <string name="ach_level_1000_desc">Beat the Grand Finale – level 1000</string>
     <string name="ach_stars_15">Shining</string>
     <string name="ach_stars_15_desc">Collect 15 stars</string>
     <string name="ach_stars_75">Star Catcher</string>
@@ -169,7 +179,9 @@
     <string name="ach_stars_750">Galaxy</string>
     <string name="ach_stars_750_desc">Collect 750 stars</string>
     <string name="ach_stars_1500">Perfectionist</string>
-    <string name="ach_stars_1500_desc">Collect all 1500 stars</string>
+    <string name="ach_stars_1500_desc">Collect 1500 stars</string>
+    <string name="ach_stars_3000">Master of Stars</string>
+    <string name="ach_stars_3000_desc">Collect all 3000 stars</string>
     <string name="ach_perfect_1">Flawless</string>
     <string name="ach_perfect_1_desc">Get 3 stars on a level</string>
     <string name="ach_perfect_25">Precision</string>
@@ -225,6 +237,26 @@
         <item>Starlit Waters</item>
         <item>Mirage Sands</item>
         <item>Kraken\'s Deep</item>
+        <item>Turtle Shoals</item>
+        <item>Pearl Gulf</item>
+        <item>Storm Cape</item>
+        <item>Aurora Sound</item>
+        <item>Reed Delta</item>
+        <item>Obsidian Bay</item>
+        <item>Kelp Forest</item>
+        <item>Lantern Waters</item>
+        <item>Dune Lagoon</item>
+        <item>Shadow Trench</item>
+        <item>Smugglers\' Inlet</item>
+        <item>Seashell Coast</item>
+        <item>Saffron Sea</item>
+        <item>Iceberg Alley</item>
+        <item>Frog Marsh</item>
+        <item>Lava Reef</item>
+        <item>Lagoon of Lights</item>
+        <item>Moonlit Bay</item>
+        <item>Golden Sands</item>
+        <item>The Last Deep</item>
     </string-array>
     <plurals name="hud_go">
         <item quantity="one">CATCH %d FISH TO OPEN THE GATE</item>
@@ -312,7 +344,7 @@
     <string name="tutorial_badge">TUTORIAL</string>
     <string name="tutorial_welcome_title">WELCOME ABOARD!</string>
     <string name="tutorial_welcome_text">Step by step we will show you how to steer your boat, catch fish and avoid monsters. It is only practice – if it goes wrong, just try again.</string>
-    <string name="tutorial_welcome_after">Then you will reach the menu: a map of 500 levels, the shop, badges and a daily streak. You can replay the tutorial in the settings.</string>
+    <string name="tutorial_welcome_after">Then you will reach the menu: a map of 1000 levels, the shop, badges and a daily streak. You can replay the tutorial in the settings.</string>
     <string name="tutorial_start">LET\'S GO!</string>
     <string name="tutorial_skip">SKIP TUTORIAL</string>
     <string name="tut_step">TUTORIAL · STEP %1$d/%2$d</string>
