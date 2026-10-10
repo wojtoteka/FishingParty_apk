@@ -255,14 +255,27 @@
 
     <!-- Powiadomienia -->
     <string name="notif_channel">Przypomnienia o passie</string>
-    <string name="notif_channel_desc">Przypomnienie, gdy twoja passa zaraz się skończy</string>
-    <string name="notif_title">Twoja passa jest zagrożona!</string>
-    <plurals name="notif_text">
-        <item quantity="one">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dzień).</item>
-        <item quantity="few">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dni).</item>
-        <item quantity="many">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dni).</item>
-        <item quantity="other">Ukończ dziś jeden poziom, żeby nie stracić passy (%d dnia).</item>
+    <string name="notif_channel_desc">Kilka przypomnień wieczorem, gdy passa nie jest jeszcze zaliczona (najwyżej 3 dziennie)</string>
+    <plurals name="notif_days">
+        <item quantity="one">%d dzień</item>
+        <item quantity="few">%d dni</item>
+        <item quantity="many">%d dni</item>
+        <item quantity="other">%d dnia</item>
     </plurals>
+    <string name="notif_first_title_1">🔥 Passa: %s – nie przerywaj jej!</string>
+    <string name="notif_first_text_1">🎣 Ukończ dziś jeden poziom i zgarnij +%2$d 🏆. Twoja passa: %1$s.</string>
+    <string name="notif_first_title_2">🎣 Ryby dziś biorą!</string>
+    <string name="notif_first_text_2">Jeden poziom wystarczy, żeby passa (%1$s) trwała dalej 🔥 Czeka +%2$d 🏆</string>
+    <string name="notif_first_title_3">⚓ Kapitanie, morze wzywa!</string>
+    <string name="notif_first_text_3">🐟 Twoja passa (%1$s) czeka na dzisiejszy rejs. Za ukończony poziom +%2$d 🏆</string>
+    <string name="notif_week_title">🏆 Dziś najcenniejszy dzień tygodnia passy!</string>
+    <string name="notif_week_text">🔥 Ukończ poziom i zgarnij aż +%d trofeów!</string>
+    <string name="notif_second_title">⏳ Passa jeszcze niezaliczona</string>
+    <string name="notif_second_text">🐠 Wieczór trwa – jeden poziom i passa (%s) jest bezpieczna.</string>
+    <string name="notif_last_title">⏰ Ostatnia szansa na dziś!</string>
+    <string name="notif_last_text">😱 Do północy niewiele czasu – nie pozwól, by passa (%s) przepadła! 🔥</string>
+    <string name="notif_repair_title">💔 Twoja passa została przerwana</string>
+    <string name="notif_repair_text">🛟 Passę (%s) możesz jeszcze odzyskać w grze – zajrzyj, zanim przepadnie!</string>
 
     <!-- Język i nowe elementy interfejsu -->
     <string name="set_language">JĘZYK</string>
@@ -271,4 +284,34 @@
     <string name="main_menu">MENU</string>
     <string name="result_coins">MONETY</string>
     <string name="streak_week">TYDZIEŃ %d</string>
+    <string name="streak_broken">PASSA PRZERWANA!</string>
+    <string name="streak_lost">POPRZEDNIA PASSA PRZEPADŁA – ZACZNIJ NOWĄ</string>
+    <string name="streak_repair">ODZYSKAJ</string>
+    <string name="repair_title">ODZYSKAJ PASSĘ</string>
+    <plurals name="repair_missed">
+        <item quantity="one">OPUSZCZONO %d DZIEŃ</item>
+        <item quantity="few">OPUSZCZONO %d DNI</item>
+        <item quantity="many">OPUSZCZONO %d DNI</item>
+        <item quantity="other">OPUSZCZONO %d DNIA</item>
+    </plurals>
+    <string name="repair_info">Zapłać złotymi rybkami, a passa trwa dalej. Potem wystarczy ukończyć dziś poziom.</string>
+    <string name="repair_month">NAPRAWY W TYM MIESIĄCU PASSY</string>
+    <string name="repair_rules">Każda kolejna naprawa w miesiącu jest droższa. Po 5 naprawach przerwana passa przepada. Licznik zeruje się co miesiąc od dnia rozpoczęcia passy.</string>
+    <string name="repair_reset">LICZNIK ZERUJE SIĘ: %s</string>
+    <string name="repair_later">PÓŹNIEJ</string>
+    <string name="repair_done">PASSA ODZYSKANA!</string>
+    <string name="set_section_sound">DŹWIĘK</string>
+    <string name="set_section_notif">POWIADOMIENIA</string>
+    <string name="set_section_game">GRA</string>
+    <string name="set_section_stats">STATYSTYKI</string>
+    <string name="set_section_about">O GRZE</string>
+    <string name="set_reminders">PRZYPOMNIENIA O PASSIE</string>
+    <string name="set_reminder_hour">PIERWSZE PRZYPOMNIENIE</string>
+    <string name="set_reminder_info">Najwyżej 3 dziennie i tylko wtedy, gdy passa nie jest jeszcze zaliczona. Ostatnie o 22:00.</string>
+    <string name="set_notif_blocked">POWIADOMIENIA SĄ ZABLOKOWANE W TELEFONIE</string>
+    <string name="set_notif_enable">WŁĄCZ</string>
+    <string name="set_keep_screen">EKRAN ZAWSZE WŁĄCZONY</string>
+    <string name="set_tutorial">POWTÓRZ SAMOUCZEK</string>
+    <string name="stat_repairs">NAPRAWY PASSY</string>
+    <string name="stat_wins">WYGRANE POZIOMY</string>
 </resources>

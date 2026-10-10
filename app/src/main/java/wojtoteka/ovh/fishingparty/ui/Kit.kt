@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -268,6 +270,9 @@ fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline
     if (shadow > 0f) drawRect(dark, Offset(u, h - u - shadow * u), Size(w - 2 * u, shadow * u))
 }
 
+/** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
+const val MIN_BUTTON = 32
+
 @Composable
 fun PixelButton(
     text: String,
@@ -292,7 +297,10 @@ fun PixelButton(
                 if (sound) services.audio.play(Sfx.CLICK)
                 onClick()
             }
-            .padding(horizontal = px(6), vertical = px(4))
+            // Minimalny rozmiar – nawet przycisk z małym napisem jest wygodny do trafienia palcem.
+            .heightIn(min = px(MIN_BUTTON))
+            .widthIn(min = px(MIN_BUTTON))
+            .padding(horizontal = px(7), vertical = px(5))
             .offset { IntOffset(0, if (pressed) u.toInt() else -u.toInt()) },
         contentAlignment = Alignment.Center,
     ) {

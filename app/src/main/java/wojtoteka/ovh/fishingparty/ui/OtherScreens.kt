@@ -30,6 +30,13 @@ import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import android.app.Activity
+import android.content.Intent
+import android.provider.Settings
+import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import wojtoteka.ovh.fishingparty.MainActivity
+import wojtoteka.ovh.fishingparty.notify.StreakReminder
+import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.res.Resources
@@ -213,11 +220,13 @@ private fun StatRow(label: String, value: String) {
 }
 
 @Composable
-fun SettingsScreen(onBack: () -> Unit) {
+fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
     val save = repo.save
+    val progress = repo.progress
+    val context = LocalContext.current
     var confirmReset by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         ScreenFrame(stringResource(R.string.settings_title), onBack) {
@@ -225,45 +234,120 @@ fun SettingsScreen(onBack: () -> Unit) {
                 Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(px(10)),
+                    .windowInsetsPadding(WindowInsets.navigationBars)
+                    .padding(horizontal = px(10), vertical = px(6)),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(px(5)),
+                verticalArrangement = Arrangement.spacedBy(px(4)),
             ) {
-                Toggle(stringResource(R.string.set_music), save.music) {
-                    save.music = it
-                    services.audio.musicEnabled = it
-                    repo.changed()
+                SettingsSection(stringResource(R.string.set_section_sound)) {
+                    ToggleRow(stringResource(R.string.set_music), save.music) {
+                        save.music = it
+                        services.audio.musicEnabled = it
+                        repo.changed()
+                    }
+                    ToggleRow(stringResource(R.string.set_sounds), save.sfx) {
+                        save.sfx = it
+                        services.audio.sfxEnabled = it
+                        repo.changed()
+                    }
+                    ToggleRow(stringResource(R.string.set_vibration), save.vibration) {
+                        save.vibration = it
+                        services.audio.vibrationEnabled = it
+                        if (it) services.audio.vibrate(40)
+                        repo.changed()
+                    }
                 }
-                Toggle(stringResource(R.string.set_sounds), save.sfx) {
-                    save.sfx = it
-                    services.audio.sfxEnabled = it
-                    repo.changed()
+
+                SettingsSection(stringResource(R.string.set_section_notif)) {
+                    ToggleRow(stringResource(R.string.set_reminders), save.streakReminders) {
+                        save.streakReminders = it
+                        if (!it) StreakReminder.cancel(context)
+                        repo.changed()
+                    }
+                    if (save.streakReminders) {
+                        VSpace(4)
+                        PixelText(
+                            stringResource(R.string.set_reminder_hour) + ": %02d:00".format(save.reminderHour),
+                            size = 2,
+                            color = Pal.Foam,
+                        )
+                        VSpace(3)
+                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                            for (hour in StreakReminderSlots.HOURS) {
+                                PixelButton(
+                                    hour.toString(),
+                                    onClick = {
+                                        save.reminderHour = hour
+                                        repo.changed()
+                                    },
+                                    style = if (hour == save.reminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
+                                    modifier = Modifier.weight(1f),
+                                )
+                            }
+                        }
+                        VSpace(3)
+                        PixelText(
+                            stringResource(R.string.set_reminder_info),
+                            size = 1,
+                            color = Pal.SeaLight,
+                            align = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        NotificationsBlockedNotice()
+                    }
                 }
-                Toggle(stringResource(R.string.set_vibration), save.vibration) {
-                    save.vibration = it
-                    services.audio.vibrationEnabled = it
-                    if (it) services.audio.vibrate(40)
-                    repo.changed()
+
+                SettingsSection(stringResource(R.string.set_section_game)) {
+                    ToggleRow(stringResource(R.string.set_keep_screen), save.keepScreenOn) {
+                        save.keepScreenOn = it
+                        repo.changed()
+                        (context.findActivity() as? MainActivity)?.applyKeepScreenOn()
+                    }
+                    VSpace(4)
+                    PixelButton(
+                        stringResource(R.string.set_tutorial),
+                        onClick = onTutorial,
+                        style = ButtonStyle.SEA,
+                        size = 2,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                 }
-                VSpace(4)
+
                 LanguagePicker()
-                VSpace(10)
+
+                SettingsSection(stringResource(R.string.set_section_stats)) {
+                    StatRow(stringResource(R.string.stat_levels), "${progress.completedLevels()}/${LevelConstants.LEVEL_COUNT}")
+                    StatRow(stringResource(R.string.stat_wins), save.levelWins.toString())
+                    StatRow(stringResource(R.string.stat_stars), "${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}")
+                    StatRow(stringResource(R.string.stat_fish), save.totalFish.get().toString())
+                    StatRow(stringResource(R.string.stat_streak), pluralStringResource(R.plurals.streak_days, save.streakBest, save.streakBest))
+                    StatRow(stringResource(R.string.stat_trophies), progress.trophies.toString())
+                    StatRow(stringResource(R.string.stat_repairs), save.repairsTotal.toString())
+                }
+
+                VSpace(4)
                 PixelButton(
                     stringResource(R.string.set_reset),
                     onClick = { confirmReset = true },
                     style = ButtonStyle.RED,
                     size = 2,
                 )
-                VSpace(10)
-                PixelText(stringResource(R.string.set_author), size = 3, color = Pal.Gold)
-                PixelText(
-                    stringResource(R.string.set_credits),
-                    size = 1,
-                    color = Pal.Foam,
-                    align = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                PixelText(stringResource(R.string.version, BuildConfig.VERSION_NAME), size = 1, color = Pal.SeaLight)
+                VSpace(6)
+                SettingsSection(stringResource(R.string.set_section_about)) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        PixelText(stringResource(R.string.set_author), size = 3, color = Pal.Gold)
+                        VSpace(2)
+                        PixelText(
+                            stringResource(R.string.set_credits),
+                            size = 1,
+                            color = Pal.Foam,
+                            align = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        PixelText(stringResource(R.string.version, BuildConfig.VERSION_NAME), size = 1, color = Pal.SeaLight)
+                    }
+                }
+                VSpace(6)
             }
         }
         if (confirmReset) {
@@ -280,6 +364,60 @@ fun SettingsScreen(onBack: () -> Unit) {
     }
 }
 
+/** Ciemna karta z nagłówkiem sekcji ustawień. */
+@Composable
+private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(320))) {
+        Column(Modifier.fillMaxWidth()) {
+            PixelText(title, size = 2, color = Pal.Gold)
+            VSpace(3)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
+        PixelText(label, size = 3, modifier = Modifier.weight(1f))
+        HSpace(4)
+        PixelButton(
+            stringResource(if (value) R.string.on else R.string.off),
+            onClick = { onChange(!value) },
+            style = if (value) ButtonStyle.GREEN else ButtonStyle.GREY,
+            size = 3,
+            modifier = Modifier.widthIn(min = px(64)),
+        )
+    }
+}
+
+/** Gdy powiadomienia są wyłączone w systemie, przypomnienia nie dotrą – dajemy skrót do ustawień telefonu. */
+@Composable
+private fun NotificationsBlockedNotice() {
+    val context = LocalContext.current
+    var enabled by remember { mutableStateOf(true) }
+    LifecycleResumeEffect(Unit) {
+        enabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+        onPauseOrDispose { }
+    }
+    if (enabled) return
+    VSpace(4)
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        PixelText(stringResource(R.string.set_notif_blocked), size = 1, color = Pal.RedLight, modifier = Modifier.weight(1f))
+        HSpace(4)
+        PixelButton(
+            stringResource(R.string.set_notif_enable),
+            onClick = {
+                context.startActivity(
+                    Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName),
+                )
+            },
+            style = ButtonStyle.RED,
+            size = 2,
+        )
+    }
+}
+
 /** Wybór języka: AUTO (wg telefonu), polski, angielski – każdy z pikselową flagą. */
 @Composable
 private fun LanguagePicker() {
@@ -288,7 +426,7 @@ private fun LanguagePicker() {
     val phonePolish = remember { Resources.getSystem().configuration.locales[0].language == "pl" }
     DarkCard(Modifier.fillMaxWidth().widthIn(max = px(320))) {
         Column(Modifier.fillMaxWidth()) {
-            PixelText(stringResource(R.string.set_language), size = 3)
+            PixelText(stringResource(R.string.set_language), size = 2, color = Pal.Gold)
             VSpace(4)
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                 for (language in Language.entries) {
@@ -369,21 +507,6 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
-}
-
-@Composable
-private fun Toggle(label: String, value: Boolean, onChange: (Boolean) -> Unit) {
-    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(320))) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            PixelText(label, size = 3, modifier = Modifier.weight(1f))
-            PixelButton(
-                stringResource(if (value) R.string.on else R.string.off),
-                onClick = { onChange(!value) },
-                style = if (value) ButtonStyle.GREEN else ButtonStyle.GREY,
-                size = 2,
-            )
-        }
-    }
 }
 
 @Composable

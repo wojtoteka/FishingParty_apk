@@ -71,9 +71,9 @@ fun ConfirmDialog(message: String, onConfirm: () -> Unit, onCancel: () -> Unit) 
     Overlay(onDismiss = onCancel) {
         PixelText(message, size = 3, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         VSpace(10)
-        Row(horizontalArrangement = Arrangement.spacedBy(px(6))) {
-            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA)
-            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(6))) {
+            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
+            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED, modifier = Modifier.weight(1f))
         }
     }
 }

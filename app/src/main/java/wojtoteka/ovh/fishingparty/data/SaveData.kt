@@ -56,9 +56,22 @@ class SaveData {
     var streak = 0
     var streakBest = 0
 
+    /** Dzień rozpoczęcia bieżącej passy – od niego liczą się miesiące napraw. */
+    var streakStartDay = -1L
+
+    /** Naprawy passy: numer miesiąca passy i ile napraw w nim zużyto. */
+    var repairPeriod = 0
+    var repairsUsed = 0
+    var repairsTotal = 0
+
     /** Trofea za passę – liczą się do punktów rankingowych. */
     val trophies = GuardedLong(0)
     var notificationsAsked = false
+
+    /** Przypomnienia o passie i godzina pierwszego z nich. */
+    var streakReminders = true
+    var reminderHour = 18
+    var keepScreenOn = true
     var lastSeenWall = 0L
     var music = true
     var sfx = true
@@ -78,7 +91,7 @@ class SaveData {
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 2
+    private const val VERSION = 3
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -140,6 +153,14 @@ object SaveCodec {
             o.writeInt(d.streakBest)
             o.writeLong(d.trophies.get())
             o.writeBoolean(d.notificationsAsked)
+            // v3
+            o.writeLong(d.streakStartDay)
+            o.writeInt(d.repairPeriod)
+            o.writeInt(d.repairsUsed)
+            o.writeInt(d.repairsTotal)
+            o.writeBoolean(d.streakReminders)
+            o.writeByte(d.reminderHour)
+            o.writeBoolean(d.keepScreenOn)
         }
         return bytes.toByteArray()
     }
@@ -214,6 +235,18 @@ object SaveCodec {
                 d.streakBest = i.readInt()
                 d.trophies.set(i.readLong())
                 d.notificationsAsked = i.readBoolean()
+            }
+            if (version >= 3) {
+                d.streakStartDay = i.readLong()
+                d.repairPeriod = i.readInt()
+                d.repairsUsed = i.readInt()
+                d.repairsTotal = i.readInt()
+                d.streakReminders = i.readBoolean()
+                d.reminderHour = i.readByte().toInt()
+                d.keepScreenOn = i.readBoolean()
+            } else if (d.streak > 0) {
+                // Starsze zapisy nie znały początku passy – liczymy go wstecz od ostatniego dnia.
+                d.streakStartDay = d.streakLastDay - d.streak + 1
             }
         }
         return d

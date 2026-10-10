@@ -3,6 +3,7 @@ package wojtoteka.ovh.fishingparty
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -17,12 +18,18 @@ import wojtoteka.ovh.fishingparty.data.Progress
 import wojtoteka.ovh.fishingparty.data.SaveCodec
 import wojtoteka.ovh.fishingparty.data.SaveCrypto
 import wojtoteka.ovh.fishingparty.data.SaveData
+import wojtoteka.ovh.fishingparty.data.StreakRepairs
 import wojtoteka.ovh.fishingparty.data.StreakRewards
+import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
+import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
+import wojtoteka.ovh.fishingparty.ui.Backdrop
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Tile
 import wojtoteka.ovh.fishingparty.level.WorldMap
 import java.security.GeneralSecurityException
+import java.time.LocalDate
+import java.time.LocalTime
 import javax.crypto.KeyGenerator
 import kotlin.math.abs
 
@@ -49,6 +56,13 @@ class SaveAndProgressTest {
         streak = 9
         streakBest = 12
         trophies.set(321)
+        streakStartDay = 20_115
+        repairPeriod = 1
+        repairsUsed = 3
+        repairsTotal = 7
+        streakReminders = false
+        reminderHour = 20
+        keepScreenOn = false
     }
 
     @Test
@@ -68,6 +82,13 @@ class SaveAndProgressTest {
         assertEquals(9, copy.streak)
         assertEquals(12, copy.streakBest)
         assertEquals(321L, copy.trophies.get())
+        assertEquals(20_115L, copy.streakStartDay)
+        assertEquals(1, copy.repairPeriod)
+        assertEquals(3, copy.repairsUsed)
+        assertEquals(7, copy.repairsTotal)
+        assertFalse(copy.streakReminders)
+        assertEquals(20, copy.reminderHour)
+        assertFalse(copy.keepScreenOn)
         assertArrayEquals(SaveCodec.encode(original), SaveCodec.encode(copy))
     }
 
@@ -233,6 +254,123 @@ class SaveAndProgressTest {
         now -= 5 * 86_400_000L
         day += 1
         assertEquals(0, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
+    }
+
+    @Test
+    fun brokenStreakCanBeRepairedFiveTimesAMonth() {
+        val save = SaveData()
+        var day = LocalDate.of(2026, 1, 10).toEpochDay()
+        var now = 1_000_000_000L
+        val p = Progress(save, { now }, { day })
+        fun advance(n: Int) {
+            day += n
+            now += n * 86_400_000L
+        }
+        fun play() = p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
+        p.addCoins(10_000)
+        play()
+        assertNull("trwająca passa nie potrzebuje naprawy", p.streakRepair())
+        // Pięć napraw w miesiącu, każda droższa: x1.0, x1.2, x1.8, x2.2, x3.0.
+        val prices = mutableListOf<Int>()
+        repeat(5) {
+            advance(2)
+            assertEquals(0, p.streakState().days)
+            val offer = p.streakRepair()!!
+            assertEquals(1, offer.missedDays)
+            prices += offer.cost
+            val coins = p.coins
+            assertTrue(p.repairStreak())
+            assertEquals(coins - offer.cost, p.coins)
+            assertFalse(p.streakState().playedToday)
+            play()
+        }
+        assertEquals(listOf(200, 240, 360, 440, 600), prices)
+        assertEquals(6, save.streak)
+        assertEquals(5, save.repairsTotal)
+        // Szósta przerwa w tym samym miesiącu – passa przepada.
+        advance(2)
+        assertNull(p.streakRepair())
+        assertTrue(p.streakLost())
+        assertFalse(p.repairStreak())
+        play()
+        assertEquals(1, save.streak)
+        assertFalse(p.streakLost())
+    }
+
+    @Test
+    fun streakRepairsResetEveryStreakMonth() {
+        val save = SaveData()
+        var day = LocalDate.of(2026, 1, 31).toEpochDay()
+        val p = Progress(save, { 1_000_000_000L + day * 86_400_000L }, { day })
+        fun play() = p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
+        p.addCoins(10_000)
+        play()
+        assertEquals(day, save.streakStartDay)
+        // Dwa opuszczone dni = dwie naprawy naraz (x1.0 + x1.2).
+        day += 3
+        val offer = p.streakRepair()!!
+        assertEquals(2, offer.missedDays)
+        assertEquals(200 + 240, offer.cost)
+        assertEquals(LocalDate.of(2026, 2, 28).toEpochDay(), offer.resetDay)
+        assertTrue(p.repairStreak())
+        play()
+        // Codzienna gra aż do nowego miesiąca passy (od 28 lutego).
+        while (day < LocalDate.of(2026, 3, 1).toEpochDay()) {
+            day++
+            play()
+        }
+        day += 2
+        val fresh = p.streakRepair()!!
+        assertEquals(0, fresh.used)
+        assertEquals(200, fresh.cost)
+        // Za długa przerwa nie da się już załatać.
+        day += 3
+        assertNull(p.streakRepair())
+    }
+
+    @Test
+    fun repairNeedsEnoughCoins() {
+        val save = SaveData()
+        var day = 20_000L
+        val p = Progress(save, { 1_000_000_000L + day * 86_400_000L }, { day })
+        p.applyRun(win(1, 200, 1), LevelGenerator.plan(1))
+        day += 2
+        val coins = p.coins
+        assertTrue(coins < StreakRepairs.BASE_PRICE)
+        assertFalse(p.repairStreak())
+        assertEquals(coins, p.coins)
+        assertEquals(0, save.repairsUsed)
+        assertEquals(StreakRepairs.BASE_PRICE, p.streakRepair()!!.cost)
+    }
+
+    @Test
+    fun reminderSlotsAreSpacedOut() {
+        for (hour in StreakReminderSlots.HOURS) {
+            val slots = StreakReminderSlots.slots(hour)
+            assertTrue(slots.size in 2..3)
+            for ((a, b) in slots.zipWithNext()) assertTrue("$hour: $a → $b", a.first.plusMinutes(89).isBefore(b.first))
+            assertEquals(LocalTime.of(22, 0), slots.last().first)
+        }
+        assertEquals(listOf(18 to 0, 20 to 0, 22 to 0), StreakReminderSlots.slots(18).map { it.first.hour to it.first.minute })
+    }
+
+    @Test
+    fun menuBoatNeverSailsThroughLand() {
+        val g = Backdrop.grid
+        val loop = Backdrop.ROWS * TILE
+        for (y in 0 until loop) {
+            val x = Backdrop.laneX(y.toFloat())
+            // Kadłub z żaglem: ok. 14 px szerokości, od 14 px nad do 7 px pod punktem łodzi.
+            for (py in (y - 14)..(y + 7) step 3) for (px in listOf(x - 7f, x, x + 7f)) {
+                val tile = g[Math.floorDiv(px.toInt(), TILE), Math.floorDiv(py, TILE)]
+                assertTrue("y=$y x=$x trafia w $tile", tile == Tile.SEA)
+            }
+        }
+        // Kurs zmienia się płynnie (bez szarpnięć między wierszami).
+        for (y in 0 until loop) {
+            val d = abs(Backdrop.heading(y.toFloat()) - Backdrop.heading(y + 1f))
+            assertTrue("skok kursu przy y=$y", d < 0.08f)
+        }
     }
 
     @Test

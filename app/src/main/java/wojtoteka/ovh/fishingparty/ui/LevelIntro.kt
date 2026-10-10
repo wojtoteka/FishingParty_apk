@@ -33,7 +33,7 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
 
     Overlay(onDismiss = onClose) {
         Box(Modifier.fillMaxWidth()) {
-            PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 2, modifier = Modifier.align(Alignment.TopEnd))
+            PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
                 PixelText(stringResource(R.string.level_n, level), size = 5)
                 PixelText(worldNames[spec.world], size = 1, color = Pal.Foam)

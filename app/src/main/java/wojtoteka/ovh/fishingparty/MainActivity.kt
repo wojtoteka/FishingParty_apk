@@ -24,7 +24,7 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        applyKeepScreenOn()
         hideSystemBars()
         setContent {
             ProvideUi(app) { AppRoot() }
@@ -34,19 +34,30 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         hideSystemBars()
+        app.inForeground = true
         app.audio.setForeground(true)
         StreakReminder.dismiss(this)
     }
 
     override fun onPause() {
+        app.inForeground = false
         app.audio.setForeground(false)
-        StreakReminder.schedule(this, app.repository.progress.streakState())
+        StreakReminder.schedule(this)
         super.onPause()
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
         if (hasFocus) hideSystemBars()
+    }
+
+    /** Ekran nie gaśnie w trakcie gry (można wyłączyć w ustawieniach). */
+    fun applyKeepScreenOn() {
+        if (app.repository.save.keepScreenOn) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
     }
 
     /** Pełny ekran – paski systemowe pojawiają się tylko po przesunięciu od krawędzi. */

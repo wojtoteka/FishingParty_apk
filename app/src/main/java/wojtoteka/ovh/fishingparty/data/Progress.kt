@@ -26,6 +26,17 @@ class Reward(
  */
 class StreakState(val days: Int, val playedToday: Boolean)
 
+/**
+ * Oferta odzyskania przerwanej passy (jak naprawa passy w Duolingo).
+ *
+ * @param days passa, którą można odzyskać
+ * @param missedDays ile dni zostało opuszczonych (każdy zużywa jedną naprawę)
+ * @param cost łączna cena w monetach
+ * @param used naprawy zużyte już w bieżącym miesiącu passy
+ * @param resetDay dzień (epoch day), od którego licznik napraw liczy się od nowa
+ */
+class StreakRepair(val days: Int, val missedDays: Int, val cost: Int, val used: Int, val resetDay: Long)
+
 class DailyState(val available: Boolean, val day: Int, val clockTampered: Boolean)
 
 /**
@@ -122,11 +133,51 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         if (clockTampered()) return false
         val day = today()
         if (day <= save.streakLastDay) return false
-        save.streak = if (save.streakLastDay == day - 1) save.streak + 1 else 1
+        if (save.streakLastDay == day - 1 && save.streak > 0) {
+            save.streak++
+        } else {
+            save.streak = 1
+            save.streakStartDay = day
+            save.repairPeriod = 0
+            save.repairsUsed = 0
+        }
         save.streakLastDay = day
         save.streakBest = max(save.streakBest, save.streak)
         return true
     }
+
+    /** Naprawy zużyte w miesiącu passy, do którego należy [day] (liczone od dnia jej rozpoczęcia). */
+    private fun repairsUsedIn(day: Long): Int =
+        if (StreakRepairs.period(save.streakStartDay, day) == save.repairPeriod) save.repairsUsed else 0
+
+    /** Przerwana passa, którą da się jeszcze odzyskać – albo null, gdy nie ma czego (lub już przepadła). */
+    fun streakRepair(): StreakRepair? {
+        if (clockTampered() || save.streak <= 0 || save.streakLastDay < 0) return null
+        val day = today()
+        val missed = (day - 1 - save.streakLastDay).toInt()
+        if (missed < 1 || missed > StreakRepairs.MAX_MISSED_DAYS) return null
+        val used = repairsUsedIn(day)
+        if (used + missed > StreakRepairs.PER_MONTH) return null
+        val cost = (used until used + missed).sumOf { StreakRepairs.price(it) }
+        val reset = StreakRepairs.periodStart(save.streakStartDay, StreakRepairs.period(save.streakStartDay, day) + 1)
+        return StreakRepair(save.streak, missed, cost, used, reset)
+    }
+
+    /** Odzyskuje passę za monety: opuszczone dni są „załatane”, dziś wystarczy ukończyć poziom. */
+    fun repairStreak(): Boolean {
+        val offer = streakRepair() ?: return false
+        if (!spend(offer.cost)) return false
+        val day = today()
+        save.repairPeriod = StreakRepairs.period(save.streakStartDay, day)
+        save.repairsUsed = offer.used + offer.missedDays
+        save.repairsTotal += offer.missedDays
+        save.streakLastDay = day - 1
+        touchClock()
+        return true
+    }
+
+    /** Przerwana passa, której nie da się już odzyskać (do komunikatu „passa przepadła”). */
+    fun streakLost(): Boolean = !clockTampered() && save.streak > 0 && save.streakLastDay < today() - 1 && streakRepair() == null
 
     fun addCoins(amount: Long) {
         val total = save.coins.add(amount)
@@ -291,6 +342,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         save.streakLastDay = -1
         save.streak = 0
         save.streakBest = 0
+        save.streakStartDay = -1
+        save.repairPeriod = 0
+        save.repairsUsed = 0
+        save.repairsTotal = 0
         save.trophies.set(0)
         save.veteran = false
         save.records.clear()

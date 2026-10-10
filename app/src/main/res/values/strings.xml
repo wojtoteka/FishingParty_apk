@@ -252,12 +252,25 @@
 
     <!-- Powiadomienia -->
     <string name="notif_channel">Streak reminders</string>
-    <string name="notif_channel_desc">A reminder when your streak is about to end</string>
-    <string name="notif_title">Your streak is at risk!</string>
-    <plurals name="notif_text">
-        <item quantity="one">Finish one level today to keep your %d-day streak.</item>
-        <item quantity="other">Finish one level today to keep your %d-day streak.</item>
+    <string name="notif_channel_desc">A few evening reminders while today\'s streak is not done yet (at most 3 a day)</string>
+    <plurals name="notif_days">
+        <item quantity="one">%d day</item>
+        <item quantity="other">%d days</item>
     </plurals>
+    <string name="notif_first_title_1">🔥 %s streak – don\'t break it!</string>
+    <string name="notif_first_text_1">🎣 Finish one level today and grab +%2$d 🏆. Your streak: %1$s.</string>
+    <string name="notif_first_title_2">🎣 The fish are biting today!</string>
+    <string name="notif_first_text_2">One level is all it takes to keep your %1$s streak going 🔥 +%2$d 🏆 waiting</string>
+    <string name="notif_first_title_3">⚓ Captain, the sea is calling!</string>
+    <string name="notif_first_text_3">🐟 Your %1$s streak is waiting for today\'s voyage. Finish a level for +%2$d 🏆</string>
+    <string name="notif_week_title">🏆 Today is the best day of your streak week!</string>
+    <string name="notif_week_text">🔥 Finish a level and grab a whole +%d trophies!</string>
+    <string name="notif_second_title">⏳ Streak not done yet</string>
+    <string name="notif_second_text">🐠 The evening is still young – one level and your %s streak is safe.</string>
+    <string name="notif_last_title">⏰ Last chance today!</string>
+    <string name="notif_last_text">😱 Midnight is close – don\'t let your %s streak slip away! 🔥</string>
+    <string name="notif_repair_title">💔 Your streak was broken</string>
+    <string name="notif_repair_text">🛟 You can still win back your %s streak in the game – come back before it\'s gone!</string>
 
     <!-- Język i nowe elementy interfejsu -->
     <string name="set_language">LANGUAGE</string>
@@ -268,4 +281,32 @@
     <string name="main_menu">MENU</string>
     <string name="result_coins">COINS</string>
     <string name="streak_week">WEEK %d</string>
+    <string name="streak_broken">STREAK BROKEN!</string>
+    <string name="streak_lost">YOUR LAST STREAK IS GONE – START A NEW ONE</string>
+    <string name="streak_repair">REPAIR</string>
+    <string name="repair_title">REPAIR STREAK</string>
+    <plurals name="repair_missed">
+        <item quantity="one">%d DAY MISSED</item>
+        <item quantity="other">%d DAYS MISSED</item>
+    </plurals>
+    <string name="repair_info">Pay with gold fish and your streak lives on. Then just finish a level today.</string>
+    <string name="repair_month">REPAIRS THIS STREAK MONTH</string>
+    <string name="repair_rules">Every next repair in a month costs more. After 5 repairs a broken streak is lost. The counter resets every month from the day the streak started.</string>
+    <string name="repair_reset">COUNTER RESETS: %s</string>
+    <string name="repair_later">LATER</string>
+    <string name="repair_done">STREAK REPAIRED!</string>
+    <string name="set_section_sound">SOUND</string>
+    <string name="set_section_notif">NOTIFICATIONS</string>
+    <string name="set_section_game">GAME</string>
+    <string name="set_section_stats">STATISTICS</string>
+    <string name="set_section_about">ABOUT</string>
+    <string name="set_reminders">STREAK REMINDERS</string>
+    <string name="set_reminder_hour">FIRST REMINDER</string>
+    <string name="set_reminder_info">At most 3 a day and only while today\'s streak is not done yet. The last one at 22:00.</string>
+    <string name="set_notif_blocked">NOTIFICATIONS ARE BLOCKED ON THIS PHONE</string>
+    <string name="set_notif_enable">TURN ON</string>
+    <string name="set_keep_screen">KEEP SCREEN ON</string>
+    <string name="set_tutorial">REPLAY TUTORIAL</string>
+    <string name="stat_repairs">STREAK REPAIRS</string>
+    <string name="stat_wins">LEVELS WON</string>
 </resources>

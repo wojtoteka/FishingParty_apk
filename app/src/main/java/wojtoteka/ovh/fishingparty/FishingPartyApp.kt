@@ -11,6 +11,9 @@ class FishingPartyApp : Application() {
     lateinit var audio: AudioEngine
         private set
 
+    /** Czy gra jest teraz na ekranie (wtedy przypomnienia o passie nie są pokazywane). */
+    var inForeground = false
+
     override fun onCreate() {
         super.onCreate()
         Sprites.init(this)

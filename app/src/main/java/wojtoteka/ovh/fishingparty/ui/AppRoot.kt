@@ -51,6 +51,8 @@ fun AppRoot() {
     var intro by remember { mutableStateOf<Int?>(null) }
     var showDaily by remember { mutableStateOf(false) }
     var dailyOffered by remember { mutableStateOf(false) }
+    var showRepair by remember { mutableStateOf(false) }
+    var repairOffered by remember { mutableStateOf(false) }
     var lastSelection by remember { mutableStateOf(emptySet<PowerUp>()) }
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
 
@@ -63,15 +65,21 @@ fun AppRoot() {
         screen = Screen.Game(level, loadout, attempts)
     }
 
-    LaunchedEffect(screen) {
-        if (screen == Screen.Menu && !dailyOffered && repo.save.tutorialDone && repo.progress.dailyState().available) {
+    // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna.
+    LaunchedEffect(screen, showRepair) {
+        if (screen != Screen.Menu || showRepair || !repo.save.tutorialDone) return@LaunchedEffect
+        if (!repairOffered && repo.progress.streakRepair() != null) {
+            repairOffered = true
+            delay(600)
+            showRepair = true
+        } else if (!dailyOffered && repo.progress.dailyState().available) {
             dailyOffered = true
             delay(600)
             showDaily = true
         }
     }
 
-    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily) {
+    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair) {
         screen = Screen.Menu
     }
 
@@ -87,6 +95,7 @@ fun AppRoot() {
                         Destination.RANKING -> screen = Screen.Ranking
                         Destination.SETTINGS -> screen = Screen.Settings
                         Destination.DAILY -> showDaily = true
+                        Destination.REPAIR -> showRepair = true
                     }
                 },
             )
@@ -94,7 +103,14 @@ fun AppRoot() {
             Screen.Shop -> ShopScreen(onBack = { screen = Screen.Menu })
             Screen.Achievements -> AchievementsScreen(onBack = { screen = Screen.Menu })
             Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu })
-            Screen.Settings -> SettingsScreen(onBack = { screen = Screen.Menu })
+            Screen.Settings -> SettingsScreen(
+                onBack = { screen = Screen.Menu },
+                onTutorial = {
+                    repo.save.tutorialDone = false
+                    repo.changed()
+                    screen = Screen.Game(1, Loadout(), ++attempts)
+                },
+            )
             is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt) { exit ->
                 when (exit) {
                     GameExit.ToMap -> screen = Screen.Map
@@ -112,6 +128,7 @@ fun AppRoot() {
             LevelIntro(level, onPlay = { start(level, it) }, onClose = { intro = null })
         }
         if (showDaily) DailyRewardDialog(onClose = { showDaily = false })
+        if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {
                 PixelText(stringResource(R.string.save_tampered), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())

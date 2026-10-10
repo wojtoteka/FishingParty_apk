@@ -1,5 +1,8 @@
 package wojtoteka.ovh.fishingparty.data
 
+import java.time.LocalDate
+import java.time.temporal.ChronoUnit
+
 enum class Metric { FISH, GOLDEN, LEVELS, STARS, PERFECT, NO_HIT, COMBO, BOSS, PURCHASES, COSMETICS, BOATS, DAILY_STREAK, STREAK, SPEED, COINS_HELD, VETERAN }
 
 /**
@@ -77,4 +80,42 @@ object StreakRewards {
     fun multiplier(week: Int): Int = week.coerceIn(1, MAX_MULTIPLIER)
 
     fun trophiesFor(day: Int): Int = if (day <= 0) 0 else base[(day - 1) % WEEK] * multiplier(week(day))
+}
+
+/**
+ * Odzyskiwanie passy za monety. W każdym miesiącu passy (liczonym od dnia jej
+ * rozpoczęcia) jest 5 napraw, każda kolejna droższa; szósta przerwa = passa przepada.
+ */
+object StreakRepairs {
+    const val BASE_PRICE = 200
+    const val PER_MONTH = 5
+
+    /** Dłuższej przerwy nie da się już załatać. */
+    const val MAX_MISSED_DAYS = 3
+
+    /** Mnożniki ceny kolejnych napraw w miesiącu, w dziesiątych częściach (x1.0, x1.2, x1.8, x2.2, x3.0). */
+    val multipliers = intArrayOf(10, 12, 18, 22, 30)
+
+    /** Cena naprawy o indeksie [index] (0 = pierwsza w miesiącu). */
+    fun price(index: Int): Int = BASE_PRICE * multipliers[index.coerceIn(0, PER_MONTH - 1)] / 10
+
+    fun multiplierText(index: Int): String {
+        val m = multipliers[index.coerceIn(0, PER_MONTH - 1)]
+        return "x${m / 10}.${m % 10}"
+    }
+
+    /**
+     * Numer miesiąca passy (0 = pierwszy), do którego należy [day]. Liczony tak,
+     * żeby zgadzał się z [periodStart] także dla końcówek miesięcy (31 stycznia → 28 lutego).
+     */
+    fun period(startDay: Long, day: Long): Int {
+        if (startDay < 0 || day < startDay) return 0
+        var k = ChronoUnit.MONTHS.between(LocalDate.ofEpochDay(startDay), LocalDate.ofEpochDay(day)).toInt()
+        while (periodStart(startDay, k + 1) <= day) k++
+        return k
+    }
+
+    /** Pierwszy dzień [period]-tego miesiąca passy. */
+    fun periodStart(startDay: Long, period: Int): Long =
+        LocalDate.ofEpochDay(startDay.coerceAtLeast(0)).plusMonths(period.toLong()).toEpochDay()
 }

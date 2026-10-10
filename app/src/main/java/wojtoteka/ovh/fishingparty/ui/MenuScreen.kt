@@ -29,6 +29,11 @@ import wojtoteka.ovh.fishingparty.data.StreakState
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -38,7 +43,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, SETTINGS, DAILY }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, SETTINGS, DAILY, REPAIR }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -51,6 +56,8 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
     val claimable = progress.claimable().size
     val daily = progress.dailyState().available
     val streak = progress.streakState()
+    val repair = progress.streakRepair()
+    val lost = progress.streakLost()
     StreakNotificationPermission(streak.days > 0)
 
     val unit = LocalUnit.current
@@ -62,8 +69,14 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
         label = "wave",
     )
 
-    Box(Modifier.fillMaxSize()) {
-        SeaBackdrop(world, Modifier.fillMaxSize(), ship = look, shipY = 0.5f)
+    // Łódź płynie w wolnym pasie między tytułem a przyciskami – nie zasłania ani napisu, ani przycisków.
+    var screenH by remember { mutableFloatStateOf(1f) }
+    var titleBottom by remember { mutableFloatStateOf(0f) }
+    var buttonsTop by remember { mutableFloatStateOf(0f) }
+    val shipY = if (buttonsTop > titleBottom) ((titleBottom + buttonsTop) / 2f / screenH + 0.02f) else 0.5f
+
+    Box(Modifier.fillMaxSize().onGloballyPositioned { screenH = it.size.height.toFloat().coerceAtLeast(1f) }) {
+        SeaBackdrop(world, Modifier.fillMaxSize(), ship = look, shipY = shipY)
         Column(
             Modifier
                 .fillMaxSize()
@@ -81,15 +94,29 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                 }
             }
             VSpace(5)
-            StreakCard(streak, Modifier.noRippleClick { onOpen(Destination.RANKING) })
+            StreakCard(
+                streak,
+                repairDays = repair?.days ?: 0,
+                lost = lost,
+                onRepair = { onOpen(Destination.REPAIR) },
+                modifier = Modifier.noRippleClick { onOpen(if (repair != null) Destination.REPAIR else Destination.RANKING) },
+            )
             VSpace(8)
-            Column(Modifier.offset { IntOffset(0, (wave * 2f * unit).toInt()) }, horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                Modifier
+                    .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom }
+                    .offset { IntOffset(0, (wave * 2f * unit).toInt()) },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 PixelText("FISHING", size = 7)
                 PixelText("PARTY", size = 7, color = Pal.Sand)
             }
             Box(Modifier.weight(1f))
             Column(
-                Modifier.widthIn(max = px(260)).fillMaxWidth(),
+                Modifier
+                    .widthIn(max = px(260))
+                    .fillMaxWidth()
+                    .onGloballyPositioned { buttonsTop = it.boundsInRoot().top },
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(px(5)),
             ) {
@@ -132,7 +159,6 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     stringResource(R.string.settings_title),
                     onClick = { onOpen(Destination.SETTINGS) },
                     style = ButtonStyle.SEA,
-                    size = 2,
                     modifier = Modifier.fillMaxWidth(),
                 )
                 if (daily) {
@@ -158,7 +184,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
  * pola zaczynają się od nowa, a stawki rosną z każdym tygodniem.
  */
 @Composable
-private fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
+private fun StreakCard(streak: StreakState, repairDays: Int, lost: Boolean, onRepair: () -> Unit, modifier: Modifier = Modifier) {
     val u = LocalUnit.current.toFloat()
     // Dzień, o który teraz toczy się gra: dzisiejszy zaliczony albo następny do zaliczenia.
     val focus = if (streak.playedToday) streak.days else streak.days + 1
@@ -193,19 +219,31 @@ private fun StreakCard(streak: StreakState, modifier: Modifier = Modifier) {
             }
         }
         VSpace(3)
-        PixelText(
-            stringResource(
-                when {
-                    streak.playedToday -> R.string.streak_safe
-                    streak.days > 0 -> R.string.streak_keep
-                    else -> R.string.streak_start
-                },
-            ),
-            size = 1,
-            color = if (streak.playedToday) Pal.GreenLight else Pal.SeaLight,
-            align = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        if (repairDays > 0) {
+            // Przerwana passa, którą da się jeszcze odzyskać – wyraźny przycisk zamiast zwykłego podpisu.
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    PixelText(stringResource(R.string.streak_broken), size = 2, color = Pal.RedLight)
+                    PixelText(pluralStringResource(R.plurals.streak_days, repairDays, repairDays), size = 1, color = Pal.Foam)
+                }
+                PixelButton(stringResource(R.string.streak_repair), onClick = onRepair, style = ButtonStyle.RED, size = 2)
+            }
+        } else {
+            PixelText(
+                stringResource(
+                    when {
+                        streak.playedToday -> R.string.streak_safe
+                        streak.days > 0 -> R.string.streak_keep
+                        lost -> R.string.streak_lost
+                        else -> R.string.streak_start
+                    },
+                ),
+                size = 1,
+                color = if (streak.playedToday) Pal.GreenLight else Pal.SeaLight,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
     }
 }
 
