@@ -43,7 +43,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, SETTINGS, DAILY, REPAIR }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -144,22 +144,27 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         )
                         if (claimable > 0) Badge(claimable.toString(), Modifier.align(Alignment.TopEnd))
                     }
-                    Box(Modifier.weight(1f)) {
-                        PixelButton(
-                            stringResource(R.string.ranking_title),
-                            onClick = { onOpen(Destination.RANKING) },
-                            style = ButtonStyle.WOOD,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Badge(stringResource(R.string.soon), Modifier.align(Alignment.TopEnd), color = ButtonStyle.SEA)
-                    }
+                    PixelButton(
+                        stringResource(R.string.ranking_title),
+                        onClick = { onOpen(Destination.RANKING) },
+                        style = ButtonStyle.WOOD,
+                        modifier = Modifier.weight(1f),
+                    )
                 }
-                PixelButton(
-                    stringResource(R.string.settings_title),
-                    onClick = { onOpen(Destination.SETTINGS) },
-                    style = ButtonStyle.SEA,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    PixelButton(
+                        stringResource(R.string.settings_title),
+                        onClick = { onOpen(Destination.SETTINGS) },
+                        style = ButtonStyle.SEA,
+                        modifier = Modifier.weight(1f),
+                    )
+                    PixelButton(
+                        stringResource(R.string.account_title),
+                        onClick = { onOpen(Destination.ACCOUNT) },
+                        style = ButtonStyle.SEA,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
                 if (daily) {
                     PixelButton(
                         stringResource(R.string.daily_title),

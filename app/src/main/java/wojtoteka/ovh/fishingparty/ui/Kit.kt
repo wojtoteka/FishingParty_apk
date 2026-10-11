@@ -54,6 +54,7 @@ import wojtoteka.ovh.fishingparty.audio.AudioEngine
 import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.Sprites
+import wojtoteka.ovh.fishingparty.online.OnlineManager
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -89,7 +90,7 @@ object Pal {
     val Scrim = Color(0xA0000000)
 }
 
-class Services(val repo: GameRepository, val audio: AudioEngine)
+class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager)
 
 val LocalServices = staticCompositionLocalOf<Services> { error("Brak usług") }
 
@@ -102,7 +103,7 @@ val BitCell = FontFamily(Font(R.font.bitcell))
 fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
     val width = LocalWindowInfo.current.containerSize.width
     val unit = max(2, (width / 360f).roundToInt())
-    val services = remember(app) { Services(app.repository, app.audio) }
+    val services = remember(app) { Services(app.repository, app.audio, app.online) }
     CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, content = content)
 }
 

@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -28,6 +29,7 @@ private sealed interface Screen {
     data object Shop : Screen
     data object Achievements : Screen
     data object Ranking : Screen
+    data object Account : Screen
     data object Settings : Screen
     data class Game(val level: Int, val loadout: Loadout, val attempt: Int, val tutorial: Boolean = false) : Screen
 }
@@ -56,6 +58,10 @@ fun AppRoot() {
     var repairOffered by remember { mutableStateOf(false) }
     var lastSelection by remember { mutableStateOf(emptySet<PowerUp>()) }
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
+
+    // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
+    val currentScreen by rememberUpdatedState(screen)
+    LaunchedEffect(Unit) { services.online.canAutoPull = { currentScreen !is Screen.Game } }
 
     fun start(level: Int, selection: Set<PowerUp>) {
         lastSelection = selection
@@ -94,6 +100,7 @@ fun AppRoot() {
                         Destination.SHOP -> screen = Screen.Shop
                         Destination.ACHIEVEMENTS -> screen = Screen.Achievements
                         Destination.RANKING -> screen = Screen.Ranking
+                        Destination.ACCOUNT -> screen = Screen.Account
                         Destination.SETTINGS -> screen = Screen.Settings
                         Destination.DAILY -> showDaily = true
                         Destination.REPAIR -> showRepair = true
@@ -103,7 +110,8 @@ fun AppRoot() {
             Screen.Map -> MapScreen(onBack = { screen = Screen.Menu }, onSelect = { intro = it })
             Screen.Shop -> ShopScreen(onBack = { screen = Screen.Menu })
             Screen.Achievements -> AchievementsScreen(onBack = { screen = Screen.Menu })
-            Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu })
+            Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu }, onAccount = { screen = Screen.Account })
+            Screen.Account -> AccountScreen(onBack = { screen = Screen.Menu })
             Screen.Settings -> SettingsScreen(
                 onBack = { screen = Screen.Menu },
                 // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
@@ -126,6 +134,7 @@ fun AppRoot() {
         intro?.let { level ->
             LevelIntro(level, onPlay = { start(level, it) }, onClose = { intro = null })
         }
+        if (screen !is Screen.Game) OnlineDialogs()
         if (showDaily) DailyRewardDialog(onClose = { showDaily = false })
         if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
         if (tamperNotice) {

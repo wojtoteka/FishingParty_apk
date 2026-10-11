@@ -37,12 +37,14 @@ class MainActivity : ComponentActivity() {
         app.inForeground = true
         app.audio.setForeground(true)
         StreakReminder.dismiss(this)
+        app.online.onForeground()
     }
 
     override fun onPause() {
         app.inForeground = false
         app.audio.setForeground(false)
         StreakReminder.schedule(this)
+        app.online.onBackground()
         super.onPause()
     }
 
