@@ -378,7 +378,6 @@
     <string name="ranking_mode_info">Enter a nickname and a password. A new nickname creates a new account. After reinstalling the game enter the same nickname and password – your ranking and progress come back.</string>
     <string name="ranking_mode_warning">Remember your password! An account without an email cannot be recovered and its password cannot be reset.</string>
     <string name="ranking_join">PLAY RANKED</string>
-    <string name="ranking_email_hint">Prefer an account with an email (password recovery)?</string>
     <string name="policy_title">PRIVACY AND TERMS</string>
     <string name="policy_summary">An online account stores on the server: your nickname, password (hashed), optionally an email, your game progress and level results. The server checks that scores are fair. Your nickname and points are visible in the top 100 ranking. You can delete the account in the game at any time.</string>
     <string name="policy_open_privacy">PRIVACY POLICY</string>
@@ -446,6 +445,7 @@
     <string name="ranking_my_position">YOUR POSITION</string>
     <string name="ranking_top">TOP %d</string>
     <string name="ranking_not_ranked">not ranked</string>
+    <string name="ranking_guest_info">Want to appear in the ranking too? Create an account!</string>
     <string name="set_section_legal">DOCUMENTS</string>
     <string name="set_privacy">PRIVACY POLICY</string>
     <string name="set_terms">TERMS</string>

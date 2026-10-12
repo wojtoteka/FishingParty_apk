@@ -39,7 +39,8 @@ class AccountInfo(
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
 
-class RankingData(val entries: List<RankingEntry>, val myId: Long, val myRank: Int?, val myPoints: Long, val hidden: Boolean)
+/** [myId] = null, gdy ranking ogląda gość bez konta. */
+class RankingData(val entries: List<RankingEntry>, val myId: Long?, val myRank: Int?, val myPoints: Long, val hidden: Boolean)
 
 /** Wynik operacji na koncie. [code] to kod błędu serwera albo jeden z kodów klienta (offline, quick_wrong…). */
 sealed interface OnlineResult {
@@ -134,8 +135,10 @@ class OnlineManager(
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): JSONObject =
+    /** [device] = false: bez atestacji telefonu (tylko podgląd rankingu przez gościa). */
+    private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true, device: Boolean = true): JSONObject =
         withContext(Dispatchers.IO) {
+            if (!device) return@withContext api.call(method, path, body, null)
             val generation = ensureDevice()
             try {
                 api.call(method, path, body, if (auth) store.token else null)
@@ -536,22 +539,27 @@ class OnlineManager(
         if (!isOnline()) {
             Result.failure(OfflineException())
         } else {
-            val res = call("GET", "/ranking")
+            // Gość też widzi ranking – bez tokenu i bez rejestrowania klucza telefonu.
+            val guest = !store.loggedIn
+            val res = call("GET", "/ranking", auth = !guest, device = !guest)
             val list = res.getJSONArray("entries")
             val entries = (0 until list.length()).map { i ->
                 val e = list.getJSONObject(i)
                 RankingEntry(e.getInt("rank"), e.getLong("id"), e.getString("nick"), e.getLong("points"), e.optInt("maxLevel"))
             }
-            val me = res.getJSONObject("me")
-            account?.let {
-                account = AccountInfo(it.nick, it.email, me.optLong("points"), if (me.isNull("rank")) null else me.optInt("rank"), me.optBoolean("hidden"), it.maxLevel)
+            val me = res.optJSONObject("me")
+            if (me == null) {
+                Result.success(RankingData(entries, null, null, 0, false))
+            } else {
+                val rank = if (me.isNull("rank")) null else me.optInt("rank")
+                account?.let {
+                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel)
+                }
+                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden")))
             }
-            Result.success(
-                RankingData(entries, me.optLong("id"), if (me.isNull("rank")) null else me.optInt("rank"), me.optLong("points"), me.optBoolean("hidden")),
-            )
         }
     } catch (e: Exception) {
-        if (e is ApiException && e.code == "not_logged_in") dropSession()
+        if (e is ApiException && e.code == "not_logged_in" && store.loggedIn) dropSession()
         Result.failure(e)
     }
 

@@ -365,7 +365,7 @@ fun RankingScreen(onBack: () -> Unit, onAccount: () -> Unit) {
     val loggedIn = online.loggedIn
 
     LaunchedEffect(loggedIn, refreshKey, isOnline) {
-        if (!loggedIn || !isOnline || !online.configured) return@LaunchedEffect
+        if (!isOnline || !online.configured) return@LaunchedEffect
         loading = true
         val result = online.ranking()
         loading = false
@@ -393,13 +393,7 @@ fun RankingScreen(onBack: () -> Unit, onAccount: () -> Unit) {
                 OfflineCard(recheck)
                 LocalPointsPanel()
             }
-            !loggedIn -> OnlineColumn {
-                QuickJoinForm()
-                Hint(stringResource(R.string.ranking_email_hint), Pal.Foam)
-                PixelButton(stringResource(R.string.account_title), onClick = onAccount, style = ButtonStyle.WOOD, size = 2)
-                LocalPointsPanel()
-            }
-            else -> RankingList(data, failed, loading, onRefresh = { refreshKey++ })
+            else -> RankingList(data, failed, loading, onRefresh = { refreshKey++ }, onAccount = onAccount)
         }
     }
 }
@@ -425,11 +419,26 @@ private fun LocalPointsPanel() {
 }
 
 @Composable
-private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loading: Boolean, onRefresh: () -> Unit) {
+private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loading: Boolean, onRefresh: () -> Unit, onAccount: () -> Unit) {
     val account = LocalServices.current.online.account
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = px(6)), horizontalAlignment = Alignment.CenterHorizontally) {
-            DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
+            if (account == null) {
+                // Gość widzi ranking, ale sam w nim nie występuje.
+                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        PixelText(
+                            stringResource(R.string.ranking_guest_info),
+                            size = 2,
+                            color = Pal.Foam,
+                            align = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        VSpace(4)
+                        PixelButton(stringResource(R.string.register_button), onClick = onAccount, style = ButtonStyle.GREEN, size = 2)
+                    }
+                }
+            } else DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         PixelText(stringResource(R.string.ranking_my_position), size = 1, color = Pal.Gold)

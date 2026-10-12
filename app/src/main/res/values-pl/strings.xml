@@ -387,7 +387,6 @@
     <string name="ranking_mode_info">Wpisz nick i hasło. Nowy nick = nowe konto. Po reinstalacji gry wpisz ten sam nick i hasło – ranking i postęp wrócą.</string>
     <string name="ranking_mode_warning">Zapamiętaj hasło! Konta bez e-maila nie da się odzyskać ani zresetować hasła.</string>
     <string name="ranking_join">GRAJ W RANKINGU</string>
-    <string name="ranking_email_hint">Wolisz konto z e-mailem (odzyskiwanie hasła)?</string>
     <string name="policy_title">PRYWATNOŚĆ I REGULAMIN</string>
     <string name="policy_summary">Konto online zapisuje na serwerze: nick, hasło (zaszyfrowane), opcjonalnie e-mail, Twój postęp w grze i wyniki przejazdów. Serwer sprawdza, czy wyniki są uczciwe. Nick i punkty widać w rankingu top 100. Konto możesz w każdej chwili usunąć w grze.</string>
     <string name="policy_open_privacy">POLITYKA PRYWATNOŚCI</string>
@@ -455,6 +454,7 @@
     <string name="ranking_my_position">TWOJA POZYCJA</string>
     <string name="ranking_top">TOP %d</string>
     <string name="ranking_not_ranked">poza rankingiem</string>
+    <string name="ranking_guest_info">Chcesz też być widoczny w rankingu? Załóż konto!</string>
     <string name="set_section_legal">DOKUMENTY</string>
     <string name="set_privacy">POLITYKA PRYWATNOŚCI</string>
     <string name="set_terms">REGULAMIN</string>
