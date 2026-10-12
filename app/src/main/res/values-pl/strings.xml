@@ -485,4 +485,19 @@
     <string name="err_update_required">Zaktualizuj grę, aby korzystać z rankingu.</string>
     <string name="err_clock">Ustaw poprawną datę i godzinę w telefonie.</string>
     <string name="err_generic">Coś poszło nie tak (%s). Spróbuj ponownie.</string>
+    <!-- Sterowanie -->
+    <string name="hud_tutorial_joystick">PRZESUŃ JOYSTICK, BY PŁYNĄĆ</string>
+    <string name="tut_move_joystick">Połóż kciuk na joysticku w dolnym rogu i przesuń go – łódź popłynie w tę stronę.</string>
+    <string name="controls_title">WYBIERZ STEROWANIE</string>
+    <string name="controls_text">Jak chcesz sterować łodzią?</string>
+    <string name="controls_swipe">PALEC</string>
+    <string name="controls_swipe_desc">Przesuwaj palcem w dowolnym miejscu ekranu.</string>
+    <string name="controls_joystick">JOYSTICK</string>
+    <string name="controls_joystick_desc">Klasyczny joystick w dolnym rogu, jak w popularnych grach na telefon.</string>
+    <string name="controls_later">Zawsze możesz to zmienić w ustawieniach.</string>
+    <string name="controls_ok">GOTOWE</string>
+    <string name="set_controls">STEROWANIE</string>
+    <string name="set_joystick_side">STRONA JOYSTICKA</string>
+    <string name="set_left">LEWA</string>
+    <string name="set_right">PRAWA</string>
 </resources>

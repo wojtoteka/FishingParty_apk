@@ -58,6 +58,8 @@ fun AppRoot() {
     var repairOffered by remember { mutableStateOf(false) }
     var lastSelection by remember { mutableStateOf(emptySet<PowerUp>()) }
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
+    // Sterowanie wybiera się raz – nowy gracz przed samouczkiem, dotychczasowy po aktualizacji.
+    var chooseControls by remember { mutableStateOf(!repo.save.controlsChosen) }
 
     // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
     val currentScreen by rememberUpdatedState(screen)
@@ -73,8 +75,8 @@ fun AppRoot() {
     }
 
     // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna.
-    LaunchedEffect(screen, showRepair) {
-        if (screen != Screen.Menu || showRepair || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
+    LaunchedEffect(screen, showRepair, chooseControls) {
+        if (screen != Screen.Menu || showRepair || chooseControls || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
         if (!repairOffered && repo.progress.streakRepair() != null) {
             repairOffered = true
             delay(600)
@@ -137,6 +139,7 @@ fun AppRoot() {
         if (screen !is Screen.Game) OnlineDialogs()
         if (showDaily) DailyRewardDialog(onClose = { showDaily = false })
         if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
+        if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {
                 PixelText(stringResource(R.string.save_tampered), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())

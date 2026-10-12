@@ -23,6 +23,7 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import kotlin.math.sqrt
 
 /** Teksty HUD-u (z zasobów, żeby renderer nie zależał od Context). */
 class HudStrings(
@@ -36,12 +37,17 @@ class HudStrings(
     val timeLow: String,
     val combo: String,
     val tutorial: String,
+    /** Podpowiedź samouczka dla sterowania joystickiem. */
+    val tutorialJoystick: String = tutorial,
     /** Napis na start Wielkiego Finału i nazwy światów jego kolejnych etapów. */
     val finale: String = "",
     val finaleStages: List<String> = emptyList(),
 )
 
-/** Pływający joystick – stan dotyku w pikselach ekranu. */
+/**
+ * Stan sterowania dotykiem w pikselach ekranu. Domyślnie pływający punkt (przesuwanie
+ * palcem po całym ekranie), a w trybie [joystick] – stała baza w dolnym rogu.
+ */
 class TouchStick {
     var active = false
     var originX = 0f
@@ -50,6 +56,47 @@ class TouchStick {
     var y = 0f
     var engaged = false
     var angle = 0f
+
+    /** Tryb joysticka i jego strona ekranu. */
+    var joystick = false
+    var left = true
+
+    /** Miejsce spoczynku bazy joysticka, jej promień i ekran – ustawiane co klatkę przez [layout]. */
+    var homeX = 0f
+    var homeY = 0f
+    var radius = 0f
+    private var margin = 0f
+    private var width = 0f
+
+    fun layout(width: Float, height: Float, bottomInset: Float, margin: Float, radius: Float) {
+        this.width = width
+        this.margin = margin
+        this.radius = radius
+        homeX = if (left) margin + radius else width - margin - radius
+        homeY = height - bottomInset - margin - radius
+    }
+
+    /** Joystick łapie tylko dotyk w swojej połowie ekranu, pływający punkt – każdy. */
+    fun accepts(touchX: Float): Boolean = !joystick || (touchX < width / 2f) == left
+
+    /**
+     * Początek dotyku. Joystick przeskakuje pod palec (jak w popularnych grach mobilnych),
+     * ale cała baza zostaje na ekranie i nie schodzi niżej niż jej miejsce spoczynku.
+     */
+    fun press(touchX: Float, touchY: Float) {
+        active = true
+        engaged = false
+        x = touchX
+        y = touchY
+        if (joystick) {
+            val edge = margin / 2f + radius
+            originX = touchX.coerceIn(edge, max(edge, width - edge))
+            originY = touchY.coerceIn(edge, max(edge, homeY))
+        } else {
+            originX = touchX
+            originY = touchY
+        }
+    }
 }
 
 class GameRenderer(private val strings: HudStrings, private val look: ShipLook) {
@@ -61,6 +108,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         isAntiAlias = false
     }
     private val fill = Paint()
+    private val smooth = Paint().apply { isAntiAlias = true }
     private val rect = RectF()
     private var themeSpec: LevelSpec? = null
     private var currentTiles = Sprites.tiles(Worlds.theme(0))
@@ -114,10 +162,12 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         canvas.restore()
 
         drawPopups(canvas, world, camX, camY, s)
-        drawStick(canvas, stick, s)
+        if (stick.joystick) drawJoystick(canvas, stick, s, t, hint = world.showControls) else drawStick(canvas, stick, s)
         drawHud(canvas, world, width, topInset, s)
         drawMessage(canvas, world, width, height, s)
-        if (world.showControls) drawTutorial(canvas, width, height, s, t)
+        if (world.showControls) {
+            if (stick.joystick) drawJoystickTutorial(canvas, stick, width, s) else drawTutorial(canvas, width, height, s, t)
+        }
         if (world.hitFlash > 0f) {
             fill.color = 0xFFFF0000.toInt()
             fill.alpha = (world.hitFlash * 110).toInt().coerceIn(0, 255)
@@ -223,6 +273,79 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         canvas.drawBitmap(arrow, null, rect, paint)
         canvas.restore()
         paint.alpha = 255
+    }
+
+    /** Stały joystick: półprzezroczysta baza i gałka, która idzie za palcem (najdalej do krawędzi bazy). */
+    private fun drawJoystick(canvas: Canvas, stick: TouchStick, s: Float, t: Float, hint: Boolean) {
+        val r = stick.radius
+        if (r <= 0f) return
+        val line = max(2f, floor(s / 2f))
+        val baseX = if (stick.active) stick.originX else stick.homeX
+        val baseY = if (stick.active) stick.originY else stick.homeY
+        var knobX = baseX
+        var knobY = baseY
+        if (stick.active) {
+            val dx = stick.x - stick.originX
+            val dy = stick.y - stick.originY
+            val d = sqrt(dx * dx + dy * dy)
+            val k = if (d > r) r / d else 1f
+            knobX += dx * k
+            knobY += dy * k
+        } else if (hint) {
+            // Samouczek: gałka sama krąży, pokazując, że trzeba ją przesunąć.
+            val phase = (t % 2f) / 2f * 2f * PI.toFloat()
+            knobX += cos(phase) * r * 0.55f
+            knobY += sin(phase) * r * 0.55f
+        }
+        val strong = stick.active || hint
+
+        smooth.style = Paint.Style.FILL
+        smooth.color = JOY_DARK
+        smooth.alpha = if (strong) 110 else 70
+        canvas.drawCircle(baseX, baseY, r, smooth)
+        smooth.style = Paint.Style.STROKE
+        smooth.strokeWidth = line
+        smooth.color = JOY_LIGHT
+        smooth.alpha = if (strong) 190 else 110
+        canvas.drawCircle(baseX, baseY, r - line / 2f, smooth)
+
+        if (stick.active && stick.engaged) {
+            // Strzałka na krawędzi bazy pokazuje kierunek płynięcia.
+            val arrow = Sprites.sprite("arrowup")
+            val k = max(2f, (s * 0.5f).roundToInt().toFloat())
+            paint.alpha = 170
+            canvas.save()
+            canvas.translate(baseX, baseY)
+            canvas.rotate(Math.toDegrees(stick.angle.toDouble()).toFloat() + 90f)
+            rect.set(-arrow.width * k / 2f, -r - arrow.height * k - line, arrow.width * k / 2f, -r - line)
+            canvas.drawBitmap(arrow, null, rect, paint)
+            canvas.restore()
+            paint.alpha = 255
+        }
+
+        val knob = r * 0.45f
+        smooth.style = Paint.Style.FILL
+        smooth.color = JOY_LIGHT
+        smooth.alpha = if (strong) 220 else 140
+        canvas.drawCircle(knobX, knobY, knob, smooth)
+        smooth.style = Paint.Style.STROKE
+        smooth.color = JOY_DARK
+        smooth.alpha = if (strong) 230 else 150
+        canvas.drawCircle(knobX, knobY, knob - line / 2f, smooth)
+
+        if (hint && !stick.active) {
+            val doigt = Sprites.sprite("doigt")
+            val dk = (s * 0.75f).roundToInt().toFloat()
+            rect.set(knobX - doigt.width * dk / 2f, knobY - doigt.height * dk / 2f, knobX + doigt.width * dk / 2f, knobY + doigt.height * dk / 2f)
+            canvas.drawBitmap(doigt, null, rect, paint)
+        }
+    }
+
+    /** Napis samouczka nad joystickiem. */
+    private fun drawJoystickTutorial(canvas: Canvas, stick: TouchStick, width: Int, s: Float) {
+        val p = max(2f, floor(s / 2f))
+        val y = stick.homeY - stick.radius - 16 * p
+        text.draw(canvas, strings.tutorialJoystick, width / 2f, y, p * 1.5f, PixelText.WHITE, align = 0)
     }
 
     private fun icon(canvas: Canvas, bitmap: Bitmap, left: Float, top: Float, k: Float, alpha: Int = 255) {
@@ -350,6 +473,9 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     }
 
     companion object {
+        private const val JOY_DARK = 0xFF0A1E38.toInt()
+        private const val JOY_LIGHT = 0xFFE3ECFF.toInt()
+
         /** Całkowita skala pikseli – pokój ma 11 kafelków (176 px) szerokości. */
         fun scaleFor(width: Int): Int = max(2, width / 176)
     }

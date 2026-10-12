@@ -476,4 +476,19 @@
     <string name="err_update_required">Update the game to use the ranking.</string>
     <string name="err_clock">Set the correct date and time on your phone.</string>
     <string name="err_generic">Something went wrong (%s). Try again.</string>
+    <!-- Sterowanie -->
+    <string name="hud_tutorial_joystick">MOVE THE JOYSTICK TO SAIL</string>
+    <string name="tut_move_joystick">Put your thumb on the joystick in the bottom corner and push it – the boat sails that way.</string>
+    <string name="controls_title">CHOOSE CONTROLS</string>
+    <string name="controls_text">How do you want to steer your boat?</string>
+    <string name="controls_swipe">SWIPE</string>
+    <string name="controls_swipe_desc">Slide your finger anywhere on the screen.</string>
+    <string name="controls_joystick">JOYSTICK</string>
+    <string name="controls_joystick_desc">Classic joystick in the bottom corner, like in popular mobile games.</string>
+    <string name="controls_later">You can change it anytime in the settings.</string>
+    <string name="controls_ok">DONE</string>
+    <string name="set_controls">CONTROLS</string>
+    <string name="set_joystick_side">JOYSTICK SIDE</string>
+    <string name="set_left">LEFT</string>
+    <string name="set_right">RIGHT</string>
 </resources>

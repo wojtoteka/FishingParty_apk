@@ -13,6 +13,7 @@ import wojtoteka.ovh.fishingparty.audio.SoundScript
 import wojtoteka.ovh.fishingparty.core.GuardedLong
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.Catalog
+import wojtoteka.ovh.fishingparty.data.ControlMode
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.Progress
 import wojtoteka.ovh.fishingparty.data.SaveCodec
@@ -67,6 +68,9 @@ class SaveAndProgressTest {
         streakReminders = false
         reminderHour = 20
         keepScreenOn = false
+        controls = ControlMode.JOYSTICK
+        controlsChosen = true
+        joystickLeft = false
     }
 
     @Test
@@ -93,7 +97,23 @@ class SaveAndProgressTest {
         assertFalse(copy.streakReminders)
         assertEquals(20, copy.reminderHour)
         assertFalse(copy.keepScreenOn)
+        assertEquals(ControlMode.JOYSTICK, copy.controls)
+        assertTrue(copy.controlsChosen)
+        assertFalse(copy.joystickLeft)
         assertArrayEquals(SaveCodec.encode(original), SaveCodec.encode(copy))
+    }
+
+    @Test
+    fun saveFromBeforeControlsAsksForThem() {
+        // Zapis v3 nie miał wyboru sterowania: 3 ostatnie bajty v4 odpadają, wersja w nagłówku to 3.
+        val v4 = SaveCodec.encode(sample())
+        val v3 = v4.copyOf(v4.size - 3)
+        v3[5] = 3
+        val loaded = SaveCodec.decode(v3)
+        assertEquals(ControlMode.SWIPE, loaded.controls)
+        assertFalse(loaded.controlsChosen)
+        assertTrue(loaded.joystickLeft)
+        assertEquals(450, loaded.best[0])
     }
 
     @Test

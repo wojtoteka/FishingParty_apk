@@ -9,6 +9,7 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 - Poziomy są generowane deterministycznie z numeru poziomu (`LevelGenerator`), więc każdy gracz dostaje identyczną planszę – to podstawa uczciwego rankingu.
 - 9 typów poziomów (skalista rafa, archipelag, kanał, prąd, gorączka złota, wyścig z czasem, ławica piranii, starcie z bestią…) plus Wielki Finał, 7 rodzajów przeciwników, złote i niebieskie ryby, combo do x5.
 - 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 43 osiągnięcia, nagroda dnia.
+- **Sterowanie do wyboru** przy pierwszym uruchomieniu: przesuwanie palcem po całym ekranie albo klasyczny joystick w dolnym rogu (jak w popularnych grach na telefon – przeskakuje pod kciuk i wraca na miejsce po puszczeniu). Zmiana w USTAWIENIA → GRA, tam też strona joysticka (lewa / prawa).
 - **Ranking online top 100 i konto** (od wersji 2.1, serwer `Top_FishingParty` na https://fp.wojtoteka.ovh). Punkty rankingowe = suma najlepszych wyników z każdego poziomu + trofea za passę.
   - **Tryb rankingowy (nick + hasło)** – akceptacja polityki prywatności i regulaminu, nick i hasło. Nowy nick zakłada konto, istniejący z poprawnym hasłem loguje i przywraca postęp (np. po reinstalacji). Hasła nie da się zresetować.
   - **Konto e-mail** – e-mail + nick + hasło, potwierdzane kodem z maila (SMTP); pozwala ustawić nowe hasło kodem. Do konta „nick + hasło” można później dodać e-mail.

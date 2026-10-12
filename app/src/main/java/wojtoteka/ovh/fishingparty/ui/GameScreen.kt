@@ -51,6 +51,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Catalog
+import wojtoteka.ovh.fishingparty.data.ControlMode
 import wojtoteka.ovh.fishingparty.data.Reward
 import wojtoteka.ovh.fishingparty.game.GameListener
 import wojtoteka.ovh.fishingparty.game.GameRenderer
@@ -144,6 +145,7 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
         timeLow = stringResource(R.string.hud_time_low),
         combo = stringResource(R.string.hud_combo),
         tutorial = stringResource(R.string.hud_tutorial),
+        tutorialJoystick = stringResource(R.string.hud_tutorial_joystick),
         finale = stringResource(R.string.type_finale),
         finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
     )
@@ -154,14 +156,23 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
     val density = LocalDensity.current
     val dead = with(density) { 10.dp.toPx() }
     val radius = with(density) { 64.dp.toPx() }
+    val joyRadius = with(density) { 58.dp.toPx() }
+    val joyMargin = with(density) { 28.dp.toPx() }
     val topInset = WindowInsets.safeDrawing.getTop(density).toFloat()
+    val bottomInset = WindowInsets.safeDrawing.getBottom(density).toFloat()
 
     LaunchedEffect(world) {
         audio.play(Sfx.START)
         var last = 0L
         while (isActive) {
             withFrameNanos { now ->
-                if (stick.active) {
+                if (stick.active && stick.joystick) {
+                    // Joystick: baza stoi w miejscu, gałka w środku zatrzymuje łódź.
+                    val dx = stick.x - stick.originX
+                    val dy = stick.y - stick.originY
+                    stick.engaged = sqrt(dx * dx + dy * dy) > dead
+                    if (stick.engaged) stick.angle = atan2(dy, dx)
+                } else if (stick.active) {
                     val dx = stick.x - stick.originX
                     val dy = stick.y - stick.originY
                     val d = sqrt(dx * dx + dy * dy)
@@ -212,12 +223,9 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
                 .pointerInput(world) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
-                        stick.active = true
-                        stick.originX = down.position.x
-                        stick.originY = down.position.y
-                        stick.x = down.position.x
-                        stick.y = down.position.y
-                        stick.engaged = false
+                        // Joystick nie reaguje na dotyk w drugiej połowie ekranu.
+                        if (!stick.accepts(down.position.x)) return@awaitEachGesture
+                        stick.press(down.position.x, down.position.y)
                         while (true) {
                             val event = awaitPointerEvent()
                             val change = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -231,6 +239,10 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
                 },
         ) {
             frame.longValue
+            // Wybór sterowania może się zmienić w trakcie (pierwsze uruchomienie, samouczek).
+            stick.joystick = repo.save.controls == ControlMode.JOYSTICK
+            stick.left = repo.save.joystickLeft
+            stick.layout(size.width, size.height, bottomInset, joyMargin, joyRadius)
             drawIntoCanvas { c ->
                 renderer.draw(c.nativeCanvas, world, size.width.toInt(), size.height.toInt(), topInset, stick)
             }
@@ -572,6 +584,9 @@ private fun TutorialCard(step: TutorialStep, remaining: Int, modifier: Modifier 
         delay(1500)
         fresh = false
     }
+    val repo = LocalServices.current.repo
+    repo.revision.intValue
+    val joystick = repo.save.controls == ControlMode.JOYSTICK
     DarkCard(modifier.widthIn(max = px(320)).fillMaxWidth(), highlight = fresh || step == TutorialStep.GOLDEN) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             PixelText(
@@ -582,7 +597,7 @@ private fun TutorialCard(step: TutorialStep, remaining: Int, modifier: Modifier 
             VSpace(2)
             PixelText(
                 when (step) {
-                    TutorialStep.MOVE -> stringResource(R.string.tut_move)
+                    TutorialStep.MOVE -> stringResource(if (joystick) R.string.tut_move_joystick else R.string.tut_move)
                     TutorialStep.FIRST_FISH -> stringResource(R.string.tut_first_fish)
                     TutorialStep.FILL_QUOTA -> pluralStringResource(R.plurals.tut_fill_quota, remaining, remaining)
                     TutorialStep.GATE -> stringResource(R.string.tut_gate)

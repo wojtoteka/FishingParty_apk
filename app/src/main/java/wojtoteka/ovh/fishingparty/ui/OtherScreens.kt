@@ -238,6 +238,8 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                 }
 
                 SettingsSection(stringResource(R.string.set_section_game)) {
+                    ControlsSettings()
+                    VSpace(4)
                     ToggleRow(stringResource(R.string.set_keep_screen), save.keepScreenOn) {
                         save.keepScreenOn = it
                         repo.changed()

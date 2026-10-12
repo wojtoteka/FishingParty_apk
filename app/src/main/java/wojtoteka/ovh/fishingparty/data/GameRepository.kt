@@ -102,6 +102,12 @@ class GameRepository(context: Context) {
      */
     fun restoreSnapshot(bytes: ByteArray) {
         val restored = SaveCodec.decode(bytes)
+        // Sterowanie wybrane na tym telefonie zostaje – gracz wybrał je przed zalogowaniem.
+        if (save.controlsChosen) {
+            restored.controls = save.controls
+            restored.controlsChosen = true
+            restored.joystickLeft = save.joystickLeft
+        }
         save = restored
         progress = progressOf(restored)
         progress.touchClock()
