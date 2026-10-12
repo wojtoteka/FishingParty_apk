@@ -1,6 +1,8 @@
 package wojtoteka.ovh.fishingparty
 
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
@@ -23,6 +25,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         drawBehindSystemBars()
+        applyOrientation(resources.configuration)
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
         applyKeepScreenOn()
         hideSystemBars()
@@ -46,6 +49,12 @@ class MainActivity : ComponentActivity() {
         StreakReminder.schedule(this)
         app.online.onBackground()
         super.onPause()
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Składany telefon: po rozłożeniu duży ekran może się obracać, po złożeniu wraca pion.
+        applyOrientation(newConfig)
     }
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
@@ -74,11 +83,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /**
+     * Na telefonie gra stoi w pionie (rzeka płynie z dołu do góry), a na tabletach i rozłożonych
+     * składakach (najkrótszy bok od 600 dp) działa w każdej orientacji i rozmiarze okna –
+     * dlatego blokada nie siedzi w manifeście, który obowiązywałby wszystkie ekrany.
+     */
+    private fun applyOrientation(config: Configuration) {
+        val phone = config.smallestScreenWidthDp < LARGE_SCREEN_DP && !isInMultiWindowMode
+        val wanted = if (phone) ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+        if (requestedOrientation != wanted) requestedOrientation = wanted
+    }
+
     /** Pełny ekran – paski systemowe pojawiają się tylko po przesunięciu od krawędzi. */
     private fun hideSystemBars() {
         WindowCompat.getInsetsController(window, window.decorView).apply {
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
             hide(WindowInsetsCompat.Type.systemBars())
         }
+    }
+
+    private companion object {
+        const val LARGE_SCREEN_DP = 600
     }
 }

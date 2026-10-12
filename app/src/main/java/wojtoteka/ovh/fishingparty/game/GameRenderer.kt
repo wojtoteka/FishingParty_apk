@@ -21,6 +21,7 @@ import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -126,7 +127,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else null
             rowTiles = rowWorlds?.let { rows -> Array(rows.size) { Sprites.tiles(Worlds.theme(rows[it])) } }
         }
-        scale = scaleFor(width)
+        scale = scaleFor(width, height)
         val s = scale.toFloat()
         val viewW = width / s
         val viewH = height / s
@@ -474,7 +475,11 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         private const val JOY_DARK = 0xFF0A1E38.toInt()
         private const val JOY_LIGHT = 0xFFE3ECFF.toInt()
 
-        /** Całkowita skala pikseli – pokój ma 11 kafelków (176 px) szerokości. */
-        fun scaleFor(width: Int): Int = max(2, width / 176)
+        /**
+         * Całkowita skala pikseli – pokój ma 11 kafelków (176 px) szerokości. Na niskim ekranie
+         * (tablet w poziomie) skala maleje, żeby z przodu łodzi było widać co najmniej 15 kafelków,
+         * a rzeka staje na środku. Na telefonie w pionie decyduje sama szerokość.
+         */
+        fun scaleFor(width: Int, height: Int): Int = max(2, min(width / 176, height / 240))
     }
 }

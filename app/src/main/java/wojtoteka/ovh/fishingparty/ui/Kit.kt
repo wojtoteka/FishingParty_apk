@@ -56,6 +56,7 @@ import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.Sprites
 import wojtoteka.ovh.fishingparty.online.OnlineManager
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Paleta wzięta z oryginalnych spritów. */
@@ -101,8 +102,9 @@ val BitCell = FontFamily(Font(R.font.bitcell))
 
 @Composable
 fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
-    val width = LocalWindowInfo.current.containerSize.width
-    val unit = max(2, (width / 360f).roundToInt())
+    // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
+    val window = LocalWindowInfo.current.containerSize
+    val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
     val services = remember(app) { Services(app.repository, app.audio, app.online) }
     CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, content = content)
 }
