@@ -12,7 +12,9 @@ import javax.crypto.spec.SecretKeySpec
 /**
  * Podpis żądań do serwera rankingu (HMAC-SHA256 wspólnym sekretem aplikacji):
  * METODA \n ŚCIEŻKA \n CZAS \n NONCE \n sha256(treść). Serwer odrzuca żądania
- * bez podpisu, sprzed ponad 5 minut i powtórzone (ten sam nonce).
+ * bez podpisu, sprzed ponad 5 minut i powtórzone (ten sam nonce). Ta sama treść
+ * jest dodatkowo podpisana kluczem telefonu ([DeviceKey]) – sam sekret wyciągnięty
+ * z aplikacji nie wystarczy, żeby wysyłać wyniki.
  */
 object ApiSigning {
     fun sha256Hex(bytes: ByteArray): String =
@@ -40,11 +42,20 @@ class ApiException(val status: Int, val code: String, val body: JSONObject) : Ex
 /** Brak połączenia albo serwer nie odpowiada. */
 class OfflineException(cause: Throwable? = null) : Exception("offline", cause)
 
+/** Podpis żądań kluczem tego telefonu (DeviceKey) – serwer zna go z atestacji. */
+interface DeviceSigner {
+    val deviceId: String
+
+    /** Podpis treści żądania albo null, gdy telefon nie ma jeszcze klucza. */
+    fun sign(message: String): String?
+}
+
 /** Klient REST serwera Top_FishingParty. Wywołania blokujące – tylko poza wątkiem UI. */
 class ApiClient(
     private val baseUrl: String,
     private val secret: String,
     private val appVersion: Int,
+    private val device: DeviceSigner? = null,
 ) {
     // Ruch bez szyfrowania blokuje sam Android (targetSdk 28+), więc w praktyce zawsze https.
     val configured: Boolean get() = secret.isNotEmpty() && baseUrl.isNotEmpty()
@@ -55,7 +66,9 @@ class ApiClient(
         val raw = body?.toString()?.toByteArray() ?: ByteArray(0)
         val time = System.currentTimeMillis()
         val nonce = ApiSigning.nonce()
-        val signature = ApiSigning.sign(secret, ApiSigning.message(method, url.file, time, nonce, ApiSigning.sha256Hex(raw)))
+        val message = ApiSigning.message(method, url.file, time, nonce, ApiSigning.sha256Hex(raw))
+        val signature = ApiSigning.sign(secret, message)
+        val deviceSignature = device?.sign(message)
         val conn = try {
             url.openConnection() as HttpURLConnection
         } catch (e: IOException) {
@@ -71,6 +84,10 @@ class ApiClient(
             conn.setRequestProperty("X-FP-Nonce", nonce)
             conn.setRequestProperty("X-FP-Signature", signature)
             conn.setRequestProperty("X-FP-App", appVersion.toString())
+            if (device != null && deviceSignature != null) {
+                conn.setRequestProperty("X-FP-Device", device.deviceId)
+                conn.setRequestProperty("X-FP-Device-Sig", deviceSignature)
+            }
             if (token != null) conn.setRequestProperty("Authorization", "Bearer $token")
             if (body != null) {
                 conn.doOutput = true

@@ -14,7 +14,8 @@ import java.util.Base64
 
 /**
  * Klient aplikacji przeciwko lokalnemu serwerowi Top_FishingParty
- * (`PORT=3811 HMAC_SECRET=local-test-secret npm run dev`). Bez serwera test jest pomijany.
+ * (`PORT=3811 HMAC_SECRET=local-test-secret ATTESTATION_MODE=off npm run dev` –
+ * atestację telefonu da się sprawdzić tylko na prawdziwym urządzeniu). Bez serwera test jest pomijany.
  */
 class ApiClientLocalServerTest {
 
@@ -28,7 +29,7 @@ class ApiClientLocalServerTest {
     @Test
     fun registerRunsSnapshotAndRanking() {
         assumeTrue("lokalny serwer nie działa", serverUp())
-        val api = ApiClient("http://127.0.0.1:$PORT/api/v1", "local-test-secret", 9)
+        val api = ApiClient("http://127.0.0.1:$PORT/api/v1", "local-test-secret", 10)
         val device = "c".repeat(32)
         val nick = "Jvm" + (System.currentTimeMillis() % 100000)
 

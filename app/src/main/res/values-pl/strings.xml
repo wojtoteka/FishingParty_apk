@@ -466,6 +466,10 @@
     <string name="err_nick_length">Nick musi mieć 3–16 znaków.</string>
     <string name="err_nick_chars">Nick może zawierać litery, cyfry, spację oraz _ . -</string>
     <string name="err_nick_banned">Ten nick jest niedozwolony.</string>
+    <string name="err_nick_reserved">Ten nick jest zarezerwowany.</string>
+    <string name="err_registration_closed">Zakładanie nowych kont jest chwilowo wyłączone. Spróbuj później.</string>
+    <string name="err_device_unverified">Nie udało się zweryfikować tej kopii gry. Aby korzystać z rankingu, zainstaluj Fishing Party z Google Play.</string>
+    <string name="err_device_unsupported">Ten telefon nie obsługuje sprzętowej weryfikacji wymaganej w rankingu.</string>
     <string name="err_password_short">Hasło musi mieć co najmniej 8 znaków.</string>
     <string name="err_password_long">Hasło może mieć najwyżej 72 znaki.</string>
     <string name="err_password_mismatch">Hasła się różnią.</string>

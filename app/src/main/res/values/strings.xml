@@ -457,6 +457,10 @@
     <string name="err_nick_length">The nickname must have 3–16 characters.</string>
     <string name="err_nick_chars">The nickname may contain letters, digits, spaces and _ . -</string>
     <string name="err_nick_banned">This nickname is not allowed.</string>
+    <string name="err_nick_reserved">This nickname is reserved.</string>
+    <string name="err_registration_closed">New accounts are temporarily disabled. Try again later.</string>
+    <string name="err_device_unverified">This copy of the game could not be verified. Install Fishing Party from Google Play to use the ranking.</string>
+    <string name="err_device_unsupported">This phone does not support the hardware verification required for the ranking.</string>
     <string name="err_password_short">The password must have at least 8 characters.</string>
     <string name="err_password_long">The password may have at most 72 characters.</string>
     <string name="err_password_mismatch">The passwords do not match.</string>

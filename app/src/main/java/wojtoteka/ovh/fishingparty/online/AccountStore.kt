@@ -38,6 +38,9 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
     /** Zapis zmienił się od ostatniej udanej wysyłki. */
     var dirty: Boolean = false
 
+    /** Klucz telefonu ([DeviceKey]) przeszedł atestację na serwerze. Nie zależy od konta – zostaje po wylogowaniu. */
+    var deviceAttested: Boolean = false
+
     val loggedIn: Boolean get() = token != null
 
     init {
@@ -65,7 +68,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         try {
             DataInputStream(ByteArrayInputStream(crypto.open(file.readBytes()))).use { i ->
                 require(i.readInt() == MAGIC)
-                i.readShort()
+                val version = i.readShort().toInt()
                 deviceId = i.readUTF()
                 token = i.readUTF().ifEmpty { null }
                 accountId = i.readLong()
@@ -75,6 +78,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
                 lastSentRunAt = i.readLong()
                 importPending = i.readBoolean()
                 dirty = i.readBoolean()
+                if (version >= 2) deviceAttested = i.readBoolean()
             }
         } catch (e: Exception) {
             Log.w("FishingParty", "Nie można odczytać sesji konta", e)
@@ -85,7 +89,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         val bytes = ByteArrayOutputStream()
         DataOutputStream(bytes).use { o ->
             o.writeInt(MAGIC)
-            o.writeShort(1)
+            o.writeShort(2)
             o.writeUTF(deviceId)
             o.writeUTF(token.orEmpty())
             o.writeLong(accountId)
@@ -95,6 +99,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
             o.writeLong(lastSentRunAt)
             o.writeBoolean(importPending)
             o.writeBoolean(dirty)
+            o.writeBoolean(deviceAttested)
         }
         val plain = bytes.toByteArray()
         io.execute {

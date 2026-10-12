@@ -22,7 +22,7 @@ android {
         applicationId = "wojtoteka.ovh.fishingparty"
         minSdk = 26
         targetSdk = 36
-        versionCode = 9
+        versionCode = 10
         versionName = "2.1"
 
         buildConfigField("String", "FP_API_URL", "\"${localProp("fp.apiUrl", "https://fp.wojtoteka.ovh/api/v1")}\"")

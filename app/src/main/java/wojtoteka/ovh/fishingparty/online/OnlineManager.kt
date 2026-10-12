@@ -63,7 +63,24 @@ class OnlineManager(
 ) {
     private val appContext = context.applicationContext
     private val store = AccountStore(appContext.noBackupFilesDir, repo.crypto)
-    private val api = ApiClient(BuildConfig.FP_API_URL, BuildConfig.FP_HMAC_SECRET, BuildConfig.VERSION_CODE)
+    private val api = ApiClient(
+        BuildConfig.FP_API_URL,
+        BuildConfig.FP_HMAC_SECRET,
+        BuildConfig.VERSION_CODE,
+        object : DeviceSigner {
+            override val deviceId: String get() = store.deviceId
+            override fun sign(message: String): String? = DeviceKey.sign(message)
+        },
+    )
+    private val deviceLock = Mutex()
+
+    /** Rośnie przy każdej udanej atestacji – równoległe żądania nie tworzą klucza kilka razy. */
+    @Volatile
+    private var deviceGeneration = 0
+
+    /** Serwer ma wyłączoną atestację (tryb testowy) – nie pytamy o nią do restartu gry. */
+    @Volatile
+    private var attestationOff = false
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val syncLock = Mutex()
     private var snapshotJob: Job? = null
@@ -118,7 +135,50 @@ class OnlineManager(
     }
 
     private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true): JSONObject =
-        withContext(Dispatchers.IO) { api.call(method, path, body, if (auth) store.token else null) }
+        withContext(Dispatchers.IO) {
+            val generation = ensureDevice()
+            try {
+                api.call(method, path, body, if (auth) store.token else null)
+            } catch (e: ApiException) {
+                if (e.code != "device_unverified") throw e
+                // Serwer nie zna już klucza tego telefonu (np. admin kazał go zapomnieć) – nowa atestacja i jedna powtórka.
+                ensureDevice(staleGeneration = generation)
+                api.call(method, path, body, if (auth) store.token else null)
+            }
+        }
+
+    /**
+     * Rejestruje klucz telefonu na serwerze (atestacja), jeśli jeszcze tego nie zrobiono.
+     * [staleGeneration] wymusza nowy klucz, chyba że w międzyczasie zrobiło to inne żądanie.
+     */
+    private suspend fun ensureDevice(staleGeneration: Int? = null): Int = deviceLock.withLock {
+        val needed = if (staleGeneration != null) staleGeneration == deviceGeneration else !(store.deviceAttested && DeviceKey.exists())
+        if (!needed || attestationOff) return@withLock deviceGeneration
+        val res = api.call("POST", "/device/challenge", JSONObject().put("deviceId", store.deviceId))
+        if (res.optString("mode") == "off") {
+            attestationOff = true
+            return@withLock deviceGeneration
+        }
+        val chain = try {
+            DeviceKey.create(Base64.decode(res.getString("challenge"), Base64.NO_WRAP))
+        } catch (e: Exception) {
+            Log.w("FishingParty", "Telefon nie obsługuje atestacji klucza", e)
+            throw ApiException(0, "device_unsupported", JSONObject())
+        }
+        try {
+            api.call("POST", "/device/attest", JSONObject().put("deviceId", store.deviceId).put("chain", JSONArray(chain)))
+        } catch (e: ApiException) {
+            if (e.code == "attestation_failed") {
+                Log.w("FishingParty", "Serwer odrzucił atestację: ${e.body.optString("reason")}")
+                throw ApiException(e.status, "device_unverified", e.body)
+            }
+            throw e
+        }
+        store.deviceAttested = true
+        store.save()
+        deviceGeneration++
+        deviceGeneration
+    }
 
     private fun failure(e: Exception): OnlineResult.Failed = when (e) {
         is ApiException -> {
