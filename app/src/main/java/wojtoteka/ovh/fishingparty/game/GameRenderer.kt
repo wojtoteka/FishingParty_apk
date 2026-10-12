@@ -156,12 +156,13 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (!blink) {
             ship.draw(canvas, world.shipX, world.shipY, world.heading, world.speed > 6f, t, look)
         }
+        if (!stick.joystick && stick.active && stick.engaged) drawCourse(canvas, world, stick.angle, t)
         val caughtSprite = Sprites.sprite("fish")
         for (c in world.caught) ship.sprite(canvas, caughtSprite, c.x, c.y, 0f)
         canvas.restore()
 
         drawPopups(canvas, world, camX, camY, s)
-        if (stick.joystick) drawJoystick(canvas, stick, s, t, hint = world.showControls) else drawStick(canvas, stick, s)
+        if (stick.joystick) drawJoystick(canvas, stick, s, t, hint = world.showControls)
         drawHud(canvas, world, width, topInset, s)
         drawMessage(canvas, world, width, height, s)
         if (world.showControls) {
@@ -260,18 +261,31 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         }
     }
 
-    private fun drawStick(canvas: Canvas, stick: TouchStick, s: Float) {
-        if (!stick.active || !stick.engaged) return
-        val arrow = Sprites.sprite("arrowup")
-        paint.alpha = 110
-        canvas.save()
-        canvas.translate(stick.originX, stick.originY)
-        canvas.rotate(Math.toDegrees(stick.angle.toDouble()).toFloat() + 90f)
-        val k = max(3f, s * 0.75f).roundToInt().toFloat()
-        rect.set(-arrow.width * k / 2f, -arrow.height * k / 2f - arrow.height * k, arrow.width * k / 2f, arrow.height * k / 2f - arrow.height * k)
-        canvas.drawBitmap(arrow, null, rect, paint)
-        canvas.restore()
-        paint.alpha = 255
+    /**
+     * Kurs przy sterowaniu palcem: zamiast strzałki, która latała za palcem, przed łodzią
+     * płyną w wybranym kierunku trzy pikselowe szewrony – jak fala od dziobu. Widać, dokąd
+     * łódź skręca, zanim się obróci, a znacznik zawsze zostaje przy łodzi.
+     */
+    private fun drawCourse(canvas: Canvas, world: GameWorld, angle: Float, t: Float) {
+        val dx = cos(angle)
+        val dy = sin(angle)
+        val rotation = Math.toDegrees(angle.toDouble()).toFloat() + 90f
+        fill.color = JOY_LIGHT
+        for (i in 0 until COURSE_MARKS) {
+            val phase = (t * 1.8f + i.toFloat() / COURSE_MARKS) % 1f
+            val d = 12f + phase * 15f
+            fill.alpha = (sin(phase * PI.toFloat()) * 220f).toInt().coerceIn(0, 255)
+            canvas.save()
+            canvas.translate(world.shipX + dx * d, world.shipY + dy * d)
+            canvas.rotate(rotation)
+            // Szewron 5×3 piksele skierowany w górę (po obrocie – w stronę kursu).
+            for (k in 0..2) {
+                canvas.drawRect(-k - 0.5f, k - 1.5f, -k + 0.5f, k - 0.5f, fill)
+                if (k > 0) canvas.drawRect(k - 0.5f, k - 1.5f, k + 0.5f, k - 0.5f, fill)
+            }
+            canvas.restore()
+        }
+        fill.alpha = 255
     }
 
     /** Stały joystick: półprzezroczysta baza i gałka, która idzie za palcem (najdalej do krawędzi bazy). */
@@ -474,6 +488,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     companion object {
         private const val JOY_DARK = 0xFF0A1E38.toInt()
         private const val JOY_LIGHT = 0xFFE3ECFF.toInt()
+        private const val COURSE_MARKS = 3
 
         /**
          * Całkowita skala pikseli – pokój ma 11 kafelków (176 px) szerokości. Na niskim ekranie
