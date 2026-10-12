@@ -130,6 +130,7 @@
     <string name="off">WYŁ.</string>
     <string name="set_reset">RESETUJ POSTĘP</string>
     <string name="set_reset_confirm">Usunąć cały postęp? Tego nie da się cofnąć.</string>
+    <string name="set_reset_confirm_online">Usunąć cały postęp? Zniknie także z konta online, na wszystkich telefonach. Punkty w rankingu zostaną. Tego nie da się cofnąć.</string>
     <string name="set_author">AUTOR: WOJTOTEKA</string>
     <string name="set_credits">Czcionka: BitCell (memesbruh03).</string>
     <string name="version">WERSJA %s</string>

@@ -320,7 +320,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
         }
         if (confirmReset) {
             ConfirmDialog(
-                message = stringResource(R.string.set_reset_confirm),
+                message = stringResource(if (services.online.loggedIn) R.string.set_reset_confirm_online else R.string.set_reset_confirm),
                 onConfirm = {
                     repo.progress.resetProgress()
                     repo.changed()

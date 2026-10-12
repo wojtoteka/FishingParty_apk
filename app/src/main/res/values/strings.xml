@@ -131,6 +131,7 @@
     <string name="off">OFF</string>
     <string name="set_reset">RESET PROGRESS</string>
     <string name="set_reset_confirm">Erase all progress? This cannot be undone.</string>
+    <string name="set_reset_confirm_online">Erase all progress? It will also be erased from your online account, on every phone. Your ranking points will stay. This cannot be undone.</string>
     <string name="set_author">AUTHOR: WOJTOTEKA</string>
     <string name="set_credits">Font: BitCell by memesbruh03.</string>
     <string name="version">VERSION %s</string>
