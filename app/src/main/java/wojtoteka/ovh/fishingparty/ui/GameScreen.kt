@@ -223,8 +223,6 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
                 .pointerInput(world) {
                     awaitEachGesture {
                         val down = awaitFirstDown()
-                        // Joystick nie reaguje na dotyk w drugiej połowie ekranu.
-                        if (!stick.accepts(down.position.x)) return@awaitEachGesture
                         stick.press(down.position.x, down.position.y)
                         while (true) {
                             val event = awaitPointerEvent()

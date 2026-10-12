@@ -76,12 +76,10 @@ class TouchStick {
         homeY = height - bottomInset - margin - radius
     }
 
-    /** Joystick łapie tylko dotyk w swojej połowie ekranu, pływający punkt – każdy. */
-    fun accepts(touchX: Float): Boolean = !joystick || (touchX < width / 2f) == left
-
     /**
-     * Początek dotyku. Joystick przeskakuje pod palec (jak w popularnych grach mobilnych),
-     * ale cała baza zostaje na ekranie i nie schodzi niżej niż jej miejsce spoczynku.
+     * Początek dotyku. Joystick przeskakuje pod palec w dowolnej połowie ekranu (jak w popularnych
+     * grach mobilnych), ale cała baza zostaje na ekranie i nie schodzi niżej niż jej miejsce spoczynku.
+     * Strona z ustawień decyduje tylko o tym, gdzie baza czeka, gdy nikt jej nie dotyka.
      */
     fun press(touchX: Float, touchY: Float) {
         active = true
