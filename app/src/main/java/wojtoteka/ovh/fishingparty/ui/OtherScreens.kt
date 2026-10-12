@@ -101,7 +101,7 @@ fun AchievementsScreen(onBack: () -> Unit) {
         )
         LazyColumn(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
-            contentPadding = PaddingValues(px(6)),
+            contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(4)),
         ) {
             items(sorted, key = { it.id }) { a ->
@@ -175,7 +175,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = px(10), vertical = px(6)),
+                    .padding(start = px(10), top = px(6), end = px(10), bottom = px(BOTTOM_GAP)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(px(4)),
             ) {

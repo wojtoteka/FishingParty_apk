@@ -5,6 +5,7 @@ import android.net.Uri
 import android.text.format.DateFormat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
@@ -291,19 +293,24 @@ private fun NotConfiguredCard() {
     }
 }
 
+/** Krótka zawartość stoi na środku ekranu (wygodniej sięgnąć kciukiem), dłuższa się przewija. */
 @Composable
 private fun OnlineColumn(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .windowInsetsPadding(WindowInsets.navigationBars)
-            .imePadding()
-            .padding(horizontal = px(10), vertical = px(6)),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(px(5)),
-        content = content,
-    )
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val viewport = maxHeight
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = viewport)
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .imePadding()
+                .padding(start = px(10), top = px(6), end = px(10), bottom = px(BOTTOM_GAP)),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(px(5), Alignment.CenterVertically),
+            content = content,
+        )
+    }
 }
 
 // ------------------------------------------------------------------ tryb rankingowy (nick + hasło)
@@ -461,7 +468,7 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
         }
         LazyColumn(
             Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(px(6)),
+            contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(3)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

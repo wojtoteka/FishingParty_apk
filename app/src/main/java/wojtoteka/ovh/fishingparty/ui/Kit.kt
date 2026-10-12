@@ -271,6 +271,12 @@ fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline
     if (shadow > 0f) drawRect(dark, Offset(u, h - u - shadow * u), Size(w - 2 * u, shadow * u))
 }
 
+/**
+ * Zapas od dolnej krawędzi ekranu (w pikselach interfejsu) dla przewijanych list.
+ * Zaokrąglone rogi wyświetlacza ścinały narożniki ostatniej karty, gdy stała tuż przy dole.
+ */
+const val BOTTOM_GAP = 24
+
 /** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
 const val MIN_BUTTON = 32
 
