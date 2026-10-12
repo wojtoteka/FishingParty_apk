@@ -1,11 +1,11 @@
 package wojtoteka.ovh.fishingparty
 
 import android.content.Context
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -21,8 +21,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        drawBehindSystemBars()
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
         applyKeepScreenOn()
         hideSystemBars()
@@ -59,6 +59,18 @@ class MainActivity : ComponentActivity() {
             window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         } else {
             window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        }
+    }
+
+    /**
+     * Obraz pod paskami systemowymi i wycięciem aparatu (marginesy liczy Compose z WindowInsets).
+     * Od Androida 15 przy targetSdk 35+ dzieje się to samo, a starsze wersje włączamy ręcznie –
+     * bez enableEdgeToEdge(), które ustawia wycofane w Androidzie 15 kolory pasków
+     * (setStatusBarColor/setNavigationBarColor) i tryb wycięcia SHORT_EDGES.
+     */
+    private fun drawBehindSystemBars() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            WindowCompat.setDecorFitsSystemWindows(window, false)
         }
     }
 

@@ -1,8 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Bez statusBarColor/navigationBarColor – wycofane w Androidzie 15; gra i tak chowa paski. -->
     <style name="Theme.FishingParty" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/sea_dark</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 </resources>
