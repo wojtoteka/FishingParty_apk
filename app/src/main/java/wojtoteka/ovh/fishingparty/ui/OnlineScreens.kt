@@ -331,7 +331,6 @@ private fun QuickJoinForm() {
         submit(listOf(if (accepted) null else "policy_required", FormCheck.nick(nick), FormCheck.password(password)), { online.quickJoin(nick, password) }) {}
     }
     Column(Modifier.fillMaxWidth().widthIn(max = px(320)), verticalArrangement = Arrangement.spacedBy(px(4))) {
-        PolicyBlock(accepted) { accepted = !accepted }
         DarkCard(Modifier.fillMaxWidth()) {
             Column(Modifier.fillMaxWidth()) {
                 PixelText(stringResource(R.string.ranking_mode_title), size = 3, color = Pal.Gold)
@@ -348,6 +347,7 @@ private fun QuickJoinForm() {
                 FormFeedback(form)
             }
         }
+        PolicyBlock(accepted) { accepted = !accepted }
     }
 }
 
@@ -613,7 +613,6 @@ private fun EmailRegisterForm(onCodeSent: (String) -> Unit) {
             { online.registerEmail(nick, email.trim(), password) },
         ) { if (it is OnlineResult.CodeSent) onCodeSent(it.email) }
     }
-    PolicyBlock(accepted) { accepted = !accepted }
     FormCard(stringResource(R.string.account_email_option)) {
         PixelTextField(email, { email = it }, stringResource(R.string.field_email), keyboard = KeyboardType.Email, maxLength = 254)
         VSpace(3)
@@ -626,6 +625,7 @@ private fun EmailRegisterForm(onCodeSent: (String) -> Unit) {
         PixelButton(stringResource(R.string.register_button), onClick = go, style = ButtonStyle.GREEN, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
         FormFeedback(form)
     }
+    PolicyBlock(accepted) { accepted = !accepted }
 }
 
 @Composable
