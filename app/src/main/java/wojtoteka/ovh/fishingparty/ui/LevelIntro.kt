@@ -40,12 +40,7 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
                 // Cztero- i pięciocyfrowe numery w pełnym rozmiarze wchodziłyby na przycisk zamknięcia.
-                val titleSize = when {
-                    level >= 10_000 -> 3
-                    level >= 1000 -> 4
-                    else -> 5
-                }
-                PixelText(stringResource(R.string.level_n, level), size = titleSize, color = if (finale) Pal.Gold else Pal.White)
+                PixelText(stringResource(R.string.level_n, level), size = if (level >= 1000) 4 else 5, color = if (finale) Pal.Gold else Pal.White)
                 if (finale) {
                     PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
                 } else {
