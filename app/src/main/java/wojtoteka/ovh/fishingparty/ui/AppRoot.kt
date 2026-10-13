@@ -154,7 +154,7 @@ fun AppRoot() {
         val banner = repo.banners.firstOrNull()
         if (banner != null) {
             LaunchedEffect(banner) { services.audio.play(Sfx.ACHIEVEMENT) }
-            AchievementPopup(banner, waiting = repo.banners.size - 1, onDone = { repo.banners.remove(banner) })
+            AchievementToast(banner, waiting = repo.banners.size - 1, onDone = { repo.banners.remove(banner) })
         }
     }
 }
