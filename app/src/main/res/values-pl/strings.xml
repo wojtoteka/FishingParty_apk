@@ -15,6 +15,10 @@
     <string name="confirm">TAK</string>
     <string name="close">ZAMKNIJ</string>
     <string name="achievement_unlocked">OSIĄGNIĘCIE!</string>
+    <string name="achievement_reward">NAGRODA</string>
+    <string name="achievement_claim_hint">ODBIERZ JĄ W ODZNAKACH</string>
+    <string name="achievement_more">JESZCZE %d</string>
+    <string name="tap_to_continue">DOTKNIJ, BY KONTYNUOWAĆ</string>
     <string name="claimed">ODEBRANO</string>
     <string name="hud_stage">ETAP %1$d/%2$d</string>
     <string name="hud_gate_open">BRAMA OTWARTA!</string>
