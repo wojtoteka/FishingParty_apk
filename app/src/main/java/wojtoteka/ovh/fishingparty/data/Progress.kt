@@ -47,9 +47,9 @@ class DailyState(val available: Boolean, val day: Int, val clockTampered: Boolea
  */
 class Progress(val save: SaveData, private val now: () -> Long, private val today: () -> Long) {
 
-    fun stars(level: Int): Int = save.stars[level - 1].toInt()
+    fun stars(level: Int): Int = if (level in 1..save.levelSlots) save.stars[level - 1].toInt() else 0
 
-    fun best(level: Int): Int = save.best[level - 1]
+    fun best(level: Int): Int = if (level in 1..save.levelSlots) save.best[level - 1] else 0
 
     fun totalStars(): Int = save.stars.sum()
 
@@ -62,7 +62,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
 
     val trophies: Long get() = save.trophies.get()
 
-    fun highestUnlocked(): Int = save.unlocked.get().toInt().coerceIn(1, LevelConstants.LEVEL_COUNT)
+    fun highestUnlocked(): Int = save.unlocked.get().toInt().coerceIn(1, LevelConstants.MAX_LEVEL)
+
+    /** Ile poziomów jest już w grze dla tego gracza: 1000 albo więcej, gdy płynie przez Bezkresne Morze. */
+    fun levelsAvailable(): Int = maxOf(LevelConstants.LEVEL_COUNT, highestUnlocked())
 
     fun isUnlocked(level: Int): Boolean = level <= highestUnlocked()
 
@@ -94,6 +97,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
             if (result.hits == 0) save.noHitWins++
             if (plan.spec.type == LevelType.BOSS || plan.spec.type == LevelType.FINALE) save.bossWins++
             if (result.timeMillis <= plan.spec.parSeconds * 500L) save.speedWins++
+            save.ensureLevels(level + 1)
             val previousStars = stars(level)
             if (plan.spec.type == LevelType.FINALE && previousStars == 0) finaleBonus = FINALE_BONUS
             if (result.stars > previousStars) {
@@ -104,7 +108,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
                 save.best[level - 1] = result.score
                 newBest = true
             }
-            if (level == highestUnlocked() && level < LevelConstants.LEVEL_COUNT) save.unlocked.set(level + 1L)
+            if (level == highestUnlocked() && level < LevelConstants.MAX_LEVEL) save.unlocked.set(level + 1L)
             save.records.addLast(
                 ScoreRecord(
                     level, result.score, result.timeMillis, result.commonCaught, result.blueCaught,
@@ -318,6 +322,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
     /** Czyści postęp (ustawienia dźwięku zostają). */
     fun resetProgress() {
         save.coins.set(0)
+        save.resizeLevels(LevelConstants.LEVEL_COUNT)
         for (i in 0 until LevelConstants.LEVEL_COUNT) {
             save.best[i] = 0
             save.stars[i] = 0

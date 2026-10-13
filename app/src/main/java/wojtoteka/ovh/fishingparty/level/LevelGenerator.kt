@@ -37,10 +37,11 @@ class LevelPlan(val spec: LevelSpec, val stages: List<StagePlan>) {
 }
 
 /**
- * Generator 1000 poziomów. Wszystko wynika z numeru poziomu, więc poziomy nie
+ * Generator poziomów. Wszystko wynika z numeru poziomu, więc poziomy nie
  * muszą być nigdzie zapisane, a każdy gracz dostaje identyczną planszę.
  * Poziomy 1–500 są takie same jak przed rozszerzeniem gry, 501–999 to druga,
- * trudniejsza wyprawa, a poziom 1000 to ręcznie ułożony Wielki Finał.
+ * trudniejsza wyprawa, poziom 1000 to ręcznie ułożony Wielki Finał, a od 1001
+ * zaczyna się Bezkresne Morze – poziomy z seeda ([EndlessLevels]).
  */
 object LevelGenerator {
 
@@ -97,6 +98,7 @@ object LevelGenerator {
     }
 
     fun typeOf(number: Int): LevelType {
+        if (EndlessLevels.isEndless(number)) return EndlessLevels.plan(number).spec.type
         val type = rawType(number)
         if (type == LevelType.CLASSIC || type == LevelType.BOSS || type == LevelType.FINALE || number <= 5) return type
         // Unikamy dwóch takich samych „specjalnych” poziomów pod rząd.
@@ -104,8 +106,9 @@ object LevelGenerator {
     }
 
     fun plan(number: Int): LevelPlan {
-        require(number in 1..LEVEL_COUNT) { "Nieprawidłowy numer poziomu: $number" }
+        require(number in 1..LevelConstants.MAX_LEVEL) { "Nieprawidłowy numer poziomu: $number" }
         if (isFinale(number)) return finalePlan()
+        if (EndlessLevels.isEndless(number)) return EndlessLevels.plan(number)
         val seed = seedOf(number)
         val rng = Rng(seed)
         val type = typeOf(number)

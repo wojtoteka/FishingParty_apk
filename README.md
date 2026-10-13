@@ -6,9 +6,11 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 
 - **1000 poziomów** w 40 światach (10 palet kolorów). Każdy poziom ma od 1 do 7 etapów – brama otwiera się po złowieniu wymaganej liczby ryb. Poziomy 501–999 to druga, trudniejsza wyprawa (pierwsze 500 jest bez zmian).
 - **Poziom 1000 – Wielki Finał**: ręcznie ułożony, 7 etapów w barwach 7 różnych światów, każdy z innym zestawem potworów, port na mecie w osobnej złotej palecie (`legend`). Na mapie ma własny port z dużą wyspą za ostatnimi wrotami, a za pierwsze ukończenie – bonus 5000 monet i odznakę „Żywa legenda”.
-- Poziomy są generowane deterministycznie z numeru poziomu (`LevelGenerator`), więc każdy gracz dostaje identyczną planszę – to podstawa uczciwego rankingu.
+- **Bezkresne Morze – poziomy 1001+** (od wersji 2.2): po Wielkim Finale wrota portu się otwierają, a mapa sama dobudowuje kolejne światy (losowa paleta i nazwa, boss co 25 poziomów). Każdy poziom powstaje z własnego **seeda** (`LevelSeed`, kod w stylu `7K3F-9QX2-MB4T-A` widoczny na karcie poziomu) według „reguł świata” (`SeedProfile`), które pilnują grywalności i trudności – wyraźnie trudniej niż na początku gry, lżej niż Wielki Finał. Plansze się nie powtarzają, za ryby są monety i punkty do rankingu. Limit to poziom 20 000.
+- Poziomy są generowane deterministycznie z numeru poziomu (`LevelGenerator`), a od 1001 z seeda (`SeedLevels`), więc każdy gracz dostaje identyczną planszę – to podstawa uczciwego rankingu. Liczby decydujące o maksymalnym wyniku generator z seeda liczy wyłącznie na liczbach całkowitych, żeby serwer rankingu mógł je powtórzyć 1:1.
+- **Wkrótce:** poziom dnia i poziom tygodnia – ten sam seed z serwera dla wszystkich graczy (w menu zapowiedź „SOON”).
 - 9 typów poziomów (skalista rafa, archipelag, kanał, prąd, gorączka złota, wyścig z czasem, ławica piranii, starcie z bestią…) plus Wielki Finał, 7 rodzajów przeciwników, złote i niebieskie ryby, combo do x5.
-- 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 43 osiągnięcia, nagroda dnia.
+- 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 43 osiągnięcia, nagroda dnia (po dotknięciu karty passy w menu).
 - **Sterowanie do wyboru** przy pierwszym uruchomieniu: przesuwanie palcem po całym ekranie albo klasyczny joystick w dolnym rogu (jak w popularnych grach na telefon – przeskakuje pod kciuk i wraca na miejsce po puszczeniu). Zmiana w USTAWIENIA → GRA, tam też strona joysticka (lewa / prawa).
 - **Ranking online top 100 i konto** (od wersji 2.1, serwer `Top_FishingParty` na https://fp.wojtoteka.ovh). Punkty rankingowe = suma najlepszych wyników z każdego poziomu + trofea za passę.
   - **Tryb rankingowy (nick + hasło)** – akceptacja polityki prywatności i regulaminu, nick i hasło. Nowy nick zakłada konto, istniejący z poprawnym hasłem loguje i przywraca postęp (np. po reinstalacji). Hasła nie da się zresetować.
@@ -44,7 +46,7 @@ fp.hmacSecret=...
 fp.apiUrl=https://fp.wojtoteka.ovh/api/v1   # opcjonalnie, to wartość domyślna
 ```
 
-Bez `fp.hmacSecret` gra działa, a ekrany konta i rankingu pokazują, że ranking jest niedostępny. Po zmianie generatora poziomów trzeba odświeżyć limity na serwerze: `./gradlew testDebugUnitTest --tests "*LevelLimitsExportTest*"` i skopiować `app/build/level-limits.json` do `Top_FishingParty/data/`.
+Bez `fp.hmacSecret` gra działa, a ekrany konta i rankingu pokazują, że ranking jest niedostępny. Po zmianie generatora poziomów trzeba odświeżyć limity na serwerze: `./gradlew testDebugUnitTest --tests "*LevelLimitsExportTest*"` i skopiować `app/build/level-limits.json` do `Top_FishingParty/data/`. Zmiana `SeedLevels` wymaga tej samej zmiany w kodzie serwera – próbka `app/build/endless-sample.json` z tego samego testu służy serwerowi do sprawdzenia, że obie strony liczą poziomy 1001+ tak samo.
 
 ```
 ./gradlew assembleDebug        # APK testowe

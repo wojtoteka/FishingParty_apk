@@ -45,10 +45,17 @@
     <string name="type_boss_desc">Ostatni poziom tego świata. Uważaj!</string>
     <string name="type_finale">WIELKI FINAŁ</string>
     <string name="type_finale_desc">Poziom 1000! Siedem etapów przez siedem światów i wszystkie morskie potwory naraz.</string>
-    <string name="finale_subtitle">OSTATNI POZIOM GRY</string>
+    <string name="finale_subtitle">OSTATNI POZIOM WYPRAWY</string>
     <string name="finale_win">WIELKI FINAŁ UKOŃCZONY!</string>
-    <string name="finale_win_text">Wszystkie 1000 poziomów ukończone. Dziękujemy za grę!</string>
+    <string name="finale_win_text">Wszystkie 1000 poziomów ukończone! Za portem czeka Bezkresne Morze – nowe poziomy bez końca.</string>
     <string name="finale_bonus">BONUS ZA FINAŁ</string>
+    <string name="endless_world_name">%1$s %2$s</string>
+    <string name="endless_seed">SEED %s</string>
+    <string name="daily_level">POZIOM DNIA</string>
+    <string name="weekly_level">POZIOM TYGODNIA</string>
+    <string name="soon">SOON</string>
+    <string name="soon_title">JUŻ WKRÓTCE!</string>
+    <string name="soon_text">W następnej aktualizacji: poziom dnia i poziom tygodnia. Każdy gracz dostanie ten sam poziom z tego samego seeda, a za rybki będą punkty do rankingu. Kto złowi najwięcej?</string>
     <string name="goal_finish">Dopłyń do mety</string>
     <string name="goal_no_damage">Nie strać życia</string>
     <string name="goal_all_fish">Złów wszystkie ryby</string>
@@ -215,6 +222,42 @@
     <string name="ach_rich_desc">Miej naraz 5000 monet</string>
     <string name="ach_veteran">Weteran</string>
     <string name="ach_veteran_desc">Gracz pierwszej wersji Fishing Party</string>
+    <string-array name="endless_world_a">
+        <item>Zatoka</item>
+        <item>Rafa</item>
+        <item>Cieśnina</item>
+        <item>Laguna</item>
+        <item>Głębia</item>
+        <item>Mielizna</item>
+        <item>Wody</item>
+        <item>Archipelag</item>
+        <item>Fiord</item>
+        <item>Przesmyk</item>
+        <item>Toń</item>
+        <item>Szlak</item>
+    </string-array>
+    <string-array name="endless_world_b">
+        <item>Wichrów</item>
+        <item>Mgieł</item>
+        <item>Sztormów</item>
+        <item>Korali</item>
+        <item>Pereł</item>
+        <item>Cieni</item>
+        <item>Gwiazd</item>
+        <item>Fal</item>
+        <item>Syren</item>
+        <item>Żagli</item>
+        <item>Muszli</item>
+        <item>Ech</item>
+        <item>Zórz</item>
+        <item>Kryształów</item>
+        <item>Piratów</item>
+        <item>Delfinów</item>
+        <item>Wielorybów</item>
+        <item>Latarni</item>
+        <item>Bursztynu</item>
+        <item>Błyskawic</item>
+    </string-array>
     <string-array name="world_names">
         <item>Słoneczna Zatoka</item>
         <item>Rafa Koralowa</item>

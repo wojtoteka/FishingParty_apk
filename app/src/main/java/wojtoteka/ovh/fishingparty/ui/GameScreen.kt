@@ -395,7 +395,7 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             PixelText(stringResource(R.string.result_rejected), size = 1, color = Pal.Red, align = TextAlign.Center)
         }
         VSpace(8)
-        if (level < LevelConstants.LEVEL_COUNT) {
+        if (level < LevelConstants.MAX_LEVEL) {
             PixelButton(
                 stringResource(R.string.next),
                 onClick = { onExit(GameExit.Next(level + 1)) },

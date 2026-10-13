@@ -258,9 +258,9 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                 LanguagePicker()
 
                 SettingsSection(stringResource(R.string.set_section_stats)) {
-                    StatRow(stringResource(R.string.stat_levels), "${progress.completedLevels()}/${LevelConstants.LEVEL_COUNT}")
+                    StatRow(stringResource(R.string.stat_levels), "${progress.completedLevels()}/${progress.levelsAvailable()}")
                     StatRow(stringResource(R.string.stat_wins), save.levelWins.toString())
-                    StatRow(stringResource(R.string.stat_stars), "${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}")
+                    StatRow(stringResource(R.string.stat_stars), "${progress.totalStars()}/${progress.levelsAvailable() * 3}")
                     StatRow(stringResource(R.string.stat_fish), save.totalFish.get().toString())
                     StatRow(stringResource(R.string.stat_streak), pluralStringResource(R.plurals.streak_days, save.streakBest, save.streakBest))
                     StatRow(stringResource(R.string.stat_trophies), progress.trophies.toString())

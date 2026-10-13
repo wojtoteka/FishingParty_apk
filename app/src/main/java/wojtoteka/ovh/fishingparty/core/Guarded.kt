@@ -62,9 +62,16 @@ class GuardedLong(initial: Long = 0L) {
 
 /** Tablica liczb całkowitych z tą samą ochroną co [GuardedLong]. */
 class GuardedIntArray(size: Int) {
-    private val items = Array(size) { GuardedLong(0) }
+    private var items = Array(size) { GuardedLong(0) }
 
     val size: Int get() = items.size
+
+    /** Powiększa tablicę do [newSize] (nowe pola = 0); mniejszy rozmiar przycina tablicę. */
+    fun resize(newSize: Int) {
+        if (newSize == items.size) return
+        val old = items
+        items = Array(newSize) { if (it < old.size) old[it] else GuardedLong(0) }
+    }
 
     operator fun get(index: Int): Int = items[index].get().toInt()
 

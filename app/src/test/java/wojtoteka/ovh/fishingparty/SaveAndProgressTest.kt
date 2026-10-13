@@ -428,19 +428,58 @@ class SaveAndProgressTest {
     fun grandFinaleHasItsOwnHarbourOnTheMap() {
         val finale = LevelConstants.LEVEL_COUNT
         val last = LevelConstants.WORLD_COUNT - 1
+        val map = WorldMap.forLevel(finale)
+        assertEquals(0, map.endlessWorlds)
+        val lastGate = map.labels.single { it.world == Worlds.FINALE }.row
+        val firstGate = map.labels.single { it.world == 1 }.row
         // Duża wyspa na środku portu, za ostatnimi wrotami, w złotej palecie.
-        assertEquals(5, WorldMap.islandW[finale - 1])
-        assertEquals(3, WorldMap.islandH[finale - 1])
-        assertEquals(LevelConstants.WIDTH * TILE / 2f, WorldMap.nodeX(finale))
-        assertTrue(WorldMap.nodeY(finale) < WorldMap.gateRow[last] * TILE)
-        assertEquals(Worlds.FINALE, WorldMap.worldOfRow(WorldMap.islandRow[finale - 1]))
-        assertEquals(Worlds.FINALE_THEME, Worlds.theme(WorldMap.worldOfRow(0)))
-        assertEquals(last, WorldMap.worldOfRow(WorldMap.gateRow[last]))
+        assertEquals(5, map.islandW[finale - 1])
+        assertEquals(3, map.islandH[finale - 1])
+        assertEquals(LevelConstants.WIDTH * TILE / 2f, map.nodeX(finale))
+        assertTrue(map.nodeY(finale) < lastGate * TILE)
+        assertEquals(Worlds.FINALE, map.worldOfRow(map.islandRow[finale - 1]))
+        assertEquals(Worlds.FINALE_THEME, Worlds.theme(map.worldOfRow(0)))
+        assertEquals(last, map.worldOfRow(lastGate))
         // Ostatnie wrota otwierają się dopiero, gdy finał jest odblokowany.
-        assertEquals(finale, WorldMap.gateOpensAt(last))
-        assertEquals(Worlds.firstLevel(1), WorldMap.gateOpensAt(0))
+        assertTrue(map.isGateOpen(lastGate, finale))
+        assertFalse(map.isGateOpen(lastGate, finale - 1))
+        assertTrue(map.isGateOpen(firstGate, Worlds.firstLevel(1)))
+        assertFalse(map.isGateOpen(firstGate, Worlds.firstLevel(1) - 1))
+        // Szczyt portu to mur – dopóki finał nie jest ukończony, dalej nie ma nic.
+        assertEquals(Tile.WALL, map.grid[5, 0])
         assertEquals(Worlds.FINALE, Worlds.paletteOf(finale))
         assertEquals(last, Worlds.paletteOf(finale - 1))
+    }
+
+    @Test
+    fun mapGrowsIntoTheEndlessSea() {
+        val campaign = WorldMap.forLevel(1)
+        val map = WorldMap.forLevel(1100)
+        // Gracz na poziomie 1100 jest w 4. świecie Bezkresnego Morza – mapa pokazuje go i jeden świat dalej.
+        assertEquals(5, map.endlessWorlds)
+        assertEquals(1125, map.levelCount)
+        // Część z poziomami 1–1000 wygląda tak samo, tylko leży niżej (oprócz wrót portu finału).
+        val offset = map.grid.height - campaign.grid.height
+        for (r in 1 until campaign.grid.height) for (c in 0 until LevelConstants.WIDTH) {
+            assertEquals("pole $c,$r", campaign.grid[c, r], map.grid[c, r + offset])
+        }
+        assertEquals(Tile.DOOR, map.grid[5, offset])
+        assertTrue(map.isGateOpen(offset, LevelConstants.LEVEL_COUNT + 1))
+        assertFalse(map.isGateOpen(offset, LevelConstants.LEVEL_COUNT))
+        // Każdy świat Bezkresnego Morza ma napis i własną paletę wierszy.
+        for (e in 0 until map.endlessWorlds) {
+            val world = LevelConstants.WORLD_COUNT + e
+            val label = map.labels.single { it.world == world }
+            assertEquals(world, map.worldOfRow(map.islandRow[Worlds.firstLevel(world) - 1]))
+            assertTrue(map.isGateOpen(label.row, Worlds.firstLevel(world)))
+            assertFalse(map.isGateOpen(label.row, Worlds.firstLevel(world) - 1))
+        }
+        assertEquals(0, WorldMap.endlessWorldsFor(LevelConstants.LEVEL_COUNT))
+        assertEquals(2, WorldMap.endlessWorldsFor(LevelConstants.LEVEL_COUNT + 1))
+        assertEquals(
+            (LevelConstants.MAX_LEVEL - LevelConstants.LEVEL_COUNT) / LevelConstants.LEVELS_PER_WORLD,
+            WorldMap.endlessWorldsFor(LevelConstants.MAX_LEVEL),
+        )
     }
 
     @Test
@@ -451,6 +490,13 @@ class SaveAndProgressTest {
             val names = Regex("<item>(.+?)</item>").findAll(array).map { it.groupValues[1] }.toList()
             assertEquals(dir, LevelConstants.WORLD_COUNT, names.size)
             assertEquals(dir, names.size, names.toSet().size)
+            for ((part, count) in listOf("endless_world_a" to Worlds.ENDLESS_NAME_A, "endless_world_b" to Worlds.ENDLESS_NAME_B)) {
+                val items = Regex("<item>(.+?)</item>").findAll(
+                    xml.substringAfter("<string-array name=\"$part\">").substringBefore("</string-array>"),
+                ).map { it.groupValues[1] }.toList()
+                assertEquals("$dir $part", count, items.size)
+                assertEquals("$dir $part", count, items.toSet().size)
+            }
         }
     }
 
@@ -492,7 +538,7 @@ class SaveAndProgressTest {
     }
 
     @Test
-    fun grandFinaleRewardsOnceAndEndsTheGame() {
+    fun grandFinaleRewardsOnceAndOpensTheEndlessSea() {
         val save = SaveData().apply { unlocked.set(LevelConstants.LEVEL_COUNT.toLong()) }
         val p = progress(save)
         val n = LevelConstants.LEVEL_COUNT
@@ -501,12 +547,12 @@ class SaveAndProgressTest {
         assertTrue(first.accepted)
         assertEquals(Progress.FINALE_BONUS, first.finaleBonus)
         assertTrue(first.coins > Progress.FINALE_BONUS)
-        assertEquals(n, p.highestUnlocked())
+        assertEquals(n + 1, p.highestUnlocked())
         assertEquals(1, save.bossWins)
         // Kolejne przejście finału nie płaci bonusu drugi raz.
         val again = p.applyRun(win(n, 6000, 2, time = 300_000), plan)
         assertEquals(0, again.finaleBonus)
-        assertEquals(n, p.highestUnlocked())
+        assertEquals(n + 1, p.highestUnlocked())
         // Ukończenie wszystkich poziomów daje odznakę finału.
         for (i in 0 until n) save.stars[i] = 1
         assertTrue(p.isUnlocked(Achievements.byId("level_1000")!!))
@@ -531,21 +577,69 @@ class SaveAndProgressTest {
 
     @Test
     fun worldMapIslandsAreValid() {
-        val g = WorldMap.grid
-        for (n in 1..LevelConstants.LEVEL_COUNT) {
-            val c = WorldMap.islandCol[n - 1]
-            val r = WorldMap.islandRow[n - 1]
-            for (dr in 0 until WorldMap.islandH[n - 1]) for (dc in 0 until WorldMap.islandW[n - 1]) {
-                assertEquals("wyspa $n", Tile.SAND, g[c + dc, r + dr])
+        for (current in listOf(1, LevelConstants.LEVEL_COUNT + 1, 1400)) {
+            val map = WorldMap.forLevel(current)
+            val g = map.grid
+            for (n in 1..map.levelCount) {
+                val c = map.islandCol[n - 1]
+                val r = map.islandRow[n - 1]
+                for (dr in 0 until map.islandH[n - 1]) for (dc in 0 until map.islandW[n - 1]) {
+                    assertEquals("wyspa $n", Tile.SAND, g[c + dc, r + dr])
+                }
+                assertEquals(n, map.levelAt(map.nodeX(n), map.nodeY(n)))
             }
-            assertEquals(n, WorldMap.levelAt(WorldMap.nodeX(n), WorldMap.nodeY(n)))
+            // Wyspy nie nachodzą na siebie: każda leży wyżej od poprzedniej.
+            for (n in 2..map.levelCount) assertTrue("wyspa $n", map.nodeY(n) < map.nodeY(n - 1))
+            for (r in 1 until g.height - 1) for (c in 0 until g.width) {
+                if (g[c, r] != Tile.SAND) continue
+                val w = { t: Tile -> t == Tile.SEA || t == Tile.ROCK }
+                assertFalse("pole $c,$r", (w(g[c, r - 1]) && w(g[c, r + 1])) || (w(g[c - 1, r]) && w(g[c + 1, r])))
+            }
+            // Wyszukiwanie widocznych wysepek zgadza się z przejrzeniem wszystkich.
+            for (top in listOf(0, 5, 100, 999, g.height / 2, g.height - 40)) {
+                val bottom = top + 45
+                val expected = (1..map.levelCount).filter { map.islandRow[it - 1] in top..bottom }
+                assertEquals("wiersze $top..$bottom", expected, map.levelsBetween(top, bottom).toList())
+            }
         }
-        // Wyspy nie nachodzą na siebie: każda leży wyżej od poprzedniej.
-        for (n in 2..LevelConstants.LEVEL_COUNT) assertTrue("wyspa $n", WorldMap.nodeY(n) < WorldMap.nodeY(n - 1))
-        for (r in 1 until g.height - 1) for (c in 0 until g.width) {
-            if (g[c, r] != Tile.SAND) continue
-            val w = { t: Tile -> t == Tile.SEA || t == Tile.ROCK }
-            assertFalse("pole $c,$r", (w(g[c, r - 1]) && w(g[c, r + 1])) || (w(g[c - 1, r]) && w(g[c + 1, r])))
+    }
+
+    @Test
+    fun endlessLevelsAreSavedAndUnlocked() {
+        val save = SaveData().apply { unlocked.set(LevelConstants.LEVEL_COUNT + 1L) }
+        val p = progress(save)
+        assertEquals(LevelConstants.LEVEL_COUNT, p.levelsAvailable() - 1)
+        val n = LevelConstants.LEVEL_COUNT + 1
+        val reward = p.applyRun(win(n, 3000, 2), LevelGenerator.plan(n))
+        assertTrue(reward.accepted)
+        assertEquals(n + 1, p.highestUnlocked())
+        assertEquals(3000, p.best(n))
+        assertEquals(2, p.stars(n))
+        assertEquals(0, p.best(n + 500))
+        assertTrue(save.levelSlots >= n + 1)
+        // Nagroda za ukończenie nie rośnie w nieskończoność razem z numerem świata.
+        assertTrue(reward.coins < 400)
+
+        val loaded = SaveCodec.decode(SaveCodec.encode(save))
+        assertEquals(n + 1L, loaded.unlocked.get())
+        assertEquals(3000, loaded.best[n - 1])
+        assertEquals(2, loaded.stars[n - 1].toInt())
+        assertEquals(n, loaded.records.last().level)
+        assertEquals(p.rankingPoints(), progress(loaded).rankingPoints())
+
+        // Poziomy ponad 32767 (numer jako krótka liczba bez znaku) też przechodzą przez zapis.
+        val far = SaveData().apply {
+            ensureLevels(LevelConstants.MAX_LEVEL)
+            best[LevelConstants.MAX_LEVEL - 1] = 77
+            unlocked.set(LevelConstants.MAX_LEVEL.toLong())
         }
+        val farLoaded = SaveCodec.decode(SaveCodec.encode(far))
+        assertEquals(77, farLoaded.best[LevelConstants.MAX_LEVEL - 1])
+        assertEquals(LevelConstants.MAX_LEVEL, progress(farLoaded).highestUnlocked())
+
+        // Reset postępu wraca do samej kampanii.
+        p.resetProgress()
+        assertEquals(LevelConstants.LEVEL_COUNT, save.levelSlots)
+        assertEquals(1, p.highestUnlocked())
     }
 }

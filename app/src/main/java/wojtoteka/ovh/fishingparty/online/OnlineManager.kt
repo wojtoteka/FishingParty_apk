@@ -476,7 +476,10 @@ class OnlineManager(
     private suspend fun pushRuns() {
         if (store.importPending) {
             val bests = JSONArray()
-            for (i in 0 until LevelConstants.LEVEL_COUNT) bests.put(repo.save.best[i])
+            // Kampania zawsze w całości, poziomy Bezkresnego Morza do ostatniego z wynikiem.
+            var count = LevelConstants.LEVEL_COUNT
+            for (i in LevelConstants.LEVEL_COUNT until repo.save.levelSlots) if (repo.save.best[i] > 0) count = i + 1
+            for (i in 0 until count) bests.put(repo.save.best[i])
             try {
                 val res = call(
                     "POST", "/sync/import",
