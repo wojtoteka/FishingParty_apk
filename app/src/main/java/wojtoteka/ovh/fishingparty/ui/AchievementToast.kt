@@ -2,10 +2,6 @@ package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -39,8 +35,6 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -48,9 +42,6 @@ import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Achievement
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
 /** Jak długo baner zostaje na ekranie bez dotknięcia. */
 private const val SHOW_MILLIS = 3200
@@ -59,7 +50,7 @@ private const val SHOW_MILLIS = 3200
 private const val ICON_UNITS = 20
 
 /**
- * Powiadomienie „Osiągnięcie!” wysuwane z góry jak push: ikona w złotej poświacie,
+ * Powiadomienie „Osiągnięcie!” wysuwane z góry jak push: ikona,
  * nazwa odznaki i nagroda. Znika samo, po dotknięciu albo po przesunięciu w górę;
  * kolejne odznaki z kolejki wjeżdżają jedna po drugiej.
  *
@@ -86,9 +77,6 @@ fun BoxScope.AchievementToast(achievement: Achievement, waiting: Int, onDone: ()
         }
     }
 
-    val pulse = rememberInfiniteTransition(label = "glow")
-    val angle by pulse.animateFloat(0f, 360f, infiniteRepeatable(tween(8000, easing = LinearEasing)), label = "angle")
-    val glow by pulse.animateFloat(0.6f, 1f, infiniteRepeatable(tween(600), RepeatMode.Reverse), label = "pulse")
     val dismissDistance = with(LocalDensity.current) { px(12).toPx() }
 
     Box(
@@ -134,7 +122,6 @@ fun BoxScope.AchievementToast(achievement: Achievement, waiting: Int, onDone: ()
                 // Duże sprity (rekin, łódź) dostają mniejszą skalę, żeby ikony miały podobny rozmiar.
                 val iconScale = (ICON_UNITS / maxOf(icon.width, icon.height)).coerceIn(1, 2)
                 Box(Modifier.size(px(30)), contentAlignment = Alignment.Center) {
-                    Rays(angle, glow, Modifier.size(px(30)))
                     SpriteImage(icon, iconScale)
                 }
                 HSpace(4)
@@ -167,28 +154,5 @@ fun BoxScope.AchievementToast(achievement: Achievement, waiting: Int, onDone: ()
         ) {
             drawRect(Pal.Gold.copy(alpha = 0.8f), size = Size(size.width * timer.value, size.height))
         }
-    }
-}
-
-/** Obracające się złote promienie za ikoną. */
-@Composable
-private fun Rays(angle: Float, glow: Float, modifier: Modifier) {
-    Canvas(modifier) {
-        val c = Offset(size.width / 2, size.height / 2)
-        val r = size.minDimension / 2
-        val half = (PI / 16).toFloat()
-        rotate(angle, c) {
-            for (i in 0 until 8) {
-                val a = (i * PI / 4).toFloat()
-                val ray = Path().apply {
-                    moveTo(c.x, c.y)
-                    lineTo(c.x + r * cos(a - half), c.y + r * sin(a - half))
-                    lineTo(c.x + r * cos(a + half), c.y + r * sin(a + half))
-                    close()
-                }
-                drawPath(ray, Pal.Gold.copy(alpha = 0.45f * glow))
-            }
-        }
-        drawCircle(Pal.SandLight.copy(alpha = 0.35f * glow), r * 0.55f, c)
     }
 }
