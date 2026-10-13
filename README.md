@@ -9,14 +9,21 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 - Poziomy są generowane deterministycznie z numeru poziomu (`LevelGenerator`), więc każdy gracz dostaje identyczną planszę – to podstawa uczciwego rankingu.
 - 9 typów poziomów (skalista rafa, archipelag, kanał, prąd, gorączka złota, wyścig z czasem, ławica piranii, starcie z bestią…) plus Wielki Finał, 7 rodzajów przeciwników, złote i niebieskie ryby, combo do x5.
 - 3 gwiazdki za poziom (meta + dwa zmienne cele), mapa przygody, sklep (łodzie, żagle, załoga, wzmocnienia), 43 osiągnięcia, nagroda dnia.
-- Ranking: ekran „SOON”. Punkty rankingowe = suma najlepszych wyników z każdego poziomu.
+- **Sterowanie do wyboru** przy pierwszym uruchomieniu: przesuwanie palcem po całym ekranie albo klasyczny joystick w dolnym rogu (jak w popularnych grach na telefon – przeskakuje pod kciuk i wraca na miejsce po puszczeniu). Zmiana w USTAWIENIA → GRA, tam też strona joysticka (lewa / prawa).
+- **Ranking online top 100 i konto** (od wersji 2.1, serwer `Top_FishingParty` na https://fp.wojtoteka.ovh). Punkty rankingowe = suma najlepszych wyników z każdego poziomu + trofea za passę.
+  - **Tryb rankingowy (nick + hasło)** – akceptacja polityki prywatności i regulaminu, nick i hasło. Nowy nick zakłada konto, istniejący z poprawnym hasłem loguje i przywraca postęp (np. po reinstalacji). Hasła nie da się zresetować.
+  - **Konto e-mail** – e-mail + nick + hasło, potwierdzane kodem z maila (SMTP); pozwala ustawić nowe hasło kodem. Do konta „nick + hasło” można później dodać e-mail.
+  - Synchronizacja na bieżąco: ukończony poziom leci na serwer od razu, pełny zapis gry kilka sekund po każdej zmianie i przy wyjściu z aplikacji. Na nowym telefonie zapis jest przywracany; przy konflikcie dwóch urządzeń gra pyta, który postęp zachować.
+  - Bez internetu gra działa normalnie, a ekrany KONTO i RANKING proszą o połączenie. Niewysłane wyniki czekają i lecą same po powrocie sieci.
+  - Konto można usunąć w grze (KONTO → USUŃ KONTO) – serwer kasuje wszystkie dane.
 
 ## Ochrona wyników
 
 - Zapis szyfrowany AES-256-GCM kluczem z Android Keystore (`SaveCrypto`, `GameRepository`) – zmiana pliku lub przeniesienie go na inne urządzenie jest wykrywane.
 - Najważniejsze liczby (monety, rekordy, wynik w trakcie gry) trzymane w pamięci w postaci zamaskowanej (`GuardedLong`).
 - Każdy wynik przechodzi przez `ScoreValidator`: limit maksymalnego wyniku liczony z definicji poziomu, minimalny możliwy czas, liczby ryb. Ten sam kod może później działać na serwerze rankingu (razem z Play Integrity API).
-- Ostatnie zweryfikowane przejazdy są kolejkowane w zapisie (`ScoreRecord`) pod przyszłe wysyłanie do rankingu.
+- Ostatnie zweryfikowane przejazdy (`ScoreRecord`) są wysyłane na serwer rankingu (`online/OnlineManager`). Serwer sprawdza każdy przejazd na tych samych limitach poziomów co gra (`data/level-limits.json` eksportowany przez `LevelLimitsExportTest`), pilnuje kolejności poziomów, czasu i nakładania się przejazdów, przyjmuje sygnały z gry (wykryte zmiany zapisu, edycja pamięci) i ukrywa podejrzane konta z rankingu.
+- Każde żądanie do serwera jest podpisane HMAC-SHA256 (czas + jednorazowy nonce), sesja konta leży w osobnym zaszyfrowanym pliku (`AccountStore`), nie w zapisie gry.
 
 ## Grafika i dźwięk
 
@@ -30,8 +37,17 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 - AGP 9.4.1, Kotlin 2.4.21, Compose BOM 2026.09.00, compileSdk 37, targetSdk 36, minSdk 26.
 - Bajtkod ma target 26 – stabilny Kotlin nie obsługuje jeszcze celu 27 (pojawi się w Kotlinie 2.5).
 
+Ranking online wymaga w `local.properties` (plik poza repozytorium) sekretu podpisu – tego samego co `HMAC_SECRET` w `.env` serwera:
+
+```
+fp.hmacSecret=...
+fp.apiUrl=https://fp.wojtoteka.ovh/api/v1   # opcjonalnie, to wartość domyślna
+```
+
+Bez `fp.hmacSecret` gra działa, a ekrany konta i rankingu pokazują, że ranking jest niedostępny. Po zmianie generatora poziomów trzeba odświeżyć limity na serwerze: `./gradlew testDebugUnitTest --tests "*LevelLimitsExportTest*"` i skopiować `app/build/level-limits.json` do `Top_FishingParty/data/`.
+
 ```
 ./gradlew assembleDebug        # APK testowe
-./gradlew testDebugUnitTest    # testy JVM (generator, symulacja z botem, zapis, szyfrowanie)
+./gradlew testDebugUnitTest    # testy JVM (generator, symulacja z botem, zapis, szyfrowanie, podpis API)
 ./gradlew bundleRelease        # AAB do Google Play (wymaga konfiguracji podpisu)
 ```

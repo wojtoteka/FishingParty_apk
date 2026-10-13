@@ -1,9 +1,18 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Sekret podpisu żądań do serwera rankingu – z local.properties (poza repozytorium).
+val localProps = Properties().apply {
+    rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun localProp(name: String, fallback: String = ""): String =
+    (localProps.getProperty(name) ?: System.getenv(name.replace('.', '_').uppercase()) ?: fallback)
+        .replace("\\", "\\\\").replace("\"", "\\\"")
 
 android {
     namespace = "wojtoteka.ovh.fishingparty"
@@ -13,8 +22,11 @@ android {
         applicationId = "wojtoteka.ovh.fishingparty"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "2.0.1"
+        versionCode = 10
+        versionName = "2.1"
+
+        buildConfigField("String", "FP_API_URL", "\"${localProp("fp.apiUrl", "https://fp.wojtoteka.ovh/api/v1")}\"")
+        buildConfigField("String", "FP_HMAC_SECRET", "\"${localProp("fp.hmacSecret")}\"")
     }
 
     buildTypes {
@@ -63,4 +75,6 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     debugImplementation(libs.androidx.compose.ui.tooling)
     testImplementation(libs.junit)
+    // Prawdziwe org.json w testach JVM (w android.jar są tylko atrapy).
+    testImplementation(libs.org.json)
 }

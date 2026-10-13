@@ -54,7 +54,9 @@ import wojtoteka.ovh.fishingparty.audio.AudioEngine
 import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.Sprites
+import wojtoteka.ovh.fishingparty.online.OnlineManager
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Paleta wzięta z oryginalnych spritów. */
@@ -89,7 +91,7 @@ object Pal {
     val Scrim = Color(0xA0000000)
 }
 
-class Services(val repo: GameRepository, val audio: AudioEngine)
+class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager)
 
 val LocalServices = staticCompositionLocalOf<Services> { error("Brak usług") }
 
@@ -100,9 +102,10 @@ val BitCell = FontFamily(Font(R.font.bitcell))
 
 @Composable
 fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
-    val width = LocalWindowInfo.current.containerSize.width
-    val unit = max(2, (width / 360f).roundToInt())
-    val services = remember(app) { Services(app.repository, app.audio) }
+    // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
+    val window = LocalWindowInfo.current.containerSize
+    val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
+    val services = remember(app) { Services(app.repository, app.audio, app.online) }
     CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, content = content)
 }
 
@@ -269,6 +272,12 @@ fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline
     drawRect(light, Offset(u, u), Size(w - 2 * u, u))
     if (shadow > 0f) drawRect(dark, Offset(u, h - u - shadow * u), Size(w - 2 * u, shadow * u))
 }
+
+/**
+ * Zapas od dolnej krawędzi ekranu (w pikselach interfejsu) dla przewijanych list.
+ * Zaokrąglone rogi wyświetlacza ścinały narożniki ostatniej karty, gdy stała tuż przy dole.
+ */
+const val BOTTOM_GAP = 24
 
 /** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
 const val MIN_BUTTON = 32

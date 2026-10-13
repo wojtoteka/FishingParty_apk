@@ -10,8 +10,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -43,7 +46,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, SETTINGS, DAILY, REPAIR }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -93,7 +96,8 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     PixelText("${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}", size = 2)
                 }
             }
-            VSpace(5)
+            // Karta passy nie przykleja się do górnej krawędzi – stoi bliżej środka, w zasięgu kciuka.
+            Box(Modifier.weight(0.5f))
             StreakCard(
                 streak,
                 repairDays = repair?.days ?: 0,
@@ -113,7 +117,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
             Box(Modifier.weight(1f))
             Column(
                 Modifier
-                    .widthIn(max = px(260))
+                    .widthIn(max = px(300))
                     .fillMaxWidth()
                     .onGloballyPositioned { buttonsTop = it.boundsInRoot().top },
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -130,36 +134,41 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         PixelText(stringResource(R.string.level_n, current), size = 2, color = Pal.GreenLight)
                     }
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    PixelButton(stringResource(R.string.map_title), onClick = { onOpen(Destination.MAP) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
-                    PixelButton(stringResource(R.string.shop_title), onClick = { onOpen(Destination.SHOP) }, style = ButtonStyle.SAND, modifier = Modifier.weight(1f))
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    PixelButton(stringResource(R.string.map_title), onClick = { onOpen(Destination.MAP) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f).fillMaxHeight())
+                    PixelButton(stringResource(R.string.shop_title), onClick = { onOpen(Destination.SHOP) }, style = ButtonStyle.SAND, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    Box(Modifier.weight(1f)) {
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
                         PixelButton(
                             stringResource(R.string.achievements_short),
                             onClick = { onOpen(Destination.ACHIEVEMENTS) },
                             style = ButtonStyle.WOOD,
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxSize(),
                         )
                         if (claimable > 0) Badge(claimable.toString(), Modifier.align(Alignment.TopEnd))
                     }
-                    Box(Modifier.weight(1f)) {
-                        PixelButton(
-                            stringResource(R.string.ranking_title),
-                            onClick = { onOpen(Destination.RANKING) },
-                            style = ButtonStyle.WOOD,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        Badge(stringResource(R.string.soon), Modifier.align(Alignment.TopEnd), color = ButtonStyle.SEA)
-                    }
+                    PixelButton(
+                        stringResource(R.string.ranking_title),
+                        onClick = { onOpen(Destination.RANKING) },
+                        style = ButtonStyle.WOOD,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
                 }
-                PixelButton(
-                    stringResource(R.string.settings_title),
-                    onClick = { onOpen(Destination.SETTINGS) },
-                    style = ButtonStyle.SEA,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    PixelButton(
+                        stringResource(R.string.settings_title),
+                        onClick = { onOpen(Destination.SETTINGS) },
+                        style = ButtonStyle.SEA,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
+                    PixelButton(
+                        stringResource(R.string.account_title),
+                        onClick = { onOpen(Destination.ACCOUNT) },
+                        style = ButtonStyle.SEA,
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                    )
+                }
                 if (daily) {
                     PixelButton(
                         stringResource(R.string.daily_title),
@@ -172,8 +181,8 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     )
                 }
             }
-            Box(Modifier.weight(0.6f))
-            VSpace(6)
+            Box(Modifier.weight(0.5f))
+            VSpace(BOTTOM_GAP)
         }
     }
 }

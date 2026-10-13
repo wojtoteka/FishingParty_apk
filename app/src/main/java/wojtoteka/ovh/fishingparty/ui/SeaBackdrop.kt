@@ -180,7 +180,7 @@ fun SeaBackdrop(world: Int, modifier: Modifier = Modifier, ship: ShipLook? = nul
     val sea = Color(Worlds.seaColor(world))
     Canvas(modifier) {
         val t = time.floatValue
-        val s = GameRenderer.scaleFor(size.width.toInt()).toFloat()
+        val s = GameRenderer.scaleFor(size.width.toInt(), size.height.toInt()).toFloat()
         val viewW = size.width / s
         val viewH = size.height / s
         val camX = (WIDTH * TILE - viewW) / 2f

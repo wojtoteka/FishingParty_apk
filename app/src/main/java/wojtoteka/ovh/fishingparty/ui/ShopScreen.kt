@@ -141,7 +141,7 @@ fun ShopScreen(onBack: () -> Unit) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
-                contentPadding = PaddingValues(horizontal = px(6), vertical = px(4)),
+                contentPadding = PaddingValues(start = px(6), top = px(4), end = px(6), bottom = px(BOTTOM_GAP)),
                 horizontalArrangement = Arrangement.spacedBy(px(4)),
                 verticalArrangement = Arrangement.spacedBy(px(4)),
             ) {
@@ -171,6 +171,9 @@ fun ShopScreen(onBack: () -> Unit) {
 @Composable
 private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, onBuy: () -> Unit, onEquip: () -> Unit) {
     val repo = LocalServices.current.repo
+    // Karta w siatce to osobny zakres kompozycji – bez odczytu rewizji po zakupie nie odświeżała
+    // stanu (przycisk ceny świecił się mimo braku monet, licznik „masz” stał w miejscu).
+    repo.revision.intValue
     val progress = repo.progress
     val owned = progress.owns(item)
     val equipped = progress.isEquipped(item)

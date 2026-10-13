@@ -57,9 +57,10 @@ import wojtoteka.ovh.fishingparty.data.DailyRewards
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.Worlds
+import wojtoteka.ovh.fishingparty.online.OnlineManager
 
 @Composable
-private fun ScreenFrame(title: String, onBack: () -> Unit, dim: Float = 0.35f, content: @Composable ColumnScope.() -> Unit) {
+internal fun ScreenFrame(title: String, onBack: () -> Unit, dim: Float = 0.35f, content: @Composable ColumnScope.() -> Unit) {
     val repo = LocalServices.current.repo
     Box(Modifier.fillMaxSize()) {
         SeaBackdrop(Worlds.paletteOf(repo.progress.highestUnlocked()), Modifier.fillMaxSize(), dim = dim)
@@ -100,7 +101,7 @@ fun AchievementsScreen(onBack: () -> Unit) {
         )
         LazyColumn(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
-            contentPadding = PaddingValues(px(6)),
+            contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(4)),
         ) {
             items(sorted, key = { it.id }) { a ->
@@ -151,71 +152,6 @@ fun AchievementsScreen(onBack: () -> Unit) {
 }
 
 @Composable
-fun RankingScreen(onBack: () -> Unit) {
-    val repo = LocalServices.current.repo
-    repo.revision.intValue
-    val progress = repo.progress
-    ScreenFrame(stringResource(R.string.ranking_title), onBack) {
-        Column(
-            Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(px(10)),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            VSpace(10)
-            PixelText(
-                stringResource(R.string.soon),
-                size = 9,
-                color = Pal.Gold,
-                modifier = Modifier.rotate(-8f),
-            )
-            VSpace(10)
-            PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
-                PixelText(stringResource(R.string.ranking_points), size = 2, color = Pal.Outline, outline = null)
-                PixelText(progress.rankingPoints().toString(), size = 6)
-                VSpace(4)
-                PixelText(
-                    stringResource(R.string.ranking_info),
-                    size = 1,
-                    color = Pal.WoodDark,
-                    outline = null,
-                    align = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-            VSpace(8)
-            DarkCard(Modifier.fillMaxWidth().widthIn(max = px(320))) {
-                Column(Modifier.fillMaxWidth()) {
-                    StatRow(stringResource(R.string.stat_levels), "${progress.completedLevels()}/${LevelConstants.LEVEL_COUNT}")
-                    StatRow(stringResource(R.string.stat_stars), "${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}")
-                    StatRow(stringResource(R.string.stat_fish), repo.save.totalFish.get().toString())
-                    StatRow(stringResource(R.string.stat_golden), repo.save.totalGolden.get().toString())
-                    StatRow(stringResource(R.string.stat_combo), "x${repo.save.maxCombo}")
-                    StatRow(stringResource(R.string.stat_trophies), progress.trophies.toString())
-                    StatRow(stringResource(R.string.stat_streak), pluralStringResource(R.plurals.streak_days, repo.save.streakBest, repo.save.streakBest))
-                }
-            }
-            VSpace(8)
-            PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
-                val streak = progress.streakState()
-                PixelText(stringResource(R.string.streak_title), size = 2, color = Pal.Outline, outline = null)
-                PixelText(pluralStringResource(R.plurals.streak_days, streak.days, streak.days), size = 4)
-                VSpace(3)
-                PixelText(
-                    stringResource(R.string.streak_info),
-                    size = 1,
-                    color = Pal.WoodDark,
-                    outline = null,
-                    align = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun StatRow(label: String, value: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
         PixelText(label, size = 2, color = Pal.Foam, modifier = Modifier.weight(1f))
@@ -239,7 +175,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .windowInsetsPadding(WindowInsets.navigationBars)
-                    .padding(horizontal = px(10), vertical = px(6)),
+                    .padding(start = px(10), top = px(6), end = px(10), bottom = px(BOTTOM_GAP)),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(px(4)),
             ) {
@@ -302,6 +238,8 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                 }
 
                 SettingsSection(stringResource(R.string.set_section_game)) {
+                    ControlsSettings()
+                    VSpace(4)
                     ToggleRow(stringResource(R.string.set_keep_screen), save.keepScreenOn) {
                         save.keepScreenOn = it
                         repo.changed()
@@ -337,6 +275,32 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                     size = 2,
                 )
                 VSpace(6)
+                SettingsSection(stringResource(R.string.set_section_legal)) {
+                    PixelText(
+                        stringResource(R.string.set_legal_info),
+                        size = 1,
+                        color = Pal.Foam,
+                        align = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    VSpace(4)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                        PixelButton(
+                            stringResource(R.string.set_privacy),
+                            onClick = { openLink(context, OnlineManager.PRIVACY_URL) },
+                            style = ButtonStyle.SEA,
+                            size = 1,
+                            modifier = Modifier.weight(1f),
+                        )
+                        PixelButton(
+                            stringResource(R.string.set_terms),
+                            onClick = { openLink(context, OnlineManager.TERMS_URL) },
+                            style = ButtonStyle.SEA,
+                            size = 1,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
                 SettingsSection(stringResource(R.string.set_section_about)) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         PixelText(stringResource(R.string.set_author), size = 3, color = Pal.Gold)
@@ -356,7 +320,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
         }
         if (confirmReset) {
             ConfirmDialog(
-                message = stringResource(R.string.set_reset_confirm),
+                message = stringResource(if (services.online.loggedIn) R.string.set_reset_confirm_online else R.string.set_reset_confirm),
                 onConfirm = {
                     repo.progress.resetProgress()
                     repo.changed()
@@ -505,6 +469,13 @@ private fun Flag(language: Language) {
             }
         },
     )
+}
+
+private fun openLink(context: Context, url: String) {
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+    } catch (_: Exception) {
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {

@@ -20,7 +20,7 @@ import kotlin.math.min
  * Klucz zapisu z Android Keystore. Gdyby Keystore na danym urządzeniu nie
  * działał, używamy klucza losowego w prywatnym katalogu bez kopii zapasowej.
  */
-private class KeystoreKeys(private val context: Context) : KeyProvider {
+internal class KeystoreKeys(private val context: Context) : KeyProvider {
     private var cached: SecretKey? = null
 
     override fun key(): SecretKey = cached ?: create().also { cached = it }
@@ -59,11 +59,16 @@ class GameRepository(context: Context) {
     private val appContext = context.applicationContext
     private val file = File(appContext.filesDir, "progress.fps")
     private val backup = File(appContext.filesDir, "progress.bak")
-    private val crypto = SaveCrypto(KeystoreKeys(appContext))
+    internal val crypto = SaveCrypto(KeystoreKeys(appContext))
     private val io = Executors.newSingleThreadExecutor()
 
-    val save: SaveData
-    val progress: Progress
+    var save: SaveData
+        private set
+    var progress: Progress
+        private set
+
+    /** Wywoływane po każdej zmianie stanu (synchronizacja z kontem online). */
+    var onChanged: (() -> Unit)? = null
 
     /** Licznik zmian – Compose czyta go, żeby odświeżać widoki po każdej zmianie postępu. */
     val revision = mutableIntStateOf(0)
@@ -77,11 +82,39 @@ class GameRepository(context: Context) {
 
     init {
         save = load()
-        progress = Progress(save, now = System::currentTimeMillis, today = { LocalDate.now().toEpochDay() })
+        progress = progressOf(save)
         migrateLegacy()
         progress.touchClock()
         // Osiągnięcia zdobyte wcześniej (np. weteran) nie pokazują baneru przy starcie.
         progress.takeNewAchievements()
+        persist()
+    }
+
+    private fun progressOf(data: SaveData) =
+        Progress(data, now = System::currentTimeMillis, today = { LocalDate.now().toEpochDay() })
+
+    /** Zapis gry w formacie [SaveCodec] – wysyłany na konto online. */
+    fun exportSnapshot(): ByteArray = SaveCodec.encode(save)
+
+    /**
+     * Zastępuje cały postęp zapisem pobranym z konta (np. po reinstalacji).
+     * @throws Exception gdy dane są uszkodzone – wtedy lokalny zapis zostaje bez zmian
+     */
+    fun restoreSnapshot(bytes: ByteArray) {
+        val restored = SaveCodec.decode(bytes)
+        // Sterowanie wybrane na tym telefonie zostaje – gracz wybrał je przed zalogowaniem.
+        if (save.controlsChosen) {
+            restored.controls = save.controls
+            restored.controlsChosen = true
+            restored.joystickLeft = save.joystickLeft
+        }
+        save = restored
+        progress = progressOf(restored)
+        progress.touchClock()
+        // Odznaki z konta były już pokazane na tamtym urządzeniu.
+        progress.takeNewAchievements()
+        banners.clear()
+        revision.intValue++
         persist()
     }
 
@@ -119,6 +152,7 @@ class GameRepository(context: Context) {
         banners += progress.takeNewAchievements()
         revision.intValue++
         persist()
+        onChanged?.invoke()
     }
 
     private fun persist() {

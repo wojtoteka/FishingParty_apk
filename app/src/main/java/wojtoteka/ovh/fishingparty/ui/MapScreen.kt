@@ -77,7 +77,7 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val widthPx = constraints.maxWidth
         val heightPx = constraints.maxHeight
-        val s = GameRenderer.scaleFor(widthPx).toFloat()
+        val s = GameRenderer.scaleFor(widthPx, heightPx).toFloat()
         val viewW = widthPx / s
         val viewH = heightPx / s
         val maxOffset = max(0f, WorldMap.grid.height * TILE - viewH)

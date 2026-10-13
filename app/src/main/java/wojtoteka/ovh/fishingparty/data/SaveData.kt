@@ -25,6 +25,9 @@ class ScoreRecord(
     val at: Long,
 )
 
+/** Sterowanie łodzią: przesuwanie palcem po całym ekranie albo stały joystick w rogu. */
+enum class ControlMode { SWIPE, JOYSTICK }
+
 /** Cały stan gracza. Najważniejsze liczby trzymane są w pamięci w postaci zamaskowanej. */
 class SaveData {
     val coins = GuardedLong(0)
@@ -76,6 +79,11 @@ class SaveData {
     var music = true
     var sfx = true
     var vibration = true
+
+    /** Wybrane sterowanie – gracz wybiera je przy pierwszym uruchomieniu, potem w ustawieniach. */
+    var controls = ControlMode.SWIPE
+    var controlsChosen = false
+    var joystickLeft = true
     var tutorialDone = false
     var legacyMigrated = false
     var veteran = false
@@ -91,7 +99,7 @@ class SaveData {
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 3
+    private const val VERSION = 4
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -161,6 +169,10 @@ object SaveCodec {
             o.writeBoolean(d.streakReminders)
             o.writeByte(d.reminderHour)
             o.writeBoolean(d.keepScreenOn)
+            // v4
+            o.writeByte(d.controls.ordinal)
+            o.writeBoolean(d.controlsChosen)
+            o.writeBoolean(d.joystickLeft)
         }
         return bytes.toByteArray()
     }
@@ -247,6 +259,11 @@ object SaveCodec {
             } else if (d.streak > 0) {
                 // Starsze zapisy nie znały początku passy – liczymy go wstecz od ostatniego dnia.
                 d.streakStartDay = d.streakLastDay - d.streak + 1
+            }
+            if (version >= 4) {
+                d.controls = ControlMode.entries.getOrElse(i.readByte().toInt()) { ControlMode.SWIPE }
+                d.controlsChosen = i.readBoolean()
+                d.joystickLeft = i.readBoolean()
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.
