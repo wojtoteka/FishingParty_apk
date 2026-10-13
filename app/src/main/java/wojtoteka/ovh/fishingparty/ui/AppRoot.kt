@@ -55,6 +55,7 @@ fun AppRoot() {
     var showDaily by remember { mutableStateOf(false) }
     var dailyOffered by remember { mutableStateOf(false) }
     var showRepair by remember { mutableStateOf(false) }
+    var showSoon by remember { mutableStateOf(false) }
     var repairOffered by remember { mutableStateOf(false) }
     var lastSelection by remember { mutableStateOf(emptySet<PowerUp>()) }
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
@@ -88,7 +89,7 @@ fun AppRoot() {
         }
     }
 
-    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair) {
+    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && !showSoon) {
         screen = Screen.Menu
     }
 
@@ -106,6 +107,7 @@ fun AppRoot() {
                         Destination.SETTINGS -> screen = Screen.Settings
                         Destination.DAILY -> showDaily = true
                         Destination.REPAIR -> showRepair = true
+                        Destination.SOON -> showSoon = true
                     }
                 },
             )
@@ -139,6 +141,7 @@ fun AppRoot() {
         if (screen !is Screen.Game) OnlineDialogs()
         if (showDaily) DailyRewardDialog(onClose = { showDaily = false })
         if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
+        if (showSoon) SoonDialog(onClose = { showSoon = false })
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {
