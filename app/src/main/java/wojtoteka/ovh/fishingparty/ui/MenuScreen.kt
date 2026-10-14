@@ -7,6 +7,7 @@ import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -117,15 +118,19 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                 }
             }
             VSpace(8)
-            Column(
-                Modifier
-                    .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PixelText("FISHING", size = 7)
-                PixelText("PARTY", size = 7, color = Pal.Sand)
+            // Tytuł bierze wolne miejsce nad przyciskami. Na niskim ekranie (tablet w poziomie)
+            // maleje, zamiast wypychać dolny rząd przycisków poza ekran.
+            BoxWithConstraints(Modifier.weight(5f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                val titleSize = titleSizeFor(constraints.maxHeight / unit)
+                Column(
+                    Modifier
+                        .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    PixelText("FISHING", size = titleSize)
+                    PixelText("PARTY", size = titleSize, color = Pal.Sand)
+                }
             }
-            Box(Modifier.weight(1f))
             Column(
                 Modifier
                     .widthIn(max = px(300))
@@ -191,6 +196,12 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
         }
     }
 }
+
+/** Największy rozmiar tytułu (2 linie po 13 × (rozmiar − 1) jednostek), który zostawia pod sobą pas na łódź. */
+private fun titleSizeFor(heightUnits: Int): Int =
+    (7 downTo 4).firstOrNull { 26 * (it - 1) + TITLE_GAP <= heightUnits } ?: 3
+
+private const val TITLE_GAP = 24
 
 /** Przycisk trybu, który dopiero nadchodzi – szary, z czerwoną plakietką SOON. */
 @Composable
