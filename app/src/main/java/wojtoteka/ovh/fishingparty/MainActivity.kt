@@ -5,12 +5,14 @@ import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
+import wojtoteka.ovh.fishingparty.game.KeyboardSteer
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
 import wojtoteka.ovh.fishingparty.ui.ProvideUi
@@ -59,8 +61,12 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) hideSystemBars()
+        if (hasFocus) hideSystemBars() else KeyboardSteer.release()
     }
+
+    // Klawiatura steruje łodzią zanim Compose użyje strzałek do przenoszenia fokusu między przyciskami.
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        KeyboardSteer.onKey(event) || super.dispatchKeyEvent(event)
 
     /** Ekran nie gaśnie w trakcie gry (można wyłączyć w ustawieniach). */
     fun applyKeepScreenOn() {

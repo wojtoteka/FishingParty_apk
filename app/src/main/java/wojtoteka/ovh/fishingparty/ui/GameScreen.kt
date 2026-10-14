@@ -57,6 +57,7 @@ import wojtoteka.ovh.fishingparty.game.GameListener
 import wojtoteka.ovh.fishingparty.game.GameRenderer
 import wojtoteka.ovh.fishingparty.game.GameWorld
 import wojtoteka.ovh.fishingparty.game.HudStrings
+import wojtoteka.ovh.fishingparty.game.KeyboardSteer
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.Sfx
@@ -187,7 +188,13 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
                 } else {
                     stick.engaged = false
                 }
-                world.setInput(stick.active && stick.engaged, stick.angle)
+                // Dotyk ma pierwszeństwo, a bez niego łódź słucha klawiatury.
+                val keys = KeyboardSteer.angle()
+                if (keys != null && !(stick.active && stick.engaged)) {
+                    world.setInput(true, keys)
+                } else {
+                    world.setInput(stick.active && stick.engaged, stick.angle)
+                }
                 world.paused = paused || welcome || outcome != null
                 if (last != 0L) world.advance(min((now - last) / 1e9f, 0.1f))
                 last = now
@@ -199,7 +206,11 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
     val view = LocalView.current
     DisposableEffect(Unit) {
         view.keepScreenOn = true
-        onDispose { view.keepScreenOn = false }
+        KeyboardSteer.enabled = true
+        onDispose {
+            view.keepScreenOn = false
+            KeyboardSteer.enabled = false
+        }
     }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, attempt) {
