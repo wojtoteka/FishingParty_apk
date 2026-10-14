@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -490,6 +491,8 @@ fun DailyRewardDialog(onClose: () -> Unit) {
     val repo = services.repo
     repo.revision.intValue
     val state = repo.progress.dailyState()
+    // Dzień nagrody liczy serwer – po uruchomieniu telefonu trzeba najpierw pobrać jego czas.
+    LaunchedEffect(state.needsOnline) { if (state.needsOnline) services.online.syncClock() }
     Overlay(onDismiss = onClose) {
         PixelText(stringResource(R.string.daily_title), size = 4)
         VSpace(6)
@@ -525,7 +528,7 @@ fun DailyRewardDialog(onClose: () -> Unit) {
             }
         }
         PixelText(stringResource(R.string.daily_bonus), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        if (state.clockTampered) {
+        if (state.needsOnline) {
             VSpace(4)
             PixelText(stringResource(R.string.daily_clock), size = 1, color = Pal.Red, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }

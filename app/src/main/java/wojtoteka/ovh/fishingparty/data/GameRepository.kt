@@ -1,6 +1,10 @@
 package wojtoteka.ovh.fishingparty.data
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import android.os.SystemClock
+import android.provider.Settings
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Log
@@ -9,7 +13,6 @@ import androidx.compose.runtime.mutableStateListOf
 import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
-import java.time.LocalDate
 import java.util.concurrent.Executors
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
@@ -54,6 +57,43 @@ internal class KeystoreKeys(private val context: Context) : KeyProvider {
     }
 }
 
+/** Stan [GameClock] w pliku poza kopią zapasową – dotyczy tylko tego telefonu i tego jego uruchomienia. */
+internal class ClockFile(private val file: File) : ClockStore {
+    override fun load(): ClockState? = try {
+        if (!file.exists()) {
+            null
+        } else {
+            val v = file.readLines().associate { it.substringBefore('=') to it.substringAfter('=', "") }
+            ClockState(
+                boot = v["boot"]?.toLongOrNull() ?: -1,
+                serverMs = v["server"]?.toLongOrNull() ?: 0,
+                elapsedMs = v["elapsed"]?.toLongOrNull() ?: 0,
+                zone = v["zone"]?.takeIf { it.isNotEmpty() } ?: GameClock.DEFAULT_ZONE,
+                pending = v["pending"].orEmpty().split(',').mapNotNull { it.toLongOrNull() },
+            )
+        }
+    } catch (e: Exception) {
+        Log.w("FishingParty", "Nie można odczytać stanu zegara", e)
+        null
+    }
+
+    override fun save(state: ClockState) {
+        try {
+            file.writeText(
+                listOf(
+                    "boot=${state.boot}",
+                    "server=${state.serverMs}",
+                    "elapsed=${state.elapsedMs}",
+                    "zone=${state.zone}",
+                    "pending=${state.pending.joinToString(",")}",
+                ).joinToString("\n"),
+            )
+        } catch (e: Exception) {
+            Log.w("FishingParty", "Nie można zapisać stanu zegara", e)
+        }
+    }
+}
+
 /** Trwały stan gry: wczytanie, zapis (atomowy, z kopią) i powiadamianie UI o zmianach. */
 class GameRepository(context: Context) {
     private val appContext = context.applicationContext
@@ -61,6 +101,15 @@ class GameRepository(context: Context) {
     private val backup = File(appContext.filesDir, "progress.bak")
     internal val crypto = SaveCrypto(KeystoreKeys(appContext))
     private val io = Executors.newSingleThreadExecutor()
+    private val main = Handler(Looper.getMainLooper())
+
+    /** Zegar gry – godzina z serwera, nie z ustawień telefonu. */
+    val clock = GameClock(
+        elapsed = SystemClock::elapsedRealtime,
+        wall = System::currentTimeMillis,
+        boot = Settings.Global.getLong(appContext.contentResolver, Settings.Global.BOOT_COUNT, -1L),
+        store = ClockFile(File(appContext.noBackupFilesDir, "clock.txt")),
+    )
 
     var save: SaveData
         private set
@@ -88,10 +137,17 @@ class GameRepository(context: Context) {
         // Osiągnięcia zdobyte wcześniej (np. weteran) nie pokazują baneru przy starcie.
         progress.takeNewAchievements()
         persist()
+        clock.onSynced = { main.post(::onClockSynced) }
     }
 
-    private fun progressOf(data: SaveData) =
-        Progress(data, now = System::currentTimeMillis, today = { LocalDate.now().toEpochDay() })
+    private fun progressOf(data: SaveData) = Progress(data, clock)
+
+    /** Zegar poznał czas serwera: zaliczamy passę za poziomy ukończone bez niego i odświeżamy widoki. */
+    private fun onClockSynced() {
+        var credited = false
+        for (day in clock.takeDeferredDays()) if (progress.creditStreakDay(day) > 0) credited = true
+        if (credited) changed() else revision.intValue++
+    }
 
     /** Zapis gry w formacie [SaveCodec] – wysyłany na konto online. */
     fun exportSnapshot(): ByteArray = SaveCodec.encode(save)

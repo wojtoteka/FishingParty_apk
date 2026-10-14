@@ -213,28 +213,27 @@ class SaveAndProgressTest {
     }
 
     @Test
-    fun dailyRewardStreakAndClockRollback() {
+    fun dailyRewardFollowsServerDay() {
         val save = SaveData()
-        var now = 1_000_000_000L
-        var day = 20_000L
-        val p = Progress(save, { now }, { day })
-        p.touchClock()
+        var day: Long? = 20_000L
+        val p = Progress(save, { 1_000_000_000L }, { day })
         assertTrue(p.dailyState().available)
         assertEquals(50, p.claimDaily())
         assertFalse(p.dailyState().available)
-        day++
-        now += 86_400_000L
+        day = 20_001L
         assertEquals(2, p.dailyState().day)
         assertEquals(75, p.claimDaily())
-        // Gracz cofa zegar o 3 dni – nagroda zablokowana.
-        now -= 3 * 86_400_000L
-        day -= 3
-        val state = p.dailyState()
-        assertFalse(state.available)
-        assertTrue(state.clockTampered)
-        // Przerwa w logowaniu resetuje serię.
-        now += 10 * 86_400_000L
-        day += 10
+        // Telefon nie zna czasu serwera (np. po restarcie bez internetu) – nagroda czeka.
+        day = null
+        assertTrue(p.dailyState().needsOnline)
+        assertFalse(p.dailyState().available)
+        assertEquals(0, p.claimDaily())
+        // Nagroda zapisana na dzień „z przyszłości” (zegar przestawiony w starszej wersji) blokuje do tego dnia.
+        day = 19_998L
+        assertFalse(p.dailyState().available)
+        assertFalse(p.dailyState().needsOnline)
+        // Przerwa w odbieraniu resetuje serię.
+        day = 20_011L
         assertEquals(1, p.dailyState().day)
     }
 
@@ -274,9 +273,8 @@ class SaveAndProgressTest {
         assertEquals(0, p.streakState().days)
         assertEquals(1, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
         assertEquals(3, save.streakBest)
-        // Cofnięty zegar nie przedłuża passy.
-        now -= 5 * 86_400_000L
-        day += 1
+        // Dzień wcześniejszy niż ostatni zaliczony nie przedłuża passy.
+        day -= 3
         assertEquals(0, p.applyRun(win(1, 200, 1), LevelGenerator.plan(1)).streakDays)
     }
 

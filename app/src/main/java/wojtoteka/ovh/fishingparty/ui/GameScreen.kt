@@ -391,6 +391,9 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
                 }
             }
         }
+        if (reward?.streakDeferred == true) {
+            PixelText(stringResource(R.string.streak_deferred), size = 1, color = Pal.SeaLight, align = TextAlign.Center)
+        }
         if (reward?.accepted == false) {
             PixelText(stringResource(R.string.result_rejected), size = 1, color = Pal.Red, align = TextAlign.Center)
         }

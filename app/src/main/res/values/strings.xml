@@ -84,6 +84,7 @@
     <string name="result_score">SCORE</string>
     <string name="result_new_best">NEW RECORD!</string>
     <string name="result_rejected">This result could not be verified and was not saved.</string>
+    <string name="streak_deferred">This streak day will count once you are back online.</string>
     <string name="next">NEXT</string>
     <string name="retry">RETRY</string>
     <string name="to_map">MAP</string>
@@ -95,7 +96,7 @@
     <string name="daily_day">DAY %d</string>
     <string name="daily_claim">CLAIM</string>
     <string name="daily_bonus">Come back every day! Day 7 also gives one of each power-up.</string>
-    <string name="daily_clock">Your device clock looks wrong. Rewards will return once it is correct.</string>
+    <string name="daily_clock">Connect to the internet to claim the reward – the game server keeps the time.</string>
     <string name="shop_boats">BOATS</string>
     <string name="shop_sails">SAILS</string>
     <string name="shop_sailors">CREW</string>

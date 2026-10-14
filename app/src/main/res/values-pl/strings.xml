@@ -83,6 +83,7 @@
     <string name="result_score">WYNIK</string>
     <string name="result_new_best">NOWY REKORD!</string>
     <string name="result_rejected">Tego wyniku nie dało się zweryfikować – nie został zapisany.</string>
+    <string name="streak_deferred">Dzień passy zaliczy się po połączeniu z internetem.</string>
     <string name="next">DALEJ</string>
     <string name="retry">JESZCZE RAZ</string>
     <string name="to_map">MAPA</string>
@@ -94,7 +95,7 @@
     <string name="daily_day">DZIEŃ %d</string>
     <string name="daily_claim">ODBIERZ</string>
     <string name="daily_bonus">Wracaj codziennie! Dzień 7 daje też po jednym wzmocnieniu każdego rodzaju.</string>
-    <string name="daily_clock">Zegar w telefonie wygląda na przestawiony. Nagrody wrócą, gdy będzie poprawny.</string>
+    <string name="daily_clock">Połącz się z internetem, żeby odebrać nagrodę – godzinę podaje serwer gry.</string>
     <string name="shop_boats">ŁODZIE</string>
     <string name="shop_sails">ŻAGLE</string>
     <string name="shop_sailors">ZAŁOGA</string>

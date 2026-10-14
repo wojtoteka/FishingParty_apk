@@ -20,6 +20,8 @@ class Reward(
     val trophies: Int = 0,
     /** Jednorazowa nagroda za pierwsze ukończenie Wielkiego Finału (już wliczona w [coins]). */
     val finaleBonus: Int = 0,
+    /** Telefon nie zna czasu serwera – dzień passy zaliczy się po połączeniu z internetem. */
+    val streakDeferred: Boolean = false,
 )
 
 /**
@@ -39,13 +41,29 @@ class StreakState(val days: Int, val playedToday: Boolean)
  */
 class StreakRepair(val days: Int, val missedDays: Int, val cost: Int, val used: Int, val resetDay: Long)
 
-class DailyState(val available: Boolean, val day: Int, val clockTampered: Boolean)
+/** @param needsOnline nagrody nie da się odebrać, dopóki telefon nie pobierze czasu z serwera */
+class DailyState(val available: Boolean, val day: Int, val needsOnline: Boolean)
 
 /**
  * Cała logika postępu gracza (bez Androida, więc testowalna na JVM).
  * Każda zmiana przechodzi przez tę klasę – UI nigdy nie modyfikuje zapisu bezpośrednio.
+ *
+ * Dni nagrody dziennej i passy liczy [GameTime] z czasu serwera – przestawienie
+ * zegara w telefonie nie daje nowego dnia.
  */
-class Progress(val save: SaveData, private val now: () -> Long, private val today: () -> Long) {
+class Progress(val save: SaveData, private val time: GameTime) {
+
+    /** Do testów: stały czas i dzień ([today] = null – czas serwera nieznany). */
+    constructor(save: SaveData, now: () -> Long, today: () -> Long?) : this(
+        save,
+        object : GameTime {
+            override fun now(): Long = now()
+            override fun today(): Long? = today()
+            override fun localDay(): Long = today() ?: 0L
+        },
+    )
+
+    private fun now(): Long = time.now()
 
     fun stars(level: Int): Int = if (level in 1..save.levelSlots) save.stars[level - 1].toInt() else 0
 
@@ -87,11 +105,16 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         var streakDays = 0
         var trophies = 0
         var finaleBonus = 0
+        var streakDeferred = false
         if (result.completed) {
-            if (extendStreak()) {
-                streakDays = save.streak
-                trophies = StreakRewards.trophiesFor(save.streak)
-                save.trophies.add(trophies.toLong())
+            val day = time.today()
+            if (day == null) {
+                // Komunikat tylko przy pierwszym takim poziomie – kolejne i tak liczą się do tego samego dnia.
+                streakDeferred = !time.hasDeferredPlay()
+                time.deferPlay()
+            } else {
+                trophies = creditStreakDay(day)
+                if (trophies > 0) streakDays = save.streak
             }
             save.levelWins++
             if (result.hits == 0) save.noHitWins++
@@ -121,25 +144,37 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
             result.commonCaught, result.blueCaught, result.goldenCaught, result.completed, plan.spec.world, newStars,
         ) + finaleBonus
         addCoins(coins.toLong())
-        return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies, finaleBonus)
+        return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies, finaleBonus, streakDeferred)
     }
 
     // ------------------------------------------------------------ passa
 
     fun streakState(): StreakState {
-        if (clockTampered()) return StreakState(0, false)
-        val day = today()
-        return when (save.streakLastDay) {
-            day -> StreakState(save.streak, true)
-            day - 1 -> StreakState(save.streak, false)
+        // Bez czasu serwera tylko podgląd według daty telefonu – nagrody i tak czekają na serwer.
+        val day = time.today() ?: time.localDay()
+        return when {
+            // Dzień zapisany „z przyszłości” (np. po przestawieniu zegara w starszej wersji) – passa stoi do tego dnia.
+            save.streakLastDay >= day -> StreakState(save.streak, true)
+            save.streakLastDay == day - 1 -> StreakState(save.streak, time.hasDeferredPlay())
+            // Poziom ukończony bez czasu serwera po przerwie – zacznie nową passę.
+            time.hasDeferredPlay() && time.today() == null -> StreakState(1, true)
             else -> StreakState(0, false)
         }
     }
 
-    /** Pierwszy ukończony poziom danego dnia przedłuża passę (albo zaczyna nową). */
-    private fun extendStreak(): Boolean {
-        if (clockTampered()) return false
-        val day = today()
+    /**
+     * Zalicza dzień [day] do passy (pierwszy ukończony poziom danego dnia przedłuża ją albo
+     * zaczyna nową). Zwraca przyznane trofea, 0 = ten dzień był już zaliczony.
+     * Wołane też później dla poziomów ukończonych, zanim telefon poznał czas serwera.
+     */
+    fun creditStreakDay(day: Long): Int {
+        if (!extendStreak(day)) return 0
+        val trophies = StreakRewards.trophiesFor(save.streak)
+        save.trophies.add(trophies.toLong())
+        return trophies
+    }
+
+    private fun extendStreak(day: Long): Boolean {
         if (day <= save.streakLastDay) return false
         if (save.streakLastDay == day - 1 && save.streak > 0) {
             save.streak++
@@ -160,8 +195,8 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
 
     /** Przerwana passa, którą da się jeszcze odzyskać – albo null, gdy nie ma czego (lub już przepadła). */
     fun streakRepair(): StreakRepair? {
-        if (clockTampered() || save.streak <= 0 || save.streakLastDay < 0) return null
-        val day = today()
+        if (save.streak <= 0 || save.streakLastDay < 0 || time.hasDeferredPlay()) return null
+        val day = time.today() ?: return null
         val missed = (day - 1 - save.streakLastDay).toInt()
         if (missed < 1 || missed > StreakRepairs.MAX_MISSED_DAYS) return null
         val used = repairsUsedIn(day)
@@ -174,8 +209,8 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
     /** Odzyskuje passę za monety: opuszczone dni są „załatane”, dziś wystarczy ukończyć poziom. */
     fun repairStreak(): Boolean {
         val offer = streakRepair() ?: return false
+        val day = time.today() ?: return false
         if (!spend(offer.cost)) return false
-        val day = today()
         save.repairPeriod = StreakRepairs.period(save.streakStartDay, day)
         save.repairsUsed = offer.used + offer.missedDays
         save.repairsTotal += offer.missedDays
@@ -185,7 +220,10 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
     }
 
     /** Przerwana passa, której nie da się już odzyskać (do komunikatu „passa przepadła”). */
-    fun streakLost(): Boolean = !clockTampered() && save.streak > 0 && save.streakLastDay < today() - 1 && streakRepair() == null
+    fun streakLost(): Boolean {
+        val day = time.today() ?: return false
+        return save.streak > 0 && save.streakLastDay < day - 1 && !time.hasDeferredPlay() && streakRepair() == null
+    }
 
     fun addCoins(amount: Long) {
         val total = save.coins.add(amount)
@@ -249,23 +287,22 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
 
     // ------------------------------------------------------------ nagroda dzienna
 
-    private fun clockTampered(): Boolean = now() < save.lastSeenWall - CLOCK_TOLERANCE
-
-    /** Zapamiętuje najpóźniejszy widziany czas – cofnięcie zegara blokuje nagrody. */
+    /** Zapamiętuje najpóźniejszy widziany czas gry. */
     fun touchClock() {
         val t = now()
         if (t > save.lastSeenWall) save.lastSeenWall = t
     }
 
     fun dailyState(): DailyState {
-        if (clockTampered()) return DailyState(false, 0, true)
-        val day = today()
-        if (save.dailyLastDay == day) return DailyState(false, save.dailyStreak, false)
+        val day = time.today() ?: return DailyState(false, save.dailyStreak, true)
+        // Odebrana dziś – albo zapisana na dzień „z przyszłości” (zegar przestawiony w starszej wersji gry).
+        if (save.dailyLastDay >= day) return DailyState(false, save.dailyStreak, false)
         val next = if (save.dailyLastDay == day - 1) save.dailyStreak % 7 + 1 else 1
         return DailyState(true, next, false)
     }
 
     fun claimDaily(): Int {
+        val today = time.today() ?: return 0
         val state = dailyState()
         if (!state.available) return 0
         val coins = DailyRewards.coins[state.day - 1]
@@ -273,7 +310,7 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
         if (state.day == DailyRewards.BONUS_DAY) for (i in save.powerups.indices) save.powerups[i]++
         save.dailyStreak = state.day
         save.dailyBestStreak = max(save.dailyBestStreak, state.day)
-        save.dailyLastDay = today()
+        save.dailyLastDay = today
         touchClock()
         return coins
     }
@@ -361,8 +398,6 @@ class Progress(val save: SaveData, private val now: () -> Long, private val toda
     }
 
     companion object {
-        private const val CLOCK_TOLERANCE = 2 * 60 * 60 * 1000L
-
         /** Monety za pierwsze ukończenie poziomu 1000. */
         const val FINALE_BONUS = 5000
     }
