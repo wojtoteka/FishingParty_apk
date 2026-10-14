@@ -2,8 +2,11 @@ package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,8 +88,13 @@ fun StreakRepairDialog(onClose: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
         VSpace(8)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelButton(stringResource(R.string.repair_later), onClick = onClose, style = ButtonStyle.WOOD, modifier = Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+            PixelButton(
+                stringResource(R.string.repair_later),
+                onClick = onClose,
+                style = ButtonStyle.WOOD,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
             PixelButton(
                 text = "",
                 onClick = {
@@ -98,13 +106,17 @@ fun StreakRepairDialog(onClose: () -> Unit) {
                 },
                 style = ButtonStyle.GREEN,
                 enabled = affordable,
-                modifier = Modifier.weight(1.4f),
+                modifier = Modifier.weight(1.4f).fillMaxHeight(),
             ) {
-                PixelText(stringResource(R.string.streak_repair), size = 3)
-                HSpace(4)
-                SpriteImage("fishscore_gold", 2)
-                HSpace(1)
-                PixelText(offer.cost.toString(), size = 3)
+                // Cena w osobnej linii – w jednej z napisem łamała się na wąskim telefonie.
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    PixelText(stringResource(R.string.streak_repair), size = 3)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        SpriteImage("fishscore_gold", 2)
+                        HSpace(1)
+                        PixelText(offer.cost.toString(), size = 3, maxLines = 1)
+                    }
+                }
             }
         }
         if (!affordable) {
