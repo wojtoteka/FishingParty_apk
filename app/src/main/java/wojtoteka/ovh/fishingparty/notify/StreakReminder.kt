@@ -70,7 +70,8 @@ object StreakReminder {
         val save = app.repository.save
         if (!save.streakReminders) return
         val progress = app.repository.progress
-        val now = ZonedDateTime.now()
+        // Dzień passy kończy się o północy w strefie gry (Europe/Warsaw), więc przypomnienia liczymy w niej.
+        val now = ZonedDateTime.now(app.repository.clock.zone)
         val today = now.toLocalDate()
         val slots = StreakReminderSlots.slots(save.reminderHour)
         val streak = progress.streakState()

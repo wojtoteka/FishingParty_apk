@@ -31,8 +31,10 @@ enum class ControlMode { SWIPE, JOYSTICK }
 /** Cały stan gracza. Najważniejsze liczby trzymane są w pamięci w postaci zamaskowanej. */
 class SaveData {
     val coins = GuardedLong(0)
+    /** Rekordy i gwiazdki poziomów (indeks = numer - 1). Rosną razem z Bezkresnym Morzem – patrz [ensureLevels]. */
     val best = GuardedIntArray(LevelConstants.LEVEL_COUNT)
-    val stars = ByteArray(LevelConstants.LEVEL_COUNT)
+    var stars = ByteArray(LevelConstants.LEVEL_COUNT)
+        private set
     val unlocked = GuardedLong(1)
     val totalFish = GuardedLong(0)
     val totalGolden = GuardedLong(0)
@@ -91,6 +93,22 @@ class SaveData {
     var tamperEvents = 0
     val records = ArrayDeque<ScoreRecord>()
 
+    /** Liczba poziomów w tablicach rekordów i gwiazdek (co najmniej 1000). */
+    val levelSlots: Int get() = stars.size
+
+    /** Robi miejsce na rekord poziomu [level] (poziomy powyżej 1000 dochodzą po kolei, w paczkach po świecie). */
+    fun ensureLevels(level: Int) {
+        if (level <= stars.size) return
+        val size = (level + LevelConstants.LEVELS_PER_WORLD - 1) / LevelConstants.LEVELS_PER_WORLD * LevelConstants.LEVELS_PER_WORLD
+        resizeLevels(size.coerceAtMost(LevelConstants.MAX_LEVEL))
+    }
+
+    /** Przy resecie postępu wracamy do samej kampanii. */
+    fun resizeLevels(size: Int) {
+        best.resize(size)
+        stars = stars.copyOf(size)
+    }
+
     companion object {
         const val MAX_RECORDS = 50
     }
@@ -107,8 +125,9 @@ object SaveCodec {
             o.writeInt(MAGIC)
             o.writeShort(VERSION)
             o.writeLong(d.coins.get())
-            o.writeShort(LevelConstants.LEVEL_COUNT)
-            for (i in 0 until LevelConstants.LEVEL_COUNT) {
+            // Liczba poziomów bez znaku (do 65535) – starsze wersje gry czytają z niej tylko pierwsze 1000.
+            o.writeShort(d.levelSlots)
+            for (i in 0 until d.levelSlots) {
                 o.writeInt(d.best[i])
                 o.writeByte(d.stars[i].toInt())
             }
@@ -184,11 +203,12 @@ object SaveCodec {
             val version = i.readShort().toInt()
             require(version in 1..VERSION) { "Nieznana wersja zapisu $version" }
             d.coins.set(i.readLong())
-            val count = i.readShort().toInt()
+            val count = i.readUnsignedShort()
+            d.ensureLevels(count.coerceAtMost(LevelConstants.MAX_LEVEL))
             for (n in 0 until count) {
                 val best = i.readInt()
                 val stars = i.readByte()
-                if (n < LevelConstants.LEVEL_COUNT) {
+                if (n < d.levelSlots) {
                     d.best[n] = best
                     d.stars[n] = stars
                 }
@@ -229,7 +249,7 @@ object SaveCodec {
             val records = i.readShort().toInt()
             repeat(records) {
                 d.records += ScoreRecord(
-                    level = i.readShort().toInt(),
+                    level = i.readUnsignedShort(),
                     score = i.readInt(),
                     timeMillis = i.readLong(),
                     common = i.readShort().toInt(),
@@ -267,8 +287,9 @@ object SaveCodec {
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.
-        val unlocked = d.unlocked.get().toInt().coerceIn(1, LevelConstants.LEVEL_COUNT)
+        val unlocked = d.unlocked.get().toInt().coerceIn(1, LevelConstants.MAX_LEVEL)
         if (unlocked < LevelConstants.LEVEL_COUNT && d.stars[unlocked - 1] > 0) d.unlocked.set(unlocked + 1L)
+        d.ensureLevels(unlocked)
         return d
     }
 

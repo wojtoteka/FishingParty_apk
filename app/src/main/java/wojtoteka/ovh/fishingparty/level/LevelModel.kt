@@ -75,6 +75,10 @@ enum class EnemyKind(
     RED_PIRANHA(1.5f, 76),
     RED_OCTOPUS(2f, 126),
     DARK_SHARK(3f, 176),
+    ;
+
+    /** Koszt w dziesiątych częściach – poziomy z seeda liczą budżet na liczbach całkowitych. */
+    val costTenths: Int get() = Math.round(cost * 10f)
 }
 
 enum class FishKind(val points: Int, val coins: Int) {
@@ -152,7 +156,14 @@ class LevelLayout(
 object LevelConstants {
     const val TILE = 16
     const val WIDTH = 11
+    /** Poziomy kampanii: 1–999 i Wielki Finał. Dalej zaczyna się Bezkresne Morze ([EndlessLevels]). */
     const val LEVEL_COUNT = 1000
+
+    /**
+     * Ostatni poziom Bezkresnego Morza. Praktycznie bez końca (ponad 19 000 poziomów z seeda),
+     * a zapis gry i serwer rankingu (numer poziomu jako SMALLINT UNSIGNED) mają spory zapas.
+     */
+    const val MAX_LEVEL = 20_000
 
     /** Pierwsze 500 poziomów (pierwsza wyprawa) ma niezmienioną krzywą trudności. */
     const val FIRST_VOYAGE_LEVELS = 500

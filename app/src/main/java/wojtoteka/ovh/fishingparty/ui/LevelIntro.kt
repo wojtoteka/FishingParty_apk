@@ -12,12 +12,13 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
+import wojtoteka.ovh.fishingparty.level.EndlessLevels
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelType
 
 /** Karta poziomu przed startem: typ, cele na gwiazdki i wybór wzmocnień. */
@@ -28,7 +29,8 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
     val progress = repo.progress
     val plan = remember(level) { LevelGenerator.plan(level) }
     val spec = plan.spec
-    val worldNames = stringArrayResource(R.array.world_names)
+    val worldName = rememberWorldNames()
+    val endless = EndlessLevels.isEndless(level)
     val selected = remember(level) { mutableStateListOf<PowerUp>() }
     val earned = progress.stars(level)
     val finale = spec.type == LevelType.FINALE
@@ -37,10 +39,17 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
         Box(Modifier.fillMaxWidth()) {
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Czterocyfrowy numer finału w pełnym rozmiarze wchodziłby na przycisk zamknięcia.
-                PixelText(stringResource(R.string.level_n, level), size = if (finale) 4 else 5, color = if (finale) Pal.Gold else Pal.White)
-                if (finale) PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
-                else PixelText(worldNames[spec.world], size = 1, color = Pal.Foam)
+                // Cztero- i pięciocyfrowe numery w pełnym rozmiarze wchodziłyby na przycisk zamknięcia.
+                PixelText(stringResource(R.string.level_n, level), size = if (level >= 1000) 4 else 5, color = if (finale) Pal.Gold else Pal.White)
+                if (finale) {
+                    PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
+                } else {
+                    PixelText(worldName(spec.world), size = 1, color = Pal.Foam)
+                }
+                if (endless) {
+                    // Seed planszy – ten sam kod oznacza u każdego gracza ten sam poziom.
+                    PixelText(stringResource(R.string.endless_seed, LevelSeed(spec.seed).code), size = 1, color = Pal.SeaLight)
+                }
             }
         }
         VSpace(6)

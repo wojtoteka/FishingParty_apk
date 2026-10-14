@@ -64,7 +64,8 @@ object Scoring {
         newStars: Int,
     ): Int {
         var coins = common * FishKind.COMMON.coins + blue * FishKind.BLUE.coins + golden * FishKind.GOLDEN.coins
-        if (completed) coins += 10 + world * 2 + newStars * 10
+        // W Bezkresnym Morzu nagroda za ukończenie już nie rośnie – zostaje na poziomie ostatniego świata kampanii.
+        if (completed) coins += 10 + world.coerceAtMost(LevelConstants.WORLD_COUNT) * 2 + newStars * 10
         return coins
     }
 }

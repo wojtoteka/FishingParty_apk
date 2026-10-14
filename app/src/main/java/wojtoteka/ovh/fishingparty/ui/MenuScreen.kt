@@ -6,7 +6,12 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -46,7 +51,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, SOON }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -80,10 +85,15 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { screenH = it.size.height.toFloat().coerceAtLeast(1f) }) {
         SeaBackdrop(world, Modifier.fillMaxSize(), ship = look, shipY = shipY)
+        // Menu wypełnia ekran, a gdy nawet z najmniejszym tytułem się nie mieści (niski tablet,
+        // duża czcionka systemowa), przewija się – przyciski nigdy nie są ściskane ani ucinane.
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        val viewport = maxHeight
         Column(
             Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = viewport)
                 .padding(horizontal = px(10), vertical = px(6)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -93,28 +103,45 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                 Plate(pad = 2) {
                     SpriteImage("fishscore_gold", 2)
                     HSpace(2)
-                    PixelText("${progress.totalStars()}/${LevelConstants.LEVEL_COUNT * 3}", size = 2)
+                    PixelText("${progress.totalStars()}/${progress.levelsAvailable() * 3}", size = 2)
                 }
             }
             // Karta passy nie przykleja się do górnej krawędzi – stoi bliżej środka, w zasięgu kciuka.
             Box(Modifier.weight(0.5f))
-            StreakCard(
-                streak,
-                repairDays = repair?.days ?: 0,
-                lost = lost,
-                onRepair = { onOpen(Destination.REPAIR) },
-                modifier = Modifier.noRippleClick { onOpen(if (repair != null) Destination.REPAIR else Destination.RANKING) },
-            )
-            VSpace(8)
-            Column(
-                Modifier
-                    .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                PixelText("FISHING", size = 7)
-                PixelText("PARTY", size = 7, color = Pal.Sand)
+            // Karta passy otwiera nagrodę dnia (albo naprawę przerwanej passy); „!” – nagroda czeka na odebranie.
+            Box(Modifier.widthIn(max = px(300)).fillMaxWidth()) {
+                StreakCard(
+                    streak,
+                    repairDays = repair?.days ?: 0,
+                    lost = lost,
+                    onRepair = { onOpen(Destination.REPAIR) },
+                    modifier = Modifier.noRippleClick { onOpen(if (repair != null) Destination.REPAIR else Destination.DAILY) },
+                )
+                if (daily && repair == null) {
+                    Badge(
+                        "!",
+                        Modifier
+                            .align(Alignment.TopEnd)
+                            .offset { IntOffset(0, (wave * unit).toInt()) },
+                    )
+                }
             }
-            Box(Modifier.weight(1f))
+            VSpace(8)
+            // Tytuł bierze wolne miejsce nad przyciskami. Na niskim ekranie (tablet w poziomie)
+            // maleje; najmniejszy ma zawsze zarezerwowane TITLE_MIN pod spodem, więc nie wchodzi na przyciski.
+            BoxWithConstraints(Modifier.weight(3f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                val titleSize = titleSizeFor(constraints.maxHeight / unit + TITLE_MIN)
+                Column(
+                    Modifier
+                        .wrapContentHeight(Alignment.Top, unbounded = true)
+                        .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    PixelText("FISHING", size = titleSize)
+                    PixelText("PARTY", size = titleSize, color = Pal.Sand)
+                }
+            }
+            VSpace(TITLE_MIN)
             Column(
                 Modifier
                     .widthIn(max = px(300))
@@ -169,21 +196,61 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
-                if (daily) {
-                    PixelButton(
-                        stringResource(R.string.daily_title),
-                        onClick = { onOpen(Destination.DAILY) },
-                        style = ButtonStyle.RED,
-                        icon = "fishscore_gold",
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .offset { IntOffset(0, (wave * unit).toInt()) },
-                    )
+                // Zapowiedź: poziomy dnia i tygodnia (ten sam seed dla wszystkich) przyjdą w kolejnej aktualizacji.
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    SoonButton(stringResource(R.string.daily_level), onClick = { onOpen(Destination.SOON) }, Modifier.weight(1f).fillMaxHeight())
+                    SoonButton(stringResource(R.string.weekly_level), onClick = { onOpen(Destination.SOON) }, Modifier.weight(1f).fillMaxHeight())
                 }
             }
             Box(Modifier.weight(0.5f))
             VSpace(BOTTOM_GAP)
         }
+        }
+    }
+}
+
+/** Wysokość tytułu w jednostkach: 2 linie po 13 × (rozmiar − 1). */
+private fun titleHeight(size: Int): Int = 26 * (size - 1)
+
+/** Największy rozmiar tytułu, który zostawia pod sobą pas na łódź. */
+private fun titleSizeFor(heightUnits: Int): Int =
+    (7 downTo 4).firstOrNull { titleHeight(it) + TITLE_GAP <= heightUnits } ?: 3
+
+private const val TITLE_GAP = 24
+
+/** Miejsce zawsze zarezerwowane na najmniejszy tytuł i pas na łódź – reszta to elastyczna waga. */
+private val TITLE_MIN = titleHeight(3) + TITLE_GAP
+
+/** Przycisk trybu, który dopiero nadchodzi – szary, z czerwoną plakietką SOON. */
+@Composable
+private fun SoonButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        PixelButton(text, onClick = onClick, style = ButtonStyle.GREY, size = 2, modifier = Modifier.fillMaxSize())
+        Badge(stringResource(R.string.soon), Modifier.align(Alignment.TopEnd))
+    }
+}
+
+/** Zapowiedź poziomów dnia i tygodnia. */
+@Composable
+fun SoonDialog(onClose: () -> Unit) {
+    Overlay(onDismiss = onClose) {
+        PixelText(stringResource(R.string.soon_title), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(6)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+            for (label in listOf(R.string.daily_level, R.string.weekly_level)) {
+                DarkCard(Modifier.weight(1f)) {
+                    Column(Modifier.fillMaxWidth().padding(vertical = px(3)), horizontalAlignment = Alignment.CenterHorizontally) {
+                        SpriteImage("fishscore_gold", 2)
+                        VSpace(2)
+                        PixelText(stringResource(label), size = 1, align = TextAlign.Center)
+                    }
+                }
+            }
+        }
+        VSpace(6)
+        PixelText(stringResource(R.string.soon_text), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(8)
+        PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, modifier = Modifier.fillMaxWidth())
     }
 }
 

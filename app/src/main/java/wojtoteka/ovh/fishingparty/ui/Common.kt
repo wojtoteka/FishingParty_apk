@@ -1,14 +1,9 @@
 package wojtoteka.ovh.fishingparty.ui
 
 import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -26,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
-import wojtoteka.ovh.fishingparty.data.Achievement
 
 @Composable
 fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, showCoins: Boolean = true) {
@@ -56,11 +50,13 @@ fun Overlay(onDismiss: (() -> Unit)? = null, content: @Composable ColumnScope.()
             .windowInsetsPadding(WindowInsets.safeDrawing),
         contentAlignment = Alignment.Center,
     ) {
+        // Za wysoki panel (niski tablet, duża czcionka) przewija się zamiast uciąć przyciski na dole.
         PixelPanel(
             Modifier
                 .padding(px(10))
                 .widthIn(max = px(320))
                 .fillMaxWidth(),
+            scrollable = true,
             content = content,
         )
     }
@@ -74,33 +70,6 @@ fun ConfirmDialog(message: String, onConfirm: () -> Unit, onCancel: () -> Unit) 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(6))) {
             PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
             PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED, modifier = Modifier.weight(1f))
-        }
-    }
-}
-
-/** Baner „Osiągnięcie!” wysuwany z góry ekranu. */
-@Composable
-fun BoxScope.AchievementBanner(achievement: Achievement?) {
-    AnimatedVisibility(
-        visible = achievement != null,
-        enter = slideInVertically { -it },
-        exit = slideOutVertically { -it },
-        modifier = Modifier
-            .align(Alignment.TopCenter)
-            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
-            .padding(top = px(30)),
-    ) {
-        if (achievement != null) {
-            DarkCard(highlight = true) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    SpriteImage(achievement.icon, 2)
-                    HSpace(4)
-                    Column {
-                        PixelText(stringResource(R.string.achievement_unlocked), size = 1, color = Pal.Gold)
-                        PixelText(achievementTitle(achievement), size = 2)
-                    }
-                }
-            }
         }
     }
 }

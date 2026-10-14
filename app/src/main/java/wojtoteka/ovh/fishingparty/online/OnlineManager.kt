@@ -72,6 +72,7 @@ class OnlineManager(
             override val deviceId: String get() = store.deviceId
             override fun sign(message: String): String? = DeviceKey.sign(message)
         },
+        repo.clock,
     )
     private val deviceLock = Mutex()
 
@@ -121,11 +122,34 @@ class OnlineManager(
         try {
             cm?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
                 override fun onAvailable(network: Network) {
-                    scope.launch { if (store.loggedIn) sync() }
+                    scope.launch {
+                        syncClockNow()
+                        if (store.loggedIn) sync()
+                    }
                 }
             })
         } catch (e: Exception) {
             Log.w("FishingParty", "Brak nasłuchu sieci", e)
+        }
+        syncClock()
+    }
+
+    /**
+     * Pobiera czas gry z serwera, jeśli telefon jeszcze go nie zna (po uruchomieniu telefonu).
+     * Nagroda dzienna i passa liczą dni tylko według tego czasu – także dla gości bez konta.
+     */
+    fun syncClock() {
+        if (!repo.clock.synced) scope.launch { syncClockNow() }
+    }
+
+    private suspend fun syncClockNow() {
+        if (repo.clock.synced || !isOnline()) return
+        withContext(Dispatchers.IO) {
+            try {
+                api.syncTime()
+            } catch (e: Exception) {
+                Log.w("FishingParty", "Nie udało się pobrać czasu z serwera: ${e.message}")
+            }
         }
     }
 
@@ -401,6 +425,7 @@ class OnlineManager(
 
     /** Aplikacja wróciła na ekran: sprawdzamy, czy inny telefon czegoś nie zapisał. */
     fun onForeground() {
+        syncClock()
         if (store.loggedIn) scope.launch { sync(checkRemote = true) }
     }
 
@@ -476,7 +501,10 @@ class OnlineManager(
     private suspend fun pushRuns() {
         if (store.importPending) {
             val bests = JSONArray()
-            for (i in 0 until LevelConstants.LEVEL_COUNT) bests.put(repo.save.best[i])
+            // Kampania zawsze w całości, poziomy Bezkresnego Morza do ostatniego z wynikiem.
+            var count = LevelConstants.LEVEL_COUNT
+            for (i in LevelConstants.LEVEL_COUNT until repo.save.levelSlots) if (repo.save.best[i] > 0) count = i + 1
+            for (i in 0 until count) bests.put(repo.save.best[i])
             try {
                 val res = call(
                     "POST", "/sync/import",

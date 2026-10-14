@@ -18,19 +18,38 @@ import java.security.MessageDigest
  */
 class LevelLimitsExportTest {
 
+    private fun row(n: Int): String {
+        val plan = LevelGenerator.plan(n)
+        val minMs = (ScoreValidator.minimumSeconds(plan) * 1000f).toLong()
+        return "    [$n,${LevelGenerator.maxScore(plan)},$minMs,${plan.stages.sumOf { it.common }}," +
+            "${plan.stages.sumOf { it.blue }},${plan.goldenCount},${plan.stages.size},${plan.spec.parSeconds}]"
+    }
+
+    /**
+     * Poziomów Bezkresnego Morza (1001+) nie da się wypisać wszystkich – serwer liczy je sam
+     * (kopia [wojtoteka.ovh.fishingparty.level.SeedLevels]). Ta próbka trafia do testów
+     * serwera (`test/fixtures/endless-sample.json`) i pilnuje, że obie strony liczą to samo.
+     */
+    @Test
+    fun exportEndlessSample() {
+        val first = LevelConstants.LEVEL_COUNT + 1
+        val levels = ((first until first + 400) + (5000 until 5050) + (LevelConstants.MAX_LEVEL - 49..LevelConstants.MAX_LEVEL))
+            .joinToString(",\n") { row(it) }
+        val out = File("build/endless-sample.json")
+        out.parentFile?.mkdirs()
+        out.writeText("{\n  \"levels\": [\n$levels\n  ]\n}\n")
+        assertTrue(out.length() > 0)
+    }
+
     @Test
     fun exportLevelLimits() {
-        val levels = (1..LevelConstants.LEVEL_COUNT).joinToString(",\n") { n ->
-            val plan = LevelGenerator.plan(n)
-            val minMs = (ScoreValidator.minimumSeconds(plan) * 1000f).toLong()
-            "    [$n,${LevelGenerator.maxScore(plan)},$minMs,${plan.stages.sumOf { it.common }}," +
-                "${plan.stages.sumOf { it.blue }},${plan.goldenCount},${plan.stages.size},${plan.spec.parSeconds}]"
-        }
+        val levels = (1..LevelConstants.LEVEL_COUNT).joinToString(",\n") { row(it) }
         val body = buildString {
             append("{\n")
             append("  \"columns\": [\"level\",\"maxScore\",\"minMs\",\"common\",\"blue\",\"golden\",\"stages\",\"parSeconds\"],\n")
             append("  \"constants\": {")
             append("\"levelCount\":${LevelConstants.LEVEL_COUNT},")
+            append("\"maxLevel\":${LevelConstants.MAX_LEVEL},")
             append("\"maxCombo\":${LevelConstants.MAX_COMBO},")
             append("\"stageBonus\":${LevelConstants.STAGE_BONUS},")
             append("\"noDamageBonus\":${LevelConstants.NO_DAMAGE_BONUS},")

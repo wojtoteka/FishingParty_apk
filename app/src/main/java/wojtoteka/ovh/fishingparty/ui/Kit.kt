@@ -1,5 +1,7 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
@@ -327,7 +329,7 @@ fun PixelButton(
 
 /** Panel jak tabliczka z piasku – tło to oryginalny kafelek piasku. */
 @Composable
-fun PixelPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val u = LocalUnit.current.toFloat()
     val sand = rememberSprite("tiles/sunny_bay/sandfull")
     Column(
@@ -342,6 +344,8 @@ fun PixelPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.(
                 drawContext.transform.translate(-inset, -inset)
                 drawContext.canvas.restore()
             }
+            // Ramka stoi w miejscu, przewija się tylko zawartość.
+            .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
             .padding(px(8)),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,

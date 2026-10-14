@@ -16,6 +16,7 @@
     <string name="confirm">YES</string>
     <string name="close">CLOSE</string>
     <string name="achievement_unlocked">ACHIEVEMENT!</string>
+    <string name="achievement_more">+%d MORE</string>
     <string name="claimed">DONE</string>
     <string name="hud_stage">STAGE %1$d/%2$d</string>
     <string name="hud_gate_open">GATE OPEN!</string>
@@ -46,10 +47,17 @@
     <string name="type_boss_desc">The last level of this world. Watch out!</string>
     <string name="type_finale">GRAND FINALE</string>
     <string name="type_finale_desc">Level 1000! Seven stages through seven worlds and every sea monster at once.</string>
-    <string name="finale_subtitle">THE LAST LEVEL OF THE GAME</string>
+    <string name="finale_subtitle">THE LAST LEVEL OF THE VOYAGE</string>
     <string name="finale_win">GRAND FINALE COMPLETE!</string>
-    <string name="finale_win_text">All 1000 levels are done. Thank you for playing!</string>
+    <string name="finale_win_text">All 1000 levels are done! Beyond the harbour lies the Endless Sea – new levels without end.</string>
     <string name="finale_bonus">FINALE BONUS</string>
+    <string name="endless_world_name">%1$s of %2$s</string>
+    <string name="endless_seed">SEED %s</string>
+    <string name="daily_level">DAILY LEVEL</string>
+    <string name="weekly_level">WEEKLY LEVEL</string>
+    <string name="soon">SOON</string>
+    <string name="soon_title">COMING SOON!</string>
+    <string name="soon_text">Next update: a daily level and a weekly level. Every player gets the same level from the same seed, with fish and points for the ranking. Who will catch the most?</string>
     <string name="goal_finish">Reach the finish</string>
     <string name="goal_no_damage">Don\'t lose a life</string>
     <string name="goal_all_fish">Catch every fish</string>
@@ -76,6 +84,7 @@
     <string name="result_score">SCORE</string>
     <string name="result_new_best">NEW RECORD!</string>
     <string name="result_rejected">This result could not be verified and was not saved.</string>
+    <string name="streak_deferred">This streak day will count once you are back online.</string>
     <string name="next">NEXT</string>
     <string name="retry">RETRY</string>
     <string name="to_map">MAP</string>
@@ -87,7 +96,7 @@
     <string name="daily_day">DAY %d</string>
     <string name="daily_claim">CLAIM</string>
     <string name="daily_bonus">Come back every day! Day 7 also gives one of each power-up.</string>
-    <string name="daily_clock">Your device clock looks wrong. Rewards will return once it is correct.</string>
+    <string name="daily_clock">Connect to the internet to claim the reward – the game server keeps the time.</string>
     <string name="shop_boats">BOATS</string>
     <string name="shop_sails">SAILS</string>
     <string name="shop_sailors">CREW</string>
@@ -216,6 +225,43 @@
     <string name="ach_rich_desc">Hold 5000 coins at once</string>
     <string name="ach_veteran">Veteran</string>
     <string name="ach_veteran_desc">Played the very first Fishing Party</string>
+    <!-- Światy Bezkresnego Morza: nazwa = endless_world_a + endless_world_b (wg endless_world_name). -->
+    <string-array name="endless_world_a">
+        <item>Bay</item>
+        <item>Reef</item>
+        <item>Strait</item>
+        <item>Lagoon</item>
+        <item>Deep</item>
+        <item>Shoals</item>
+        <item>Waters</item>
+        <item>Archipelago</item>
+        <item>Fjord</item>
+        <item>Narrows</item>
+        <item>Gulf</item>
+        <item>Passage</item>
+    </string-array>
+    <string-array name="endless_world_b">
+        <item>Winds</item>
+        <item>Mists</item>
+        <item>Storms</item>
+        <item>Corals</item>
+        <item>Pearls</item>
+        <item>Shadows</item>
+        <item>Stars</item>
+        <item>Waves</item>
+        <item>Sirens</item>
+        <item>Sails</item>
+        <item>Shells</item>
+        <item>Echoes</item>
+        <item>Auroras</item>
+        <item>Crystals</item>
+        <item>Pirates</item>
+        <item>Dolphins</item>
+        <item>Whales</item>
+        <item>Lighthouses</item>
+        <item>Amber</item>
+        <item>Lightning</item>
+    </string-array>
     <string-array name="world_names">
         <item>Sunny Bay</item>
         <item>Coral Reef</item>

@@ -1,18 +1,41 @@
 package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.ShopItem
+import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSpec
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.SecondGoal
 import wojtoteka.ovh.fishingparty.level.ThirdGoal
+import wojtoteka.ovh.fishingparty.level.Worlds
 
 fun formatTime(seconds: Int): String = "%d:%02d".format(seconds / 60, seconds % 60)
+
+/**
+ * Nazwy światów do użycia także poza kompozycją (np. przy rysowaniu mapy): 40 światów
+ * kampanii ma własne nazwy, a światy Bezkresnego Morza składają nazwę z dwóch części.
+ */
+@Composable
+fun rememberWorldNames(): (Int) -> String {
+    val campaign = stringArrayResource(R.array.world_names)
+    val first = stringArrayResource(R.array.endless_world_a)
+    val second = stringArrayResource(R.array.endless_world_b)
+    val pattern = stringResource(R.string.endless_world_name)
+    val finale = stringResource(R.string.type_finale)
+    return { world ->
+        when {
+            world == Worlds.FINALE -> finale
+            !Worlds.isEndless(world) -> campaign[world]
+            else -> Worlds.endlessName(world - LevelConstants.WORLD_COUNT).let { (a, b) -> pattern.format(first[a], second[b]) }
+        }
+    }
+}
 
 @Composable
 fun typeName(type: LevelType): String = stringResource(
