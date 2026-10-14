@@ -6,6 +6,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -81,10 +85,15 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
 
     Box(Modifier.fillMaxSize().onGloballyPositioned { screenH = it.size.height.toFloat().coerceAtLeast(1f) }) {
         SeaBackdrop(world, Modifier.fillMaxSize(), ship = look, shipY = shipY)
+        // Menu wypełnia ekran, a gdy nawet z najmniejszym tytułem się nie mieści (niski tablet,
+        // duża czcionka systemowa), przewija się – przyciski nigdy nie są ściskane ani ucinane.
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        val viewport = maxHeight
         Column(
             Modifier
-                .fillMaxSize()
-                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .heightIn(min = viewport)
                 .padding(horizontal = px(10), vertical = px(6)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
@@ -119,11 +128,12 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
             }
             VSpace(8)
             // Tytuł bierze wolne miejsce nad przyciskami. Na niskim ekranie (tablet w poziomie)
-            // maleje, zamiast wypychać dolny rząd przycisków poza ekran.
-            BoxWithConstraints(Modifier.weight(5f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
-                val titleSize = titleSizeFor(constraints.maxHeight / unit)
+            // maleje; najmniejszy ma zawsze zarezerwowane TITLE_MIN pod spodem, więc nie wchodzi na przyciski.
+            BoxWithConstraints(Modifier.weight(3f).fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
+                val titleSize = titleSizeFor(constraints.maxHeight / unit + TITLE_MIN)
                 Column(
                     Modifier
+                        .wrapContentHeight(Alignment.Top, unbounded = true)
                         .onGloballyPositioned { titleBottom = it.boundsInRoot().bottom },
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -131,6 +141,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     PixelText("PARTY", size = titleSize, color = Pal.Sand)
                 }
             }
+            VSpace(TITLE_MIN)
             Column(
                 Modifier
                     .widthIn(max = px(300))
@@ -194,14 +205,21 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
             Box(Modifier.weight(0.5f))
             VSpace(BOTTOM_GAP)
         }
+        }
     }
 }
 
-/** Największy rozmiar tytułu (2 linie po 13 × (rozmiar − 1) jednostek), który zostawia pod sobą pas na łódź. */
+/** Wysokość tytułu w jednostkach: 2 linie po 13 × (rozmiar − 1). */
+private fun titleHeight(size: Int): Int = 26 * (size - 1)
+
+/** Największy rozmiar tytułu, który zostawia pod sobą pas na łódź. */
 private fun titleSizeFor(heightUnits: Int): Int =
-    (7 downTo 4).firstOrNull { 26 * (it - 1) + TITLE_GAP <= heightUnits } ?: 3
+    (7 downTo 4).firstOrNull { titleHeight(it) + TITLE_GAP <= heightUnits } ?: 3
 
 private const val TITLE_GAP = 24
+
+/** Miejsce zawsze zarezerwowane na najmniejszy tytuł i pas na łódź – reszta to elastyczna waga. */
+private val TITLE_MIN = titleHeight(3) + TITLE_GAP
 
 /** Przycisk trybu, który dopiero nadchodzi – szary, z czerwoną plakietką SOON. */
 @Composable

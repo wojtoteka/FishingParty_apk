@@ -50,11 +50,13 @@ fun Overlay(onDismiss: (() -> Unit)? = null, content: @Composable ColumnScope.()
             .windowInsetsPadding(WindowInsets.safeDrawing),
         contentAlignment = Alignment.Center,
     ) {
+        // Za wysoki panel (niski tablet, duża czcionka) przewija się zamiast uciąć przyciski na dole.
         PixelPanel(
             Modifier
                 .padding(px(10))
                 .widthIn(max = px(320))
                 .fillMaxWidth(),
+            scrollable = true,
             content = content,
         )
     }
