@@ -26,6 +26,9 @@ import kotlin.math.min
 internal class KeystoreKeys(private val context: Context) : KeyProvider {
     private var cached: SecretKey? = null
 
+    // Zapis gry i sesja konta szyfrują w osobnych wątkach – przy pierwszym uruchomieniu oba utworzyłyby
+    // klucz naraz, a drugi nadpisałby pierwszy (plik zaszyfrowany pierwszym nie dałby się już odczytać).
+    @Synchronized
     override fun key(): SecretKey = cached ?: create().also { cached = it }
 
     private fun create(): SecretKey = try {
