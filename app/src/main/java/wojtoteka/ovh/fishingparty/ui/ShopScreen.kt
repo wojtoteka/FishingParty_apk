@@ -95,7 +95,7 @@ fun ShipPreview(look: ShipLook, scale: Int, modifier: Modifier = Modifier, sway:
 private const val SHIP_H = 28f
 private const val SHIP_W = 24f
 
-private enum class ShopTab { BOATS, SAILS, FLAGS, SAILORS, POWERUPS }
+private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
 
 @Composable
 fun ShopScreen(onBack: () -> Unit) {
@@ -117,11 +117,17 @@ fun ShopScreen(onBack: () -> Unit) {
         else -> equipped
     }
     val items = when (tab) {
-        ShopTab.BOATS -> Catalog.boats + progress.creations(ItemKind.BOAT)
-        ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet() + progress.creations(ItemKind.SAIL)
-        ShopTab.FLAGS -> Catalog.flags
+        ShopTab.BOATS -> Catalog.boats
+        ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
+    }
+    // Karta ŻAGLE: zwykłe kolory, pod nimi flagi (z nagłówkiem), potem własne żagle i kreator na samym dole.
+    val flags = if (tab == ShopTab.SAILS) Catalog.flags else emptyList()
+    val creations = when (tab) {
+        ShopTab.BOATS -> progress.creations(ItemKind.BOAT)
+        ShopTab.SAILS -> progress.creations(ItemKind.SAIL)
+        else -> emptyList()
     }
 
     Box(Modifier.fillMaxSize()) {
@@ -139,7 +145,6 @@ fun ShopScreen(onBack: () -> Unit) {
                             when (t) {
                                 ShopTab.BOATS -> R.string.shop_boats
                                 ShopTab.SAILS -> R.string.shop_sails
-                                ShopTab.FLAGS -> R.string.shop_flags
                                 ShopTab.SAILORS -> R.string.shop_sailors
                                 ShopTab.POWERUPS -> R.string.shop_powerups
                             },
@@ -158,7 +163,7 @@ fun ShopScreen(onBack: () -> Unit) {
             VSpace(4)
             val grid = rememberGridState()
             // Po rozwinięciu kreatora lista przewija się do niego (jest na samym dole).
-            LaunchedEffect(workshopOpen) { if (workshopOpen) grid.animateScrollToItem(items.size) }
+            LaunchedEffect(workshopOpen) { if (workshopOpen) grid.animateScrollToItem(grid.layoutInfo.totalItemsCount - 1) }
             val buy = { item: ShopItem ->
                 if (progress.buy(item)) {
                     services.audio.play(Sfx.COIN)
@@ -178,7 +183,7 @@ fun ShopScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(px(4)),
                 verticalArrangement = Arrangement.spacedBy(px(4)),
             ) {
-                items(items, key = { it.key }) { item ->
+                val card: @Composable (ShopItem) -> Unit = { item ->
                     ShopCard(
                         item = item,
                         selected = preview?.key == item.key,
@@ -187,6 +192,20 @@ fun ShopScreen(onBack: () -> Unit) {
                         onEquip = { equip(item) },
                     )
                 }
+                items(items, key = { it.key }) { card(it) }
+                if (flags.isNotEmpty()) {
+                    item(key = "flags", span = { GridItemSpan(maxLineSpan) }) {
+                        PixelText(
+                            stringResource(R.string.shop_flags),
+                            size = 2,
+                            color = Pal.Gold,
+                            align = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth().padding(top = px(4)),
+                        )
+                    }
+                    items(flags, key = { it.key }) { card(it) }
+                }
+                items(creations, key = { it.key }) { card(it) }
                 if (tab == ShopTab.BOATS || tab == ShopTab.SAILS) {
                     item(key = "workshop", span = { GridItemSpan(maxLineSpan) }) {
                         val toggle = {

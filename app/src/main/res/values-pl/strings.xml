@@ -128,7 +128,7 @@
     <string name="shop_equipped">W UŻYCIU</string>
     <string name="shop_owned">MASZ: %d</string>
     <string name="workshop_boat_open">CHCESZ WŁASNY KOLOR?</string>
-    <string name="workshop_sail_open">CHCESZ WŁASNY ŻAGIEL?</string>
+    <string name="workshop_sail_open">UTWÓRZ WŁASNY ŻAGIEL</string>
     <string name="workshop_boat_title">TWÓJ KOLOR</string>
     <string name="workshop_sail_title">TWÓJ ŻAGIEL</string>
     <string name="workshop_pattern">WZÓR</string>

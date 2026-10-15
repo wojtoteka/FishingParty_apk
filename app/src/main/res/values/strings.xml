@@ -129,7 +129,7 @@
     <string name="shop_equipped">IN USE</string>
     <string name="shop_owned">YOU HAVE: %d</string>
     <string name="workshop_boat_open">WANT YOUR OWN COLOR?</string>
-    <string name="workshop_sail_open">WANT YOUR OWN SAIL?</string>
+    <string name="workshop_sail_open">CREATE YOUR OWN SAIL</string>
     <string name="workshop_boat_title">YOUR COLOR</string>
     <string name="workshop_sail_title">YOUR SAIL</string>
     <string name="workshop_pattern">PATTERN</string>
