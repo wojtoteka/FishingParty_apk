@@ -2,7 +2,10 @@ package wojtoteka.ovh.fishingparty.data
 
 import wojtoteka.ovh.fishingparty.core.GuardedIntArray
 import wojtoteka.ovh.fishingparty.core.GuardedLong
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -15,6 +18,23 @@ import java.io.DataOutputStream
 class ScoreRecord(
     val level: Int,
     val score: Int,
+    val timeMillis: Long,
+    val common: Int,
+    val blue: Int,
+    val golden: Int,
+    val hits: Int,
+    val maxCombo: Int,
+    val stages: Int,
+    val at: Long,
+)
+
+/** Ukończony poziom dnia/tygodnia ([period] – numer dnia albo tygodnia z serwera). */
+class ChallengeResult(
+    val kind: ChallengeKind,
+    val period: Int,
+    val score: Int,
+    /** Punkty rankingowe (wynik × mnożnik rodzaju). */
+    val points: Int,
     val timeMillis: Long,
     val common: Int,
     val blue: Int,
@@ -93,6 +113,15 @@ class SaveData {
     var tamperEvents = 0
     val records = ArrayDeque<ScoreRecord>()
 
+    /** Punkty rankingowe z poziomów dnia i tygodnia (suma wszystkich zaliczonych okresów). */
+    val challengePoints = GuardedLong(0)
+
+    /** Ostatnie zaliczone poziomy dnia/tygodnia – czy bieżący okres jest już ukończony, co wysłać na serwer. */
+    val challengeResults = ArrayDeque<ChallengeResult>()
+
+    /** Ostatnio pobrane seedy (poziom dnia/tygodnia działa potem także bez internetu, do końca okresu). */
+    val challengeCache = ArrayList<Challenge>()
+
     /** Liczba poziomów w tablicach rekordów i gwiazdek (co najmniej 1000). */
     val levelSlots: Int get() = stars.size
 
@@ -111,13 +140,14 @@ class SaveData {
 
     companion object {
         const val MAX_RECORDS = 50
+        const val MAX_CHALLENGE_RESULTS = 20
     }
 }
 
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 4
+    private const val VERSION = 5
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -192,6 +222,31 @@ object SaveCodec {
             o.writeByte(d.controls.ordinal)
             o.writeBoolean(d.controlsChosen)
             o.writeBoolean(d.joystickLeft)
+            // v5
+            o.writeLong(d.challengePoints.get())
+            o.writeShort(d.challengeResults.size)
+            for (r in d.challengeResults) {
+                o.writeByte(r.kind.ordinal)
+                o.writeInt(r.period)
+                o.writeInt(r.score)
+                o.writeInt(r.points)
+                o.writeLong(r.timeMillis)
+                o.writeShort(r.common)
+                o.writeShort(r.blue)
+                o.writeShort(r.golden)
+                o.writeShort(r.hits)
+                o.writeByte(r.maxCombo)
+                o.writeByte(r.stages)
+                o.writeLong(r.at)
+            }
+            o.writeShort(d.challengeCache.size)
+            for (c in d.challengeCache) {
+                o.writeByte(c.kind.ordinal)
+                o.writeInt(c.period)
+                o.writeLong(c.seed.value)
+                o.writeLong(c.startsAt)
+                o.writeLong(c.endsAt)
+            }
         }
         return bytes.toByteArray()
     }
@@ -285,6 +340,35 @@ object SaveCodec {
                 d.controls = ControlMode.entries.getOrElse(i.readByte().toInt()) { ControlMode.SWIPE }
                 d.controlsChosen = i.readBoolean()
                 d.joystickLeft = i.readBoolean()
+            }
+            if (version >= 5) {
+                d.challengePoints.set(i.readLong())
+                repeat(i.readUnsignedShort()) {
+                    val kind = ChallengeKind.entries.getOrNull(i.readByte().toInt())
+                    val result = ChallengeResult(
+                        kind = kind ?: ChallengeKind.DAILY,
+                        period = i.readInt(),
+                        score = i.readInt(),
+                        points = i.readInt(),
+                        timeMillis = i.readLong(),
+                        common = i.readShort().toInt(),
+                        blue = i.readShort().toInt(),
+                        golden = i.readShort().toInt(),
+                        hits = i.readShort().toInt(),
+                        maxCombo = i.readByte().toInt(),
+                        stages = i.readByte().toInt(),
+                        at = i.readLong(),
+                    )
+                    if (kind != null) d.challengeResults += result
+                }
+                repeat(i.readUnsignedShort()) {
+                    val kind = ChallengeKind.entries.getOrNull(i.readByte().toInt())
+                    val period = i.readInt()
+                    val seed = i.readLong()
+                    val startsAt = i.readLong()
+                    val endsAt = i.readLong()
+                    if (kind != null) d.challengeCache += Challenge(kind, period, LevelSeed(seed), startsAt, endsAt)
+                }
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.

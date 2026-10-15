@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import wojtoteka.ovh.fishingparty.core.Rng
 import wojtoteka.ovh.fishingparty.game.GameListener
 import wojtoteka.ovh.fishingparty.game.GameWorld
 import wojtoteka.ovh.fishingparty.game.Loadout
@@ -13,10 +14,13 @@ import wojtoteka.ovh.fishingparty.game.Phase
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import wojtoteka.ovh.fishingparty.game.TutorialStep
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
+import wojtoteka.ovh.fishingparty.level.Challenges
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelLayout
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
@@ -231,6 +235,21 @@ class GameSimulationTest {
         for (n in levels) {
             val (result, world) = play(n)
             assertTrue("poziom $n z prądem nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+        }
+    }
+
+    @Test
+    fun botCompletesDailyAndWeeklyLevels() {
+        for (kind in ChallengeKind.entries) {
+            for (i in 0 until 12) {
+                val plan = Challenges.plan(kind, LevelSeed(Rng.mix(0xC4A1L, i.toLong())))
+                val (result, world) = play(LevelGenerator.generate(plan), tutorial = false)
+                assertTrue(
+                    "$kind #$i ${plan.spec.type} nieukończony (etap ${world.stageIndex}/${world.stages.size}, ${world.loseReason}, ${world.elapsed}s/${world.timeLimit})",
+                    result?.completed == true,
+                )
+                assertTrue("$kind #$i: wynik niewiarygodny", ScoreValidator.isPlausible(plan, result!!))
+            }
         }
     }
 

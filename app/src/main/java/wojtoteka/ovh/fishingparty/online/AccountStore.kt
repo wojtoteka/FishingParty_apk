@@ -32,6 +32,9 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
     /** Czas (ScoreRecord.at) ostatniego przejazdu wysłanego na serwer. */
     var lastSentRunAt: Long = 0
 
+    /** Czas (ChallengeResult.at) ostatniego poziomu dnia/tygodnia wysłanego na serwer. */
+    var lastSentChallengeAt: Long = 0
+
     /** Postęp sprzed założenia konta czeka na jednorazowy import. */
     var importPending: Boolean = false
 
@@ -58,6 +61,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         email = null
         knownRevision = 0
         lastSentRunAt = 0
+        lastSentChallengeAt = 0
         importPending = false
         dirty = false
         save()
@@ -79,6 +83,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
                 importPending = i.readBoolean()
                 dirty = i.readBoolean()
                 if (version >= 2) deviceAttested = i.readBoolean()
+                if (version >= 3) lastSentChallengeAt = i.readLong()
             }
         } catch (e: Exception) {
             Log.w("FishingParty", "Nie można odczytać sesji konta", e)
@@ -89,7 +94,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         val bytes = ByteArrayOutputStream()
         DataOutputStream(bytes).use { o ->
             o.writeInt(MAGIC)
-            o.writeShort(2)
+            o.writeShort(3)
             o.writeUTF(deviceId)
             o.writeUTF(token.orEmpty())
             o.writeLong(accountId)
@@ -100,6 +105,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
             o.writeBoolean(importPending)
             o.writeBoolean(dirty)
             o.writeBoolean(deviceAttested)
+            o.writeLong(lastSentChallengeAt)
         }
         val plain = bytes.toByteArray()
         io.execute {

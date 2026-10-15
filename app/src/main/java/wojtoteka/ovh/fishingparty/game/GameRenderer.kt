@@ -43,6 +43,8 @@ class HudStrings(
     /** Napis na start Wielkiego Finału i nazwy światów jego kolejnych etapów. */
     val finale: String = "",
     val finaleStages: List<String> = emptyList(),
+    /** Zamiast „Lv numer” (poziom dnia/tygodnia nie ma numeru). */
+    val levelTag: String? = null,
 )
 
 /**
@@ -395,9 +397,14 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         val top = topInset + margin
 
         // Lewa strona: „Lv” i numer jak w oryginale, życia, etap.
-        val lvWidth = text.width("Lv", p2) + 2 * p1
-        text.draw(canvas, "Lv", margin, top + 7 * p3 - 7 * p2, p2, PixelText.LEVEL_BLUE, outline = PixelText.WHITE)
-        text.draw(canvas, world.spec.number.toString(), margin + lvWidth, top, p3, PixelText.WHITE)
+        val tag = strings.levelTag
+        if (tag != null) {
+            text.draw(canvas, tag, margin, top + 7 * p3 - 7 * p2, p2, PixelText.GOLD)
+        } else {
+            val lvWidth = text.width("Lv", p2) + 2 * p1
+            text.draw(canvas, "Lv", margin, top + 7 * p3 - 7 * p2, p2, PixelText.LEVEL_BLUE, outline = PixelText.WHITE)
+            text.draw(canvas, world.spec.number.toString(), margin + lvWidth, top, p3, PixelText.WHITE)
+        }
 
         val lifeTop = top + 7 * p3 + 4 * p1
         val lifeIcon = Sprites.boat(look.boat, "ship")

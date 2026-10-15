@@ -35,6 +35,7 @@ import androidx.compose.ui.res.pluralStringResource
 import wojtoteka.ovh.fishingparty.data.StreakRewards
 import wojtoteka.ovh.fishingparty.data.StreakState
 import androidx.compose.ui.text.style.TextAlign
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -51,7 +52,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, SOON }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -196,10 +197,10 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
-                // Zapowiedź: poziomy dnia i tygodnia (ten sam seed dla wszystkich) przyjdą w kolejnej aktualizacji.
+                // Poziom dnia i tygodnia – ten sam seed z serwera dla wszystkich graczy, wynik do rankingu.
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    SoonButton(stringResource(R.string.daily_level), onClick = { onOpen(Destination.SOON) }, Modifier.weight(1f).fillMaxHeight())
-                    SoonButton(stringResource(R.string.weekly_level), onClick = { onOpen(Destination.SOON) }, Modifier.weight(1f).fillMaxHeight())
+                    ChallengeButton(ChallengeKind.DAILY, onClick = { onOpen(Destination.DAILY_LEVEL) }, Modifier.weight(1f).fillMaxHeight())
+                    ChallengeButton(ChallengeKind.WEEKLY, onClick = { onOpen(Destination.WEEKLY_LEVEL) }, Modifier.weight(1f).fillMaxHeight())
                 }
             }
             Box(Modifier.weight(0.5f))
@@ -220,39 +221,6 @@ private const val TITLE_GAP = 24
 
 /** Miejsce zawsze zarezerwowane na najmniejszy tytuł i pas na łódź – reszta to elastyczna waga. */
 private val TITLE_MIN = titleHeight(3) + TITLE_GAP
-
-/** Przycisk trybu, który dopiero nadchodzi – szary, z czerwoną plakietką SOON. */
-@Composable
-private fun SoonButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier) {
-        PixelButton(text, onClick = onClick, style = ButtonStyle.GREY, size = 2, modifier = Modifier.fillMaxSize())
-        Badge(stringResource(R.string.soon), Modifier.align(Alignment.TopEnd))
-    }
-}
-
-/** Zapowiedź poziomów dnia i tygodnia. */
-@Composable
-fun SoonDialog(onClose: () -> Unit) {
-    Overlay(onDismiss = onClose) {
-        PixelText(stringResource(R.string.soon_title), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        VSpace(6)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            for (label in listOf(R.string.daily_level, R.string.weekly_level)) {
-                DarkCard(Modifier.weight(1f)) {
-                    Column(Modifier.fillMaxWidth().padding(vertical = px(3)), horizontalAlignment = Alignment.CenterHorizontally) {
-                        SpriteImage("fishscore_gold", 2)
-                        VSpace(2)
-                        PixelText(stringResource(label), size = 1, align = TextAlign.Center)
-                    }
-                }
-            }
-        }
-        VSpace(6)
-        PixelText(stringResource(R.string.soon_text), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        VSpace(8)
-        PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, modifier = Modifier.fillMaxWidth())
-    }
-}
 
 /**
  * Karta passy: bieżący tydzień jako 7 pól z trofeami do zdobycia. Po 7. dniu

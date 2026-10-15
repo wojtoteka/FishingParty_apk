@@ -89,6 +89,12 @@ object Pal {
     val GreyLight = Color(0xFFB4B4B4)
     val GreyDark = Color(0xFF5A5A5A)
     val Gold = Color(0xFFFFC420)
+    val Orange = Color(0xFFFF8A1E)
+    val OrangeLight = Color(0xFFFFC27A)
+    val OrangeDark = Color(0xFFD25E00)
+    val Purple = Color(0xFF9A52E0)
+    val PurpleLight = Color(0xFFD7B0FF)
+    val PurpleDark = Color(0xFF6A2DB0)
     val White = Color.White
     val Scrim = Color(0xA0000000)
 }
@@ -262,6 +268,10 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
     WOOD(Pal.Wood, Pal.WoodLight, Pal.WoodDark),
     RED(Pal.Red, Pal.RedLight, Pal.RedDark),
     GREY(Pal.Grey, Pal.GreyLight, Pal.GreyDark),
+    /** Poziom dnia. */
+    ORANGE(Pal.Orange, Pal.OrangeLight, Pal.OrangeDark),
+    /** Poziom tygodnia. */
+    PURPLE(Pal.Purple, Pal.PurpleLight, Pal.PurpleDark),
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */

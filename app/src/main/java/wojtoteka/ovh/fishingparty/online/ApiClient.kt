@@ -79,6 +79,17 @@ class ApiClient(
         clock.onServerTime(health.json.optLong("time"), health.sentAt, health.receivedAt)
     }
 
+    /**
+     * Seedy bieżącego poziomu dnia i tygodnia (`GET /challenges`, bez podpisu, jak `/time`).
+     * Odpowiedź niesie też czas serwera – od razu poprawia zegar gry. null = serwer bez tej funkcji.
+     */
+    fun challenges(): JSONObject? {
+        if (baseUrl.isEmpty()) return null
+        val res = getPublic("/challenges") ?: return null
+        clock?.onServerTime(res.json.optLong("now"), res.sentAt, res.receivedAt, res.json.optString("zone").takeIf { it.isNotEmpty() })
+        return res.json
+    }
+
     private class Timed(val json: JSONObject, val sentAt: Long, val receivedAt: Long)
 
     /** GET bez podpisu; null, gdy serwer nie zna ścieżki albo odpowiedział czymś innym niż JSON. */

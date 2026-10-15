@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -25,7 +26,10 @@ import wojtoteka.ovh.fishingparty.BuildConfig
 import wojtoteka.ovh.fishingparty.core.GuardedLong
 import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.data.ScoreRecord
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 
 /** Profil gracza z serwera. */
 class AccountInfo(
@@ -347,6 +351,8 @@ class OnlineManager(
 
     private fun latestRecordAt(): Long = repo.save.records.maxOfOrNull { it.at } ?: 0L
 
+    private fun latestChallengeAt(): Long = repo.save.challengeResults.maxOfOrNull { it.at } ?: 0L
+
     private suspend fun afterAuth(res: JSONObject, fresh: Boolean): OnlineResult {
         val profile = res.getJSONObject("account")
         store.token = res.getString("token")
@@ -362,15 +368,21 @@ class OnlineManager(
                 // Nowe konto: dotychczasowe rekordy jadą jednorazowym importem, kolejne przejazdy na bieżąco.
                 store.importPending = repo.progress.completedLevels() > 0
                 store.lastSentRunAt = latestRecordAt()
+                // Poziomy dnia/tygodnia rozegrane jako gość lecą zwykłą drogą (serwer przyjmie te z bieżących okresów).
+                store.lastSentChallengeAt = 0L
             }
             remote && repo.progress.completedLevels() == 0 -> {
                 pullSnapshot()
             }
             remote -> {
                 store.lastSentRunAt = latestRecordAt()
+                store.lastSentChallengeAt = latestChallengeAt()
                 restoreChoice = true
             }
-            else -> store.lastSentRunAt = 0L
+            else -> {
+                store.lastSentRunAt = 0L
+                store.lastSentChallengeAt = 0L
+            }
         }
         store.save()
         if (!restoreChoice) scope.launch { sync() }
@@ -401,6 +413,7 @@ class OnlineManager(
         repo.restoreSnapshot(bytes)
         store.knownRevision = res.getInt("revision")
         store.lastSentRunAt = latestRecordAt()
+        store.lastSentChallengeAt = latestChallengeAt()
         store.dirty = false
         store.save()
         onRestored()
@@ -415,7 +428,9 @@ class OnlineManager(
             store.save()
         }
         // Ukończony poziom leci od razu, pełny zapis chwilę po ostatniej zmianie.
-        if (repo.save.records.any { it.at > store.lastSentRunAt }) scope.launch { sync(snapshot = false) }
+        if (repo.save.records.any { it.at > store.lastSentRunAt } || repo.save.challengeResults.any { it.at > store.lastSentChallengeAt }) {
+            scope.launch { sync(snapshot = false) }
+        }
         snapshotJob?.cancel()
         snapshotJob = scope.launch {
             delay(SNAPSHOT_DEBOUNCE_MS)
@@ -465,6 +480,7 @@ class OnlineManager(
                     }
                 }
                 pushRuns()
+                pushChallenges()
                 if (snapshot) pushSnapshot(force = false)
                 status = SyncStatus.OK
                 lastSyncAt = System.currentTimeMillis()
@@ -489,6 +505,7 @@ class OnlineManager(
 
     private suspend fun pushAll() {
         pushRuns()
+        pushChallenges()
         pushSnapshot(force = false)
     }
 
@@ -551,6 +568,49 @@ class OnlineManager(
         }
     }
 
+    /**
+     * Zaliczone poziomy dnia/tygodnia (po kolei). Serwer przyjmuje jeden wynik na okres; odrzucony
+     * (np. wysłany po zamknięciu okresu) nie wraca do kolejki. Serwer bez tej funkcji albo brak
+     * sieci – zostają w kolejce na następną synchronizację, reszta synchronizacji idzie dalej.
+     */
+    private suspend fun pushChallenges() {
+        val pending = repo.save.challengeResults.filter { it.at > store.lastSentChallengeAt }.sortedBy { it.at }
+        for (r in pending) {
+            val body = JSONObject()
+                .put("kind", r.kind.id)
+                .put("period", r.period)
+                .put(
+                    "run",
+                    JSONObject()
+                        .put("score", r.score)
+                        .put("timeMs", r.timeMillis)
+                        .put("common", r.common)
+                        .put("blue", r.blue)
+                        .put("golden", r.golden)
+                        .put("hits", r.hits)
+                        .put("maxCombo", r.maxCombo)
+                        .put("stages", r.stages)
+                        .put("at", r.at),
+                )
+                .put("integrity", integrity())
+            try {
+                val res = call("POST", "/challenges/run", body)
+                applyProfile(res.getJSONObject("account"))
+            } catch (e: OfflineException) {
+                return
+            } catch (e: ApiException) {
+                when {
+                    e.status == 401 || e.status == 403 || e.status == 426 -> throw e
+                    e.status == 404 || e.status == 429 || e.status >= 500 -> return
+                    // Nieprawidłowe dane – ponowna wysyłka nic nie zmieni.
+                    else -> Log.w("FishingParty", "Poziom ${r.kind.id} #${r.period} odrzucony: ${e.code}")
+                }
+            }
+            store.lastSentChallengeAt = r.at
+            store.save()
+        }
+    }
+
     private suspend fun pushSnapshot(force: Boolean) {
         if (!store.dirty && !force) return
         val data = Base64.encodeToString(repo.exportSnapshot(), Base64.NO_WRAP)
@@ -559,6 +619,36 @@ class OnlineManager(
         store.knownRevision = res.getInt("revision")
         store.dirty = false
         store.save()
+    }
+
+    // ------------------------------------------------------------------ poziom dnia i tygodnia
+
+    private val challengeLock = Mutex()
+    private var challengesFetchedAt = 0L
+
+    /**
+     * Pobiera seedy poziomu dnia i tygodnia (zapamiętywane w zapisie – działają potem bez internetu
+     * do końca okresu). Równoczesne wywołania czekają na jedno pobranie.
+     */
+    suspend fun refreshChallenges(): OnlineResult = challengeLock.withLock {
+        val fresh = SystemClock.elapsedRealtime() - challengesFetchedAt < CHALLENGE_REFRESH_MS
+        if (fresh && ChallengeKind.entries.all { repo.progress.currentChallenge(it) != null }) return@withLock OnlineResult.Ok
+        guarded {
+            val json = withContext(Dispatchers.IO) { api.challenges() } ?: return@guarded OnlineResult.Failed("server_unreachable")
+            val list = ChallengeKind.entries.mapNotNull { kind -> json.optJSONObject(kind.id)?.let { parseChallenge(kind, it) } }
+            if (list.isEmpty()) return@guarded OnlineResult.Failed("bad_response")
+            challengesFetchedAt = SystemClock.elapsedRealtime()
+            if (repo.progress.cacheChallenges(list)) repo.changed()
+            OnlineResult.Ok
+        }
+    }
+
+    private fun parseChallenge(kind: ChallengeKind, o: JSONObject): Challenge? {
+        val seed = o.optString("seed").toLongOrNull() ?: return null
+        val startsAt = o.optLong("startsAt")
+        val endsAt = o.optLong("endsAt")
+        if (!o.has("period") || endsAt <= startsAt) return null
+        return Challenge(kind, o.getInt("period"), LevelSeed(seed), startsAt, endsAt)
     }
 
     // ------------------------------------------------------------------ ranking
@@ -603,5 +693,6 @@ class OnlineManager(
         const val TERMS_URL = "https://wojtoteka.ovh/regulamin-fishingparty"
         private const val SNAPSHOT_DEBOUNCE_MS = 4_000L
         private const val MAX_RUNS_PER_REQUEST = 50
+        private const val CHALLENGE_REFRESH_MS = 5_000L
     }
 }
