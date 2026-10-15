@@ -170,6 +170,8 @@ fun onlineErrorText(f: OnlineResult.Failed): String = when (f.code) {
     "password_short" -> stringResource(R.string.err_password_short)
     "password_long" -> stringResource(R.string.err_password_long)
     "password_mismatch" -> stringResource(R.string.err_password_mismatch)
+    "password_required" -> stringResource(R.string.err_password_required)
+    "password_already_set" -> stringResource(R.string.err_password_already_set)
     "email_invalid" -> stringResource(R.string.err_email_invalid)
     "email_taken" -> stringResource(R.string.err_email_taken)
     "policy_required", "policy_outdated" -> stringResource(R.string.err_policy)
@@ -351,6 +353,35 @@ private fun QuickJoinForm() {
     }
 }
 
+// ------------------------------------------------------------------ tylko nick (bez hasła)
+
+@Composable
+private fun NickOnlyForm() {
+    val online = LocalServices.current.online
+    val form = remember { FormState() }
+    val submit = rememberSubmit(form)
+    var accepted by remember { mutableStateOf(false) }
+    var nick by remember { mutableStateOf("") }
+    val go = { submit(listOf(if (accepted) null else "policy_required", FormCheck.nick(nick)), { online.joinNick(nick) }) {} }
+    Column(Modifier.fillMaxWidth().widthIn(max = px(320)), verticalArrangement = Arrangement.spacedBy(px(4))) {
+        DarkCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
+                PixelText(stringResource(R.string.nick_only_title), size = 3, color = Pal.Gold)
+                VSpace(2)
+                PixelText(stringResource(R.string.nick_only_info), size = 1, color = Pal.Foam)
+                VSpace(4)
+                PixelTextField(nick, { nick = it }, stringResource(R.string.field_nick), maxLength = 16, imeAction = ImeAction.Done, onDone = go)
+                VSpace(3)
+                PixelText(stringResource(R.string.nick_only_warning), size = 1, color = Pal.Sand)
+                VSpace(4)
+                PixelButton(stringResource(R.string.nick_only_join), onClick = go, style = ButtonStyle.ORANGE, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
+                FormFeedback(form)
+            }
+        }
+        PolicyBlock(accepted) { accepted = !accepted }
+    }
+}
+
 // ------------------------------------------------------------------ ranking
 
 @Composable
@@ -522,7 +553,10 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
 
 // ------------------------------------------------------------------ konto
 
-private enum class AccountMode { MENU, QUICK, EMAIL_REGISTER, EMAIL_CODE, LOGIN, RESET_EMAIL, RESET_CODE, ADD_EMAIL, ADD_EMAIL_CODE, CHANGE_PASSWORD, DELETE }
+private enum class AccountMode {
+    MENU, QUICK, NICK_ONLY, EMAIL_REGISTER, EMAIL_CODE, LOGIN, RESET_EMAIL, RESET_CODE,
+    ADD_EMAIL, ADD_EMAIL_CODE, CHANGE_PASSWORD, SET_PASSWORD, DELETE,
+}
 
 @Composable
 fun AccountScreen(onBack: () -> Unit) {
@@ -542,6 +576,7 @@ fun AccountScreen(onBack: () -> Unit) {
                     !isOnline -> OfflineCard(recheck)
                     !loggedIn -> when (mode) {
                         AccountMode.QUICK -> QuickJoinForm()
+                        AccountMode.NICK_ONLY -> NickOnlyForm()
                         AccountMode.EMAIL_REGISTER -> EmailRegisterForm { pendingEmail = it; mode = AccountMode.EMAIL_CODE }
                         AccountMode.EMAIL_CODE -> CodeForm(pendingEmail, resend = null) { code -> online.verifyEmail(pendingEmail, code) }
                         AccountMode.LOGIN -> LoginForm(onForgot = { mode = AccountMode.RESET_EMAIL })
@@ -553,6 +588,7 @@ fun AccountScreen(onBack: () -> Unit) {
                         AccountMode.ADD_EMAIL -> AddEmailForm { pendingEmail = it; mode = AccountMode.ADD_EMAIL_CODE }
                         AccountMode.ADD_EMAIL_CODE -> AddEmailCodeForm(pendingEmail) { mode = AccountMode.MENU }
                         AccountMode.CHANGE_PASSWORD -> ChangePasswordForm { mode = AccountMode.MENU }
+                        AccountMode.SET_PASSWORD -> SetPasswordForm { mode = AccountMode.MENU }
                         AccountMode.DELETE -> DeleteAccountForm()
                         else -> AccountProfile { mode = it }
                     }
@@ -572,6 +608,7 @@ private fun AccountChooser(onPick: (AccountMode) -> Unit) {
     }
     OptionCard(stringResource(R.string.account_email_option), stringResource(R.string.account_email_option_info), ButtonStyle.GREEN) { onPick(AccountMode.EMAIL_REGISTER) }
     OptionCard(stringResource(R.string.account_quick_option), stringResource(R.string.account_quick_option_info), ButtonStyle.SAND) { onPick(AccountMode.QUICK) }
+    OptionCard(stringResource(R.string.account_nick_option), stringResource(R.string.account_nick_option_info), ButtonStyle.ORANGE) { onPick(AccountMode.NICK_ONLY) }
     PixelButton(stringResource(R.string.account_login_option), onClick = { onPick(AccountMode.LOGIN) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
 }
 
@@ -717,7 +754,20 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
     DarkCard(Modifier.fillMaxWidth(), highlight = true) {
         Column(Modifier.fillMaxWidth()) {
             ProfileRow(stringResource(R.string.account_nick), account.nick)
-            ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
+            ProfileRow(
+                stringResource(R.string.account_type),
+                stringResource(
+                    when {
+                        !account.hasPassword -> R.string.account_type_nick
+                        account.email == null -> R.string.account_type_password
+                        else -> R.string.account_type_email
+                    },
+                ),
+                if (account.hasPassword) Pal.White else Pal.Sand,
+            )
+            if (account.hasPassword) {
+                ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
+            }
             ProfileRow(stringResource(R.string.account_points), account.points.toString())
             ProfileRow(stringResource(R.string.account_rank), account.rank?.let { "#$it" } ?: stringResource(R.string.ranking_not_ranked))
             val sync = when (online.status) {
@@ -731,17 +781,25 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
         }
     }
     if (account.hidden) Hint(stringResource(R.string.account_hidden), Pal.RedLight)
+    if (!account.hasPassword) Hint(stringResource(R.string.account_no_password_warning), Pal.Sand)
     PixelButton(stringResource(R.string.sync_now), onClick = { online.syncNow() }, style = ButtonStyle.GREEN, size = 2, enabled = online.status != SyncStatus.SYNCING, modifier = Modifier.fillMaxWidth())
-    if (account.email == null) {
-        PixelButton(stringResource(R.string.account_add_email), onClick = { onPick(AccountMode.ADD_EMAIL) }, style = ButtonStyle.SAND, size = 2, modifier = Modifier.fillMaxWidth())
+    if (!account.hasPassword) {
+        // Konto „tylko nick”: najpierw hasło, dopiero potem e-mail.
+        PixelButton(stringResource(R.string.account_set_password), onClick = { onPick(AccountMode.SET_PASSWORD) }, style = ButtonStyle.ORANGE, size = 2, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.account_add_email), onClick = {}, enabled = false, size = 2, modifier = Modifier.fillMaxWidth())
+        Hint(stringResource(R.string.account_email_needs_password), Pal.Foam)
+    } else {
+        if (account.email == null) {
+            PixelButton(stringResource(R.string.account_add_email), onClick = { onPick(AccountMode.ADD_EMAIL) }, style = ButtonStyle.SAND, size = 2, modifier = Modifier.fillMaxWidth())
+        }
+        PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     }
-    PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     PixelButton(stringResource(R.string.account_logout), onClick = { confirmLogout = true }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     VSpace(4)
     PixelButton(stringResource(R.string.account_delete), onClick = { onPick(AccountMode.DELETE) }, style = ButtonStyle.RED, size = 2, modifier = Modifier.fillMaxWidth())
     if (confirmLogout) {
         ConfirmDialog(
-            message = stringResource(R.string.account_logout_confirm),
+            message = stringResource(if (account.hasPassword) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
             onConfirm = {
                 confirmLogout = false
                 online.logout()
@@ -821,16 +879,53 @@ private fun ChangePasswordForm(onDone: () -> Unit) {
 }
 
 @Composable
+private fun SetPasswordForm(onDone: () -> Unit) {
+    val online = LocalServices.current.online
+    val form = remember { FormState() }
+    val submit = rememberSubmit(form)
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
+    val done = stringResource(R.string.password_set)
+    val go = {
+        submit(listOf(FormCheck.password(password, repeat)), { online.setPassword(password) }) {
+            password = ""
+            repeat = ""
+            form.info = done
+        }
+    }
+    FormCard(stringResource(R.string.account_set_password)) {
+        PixelText(stringResource(R.string.account_set_password_info), size = 1, color = Pal.Foam)
+        VSpace(4)
+        PixelTextField(password, { password = it }, stringResource(R.string.field_new_password), password = true, maxLength = 72)
+        VSpace(3)
+        PixelTextField(repeat, { repeat = it }, stringResource(R.string.field_password2), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        VSpace(5)
+        PixelButton(stringResource(R.string.save_button), onClick = go, style = ButtonStyle.GREEN, size = 3, enabled = !form.busy && form.info == null, modifier = Modifier.fillMaxWidth())
+        FormFeedback(form)
+        if (form.info != null) {
+            VSpace(3)
+            PixelButton(stringResource(R.string.close), onClick = onDone, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
 private fun DeleteAccountForm() {
     val online = LocalServices.current.online
     val form = remember { FormState() }
     val submit = rememberSubmit(form)
     var password by remember { mutableStateOf("") }
-    val go = { submit(listOf(if (password.isEmpty()) "invalid_credentials" else null), { online.deleteAccount(password) }) {} }
+    // Konto „tylko nick” nie ma hasła – usuwa się samą sesją z tego telefonu.
+    val needsPassword = online.account?.hasPassword != false
+    val go = {
+        submit(listOf(if (needsPassword && password.isEmpty()) "invalid_credentials" else null), { online.deleteAccount(if (needsPassword) password else null) }) {}
+    }
     FormCard(stringResource(R.string.account_delete)) {
-        PixelText(stringResource(R.string.account_delete_info), size = 1, color = Pal.Foam)
+        PixelText(stringResource(if (needsPassword) R.string.account_delete_info else R.string.account_delete_nick_info), size = 1, color = Pal.Foam)
         VSpace(4)
-        PixelTextField(password, { password = it }, stringResource(R.string.field_password), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        if (needsPassword) {
+            PixelTextField(password, { password = it }, stringResource(R.string.field_password), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        }
         VSpace(5)
         PixelButton(stringResource(R.string.account_delete), onClick = go, style = ButtonStyle.RED, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
         FormFeedback(form)

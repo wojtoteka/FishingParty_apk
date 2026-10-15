@@ -31,7 +31,7 @@ import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSeed
 
-/** Profil gracza z serwera. */
+/** Profil gracza z serwera. [hasPassword] = false – konto „tylko nick”. */
 class AccountInfo(
     val nick: String,
     val email: String?,
@@ -39,6 +39,7 @@ class AccountInfo(
     val rank: Int?,
     val hidden: Boolean,
     val maxLevel: Int,
+    val hasPassword: Boolean = true,
 )
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
@@ -119,7 +120,7 @@ class OnlineManager(
 
     init {
         if (store.loggedIn) {
-            account = AccountInfo(store.nick, store.email, 0, null, false, 0)
+            account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
         }
         repo.onChanged = ::onLocalChange
         val cm = appContext.getSystemService(ConnectivityManager::class.java)
@@ -257,6 +258,23 @@ class OnlineManager(
         }
     }
 
+    /**
+     * Konto „tylko nick” – bez hasła i e-maila. Nick należy do gracza, dopóki jest zalogowany na tym
+     * telefonie; po wylogowaniu przepada (wynik zostaje w rankingu). Hasło można dodać później ([setPassword]).
+     */
+    suspend fun joinNick(nick: String): OnlineResult = guarded {
+        afterAuth(
+            call("POST", "/auth/nick", deviceBody("nick" to nick, "acceptPolicy" to true, "policyVersion" to POLICY_VERSION), auth = false),
+            fresh = true,
+        )
+    }
+
+    /** Konto „tylko nick” dostaje hasło – od teraz da się na nie zalogować nickiem i hasłem, a potem dodać e-mail. */
+    suspend fun setPassword(password: String): OnlineResult = guarded {
+        applyProfile(call("POST", "/account/set-password", JSONObject().put("password", password)).getJSONObject("account"))
+        OnlineResult.Ok
+    }
+
     suspend fun registerEmail(nick: String, email: String, password: String): OnlineResult = guarded {
         val res = call(
             "POST", "/auth/register",
@@ -301,8 +319,9 @@ class OnlineManager(
         OnlineResult.Ok
     }
 
-    suspend fun deleteAccount(password: String): OnlineResult = guarded {
-        call("POST", "/account/delete", JSONObject().put("password", password))
+    /** [password] = null – konto „tylko nick” (bez hasła wystarczy sesja). */
+    suspend fun deleteAccount(password: String?): OnlineResult = guarded {
+        call("POST", "/account/delete", JSONObject().apply { if (password != null) put("password", password) })
         dropSession()
         OnlineResult.Ok
     }
@@ -340,11 +359,13 @@ class OnlineManager(
             rank = if (p.isNull("rank")) null else p.optInt("rank"),
             hidden = p.optBoolean("hidden"),
             maxLevel = p.optInt("maxLevel"),
+            hasPassword = p.optBoolean("hasPassword", true),
         )
         account = info
-        if (store.nick != info.nick || store.email != info.email) {
+        if (store.nick != info.nick || store.email != info.email || store.hasPassword != info.hasPassword) {
             store.nick = info.nick
             store.email = info.email
+            store.hasPassword = info.hasPassword
             store.save()
         }
     }
@@ -671,7 +692,7 @@ class OnlineManager(
             } else {
                 val rank = if (me.isNull("rank")) null else me.optInt("rank")
                 account?.let {
-                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel)
+                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword)
                 }
                 Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden")))
             }

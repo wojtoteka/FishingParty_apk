@@ -35,6 +35,9 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
     /** Czas (ChallengeResult.at) ostatniego poziomu dnia/tygodnia wysłanego na serwer. */
     var lastSentChallengeAt: Long = 0
 
+    /** Konto „tylko nick” nie ma hasła – wylogowanie oznacza utratę nicku. */
+    var hasPassword: Boolean = true
+
     /** Postęp sprzed założenia konta czeka na jednorazowy import. */
     var importPending: Boolean = false
 
@@ -62,6 +65,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         knownRevision = 0
         lastSentRunAt = 0
         lastSentChallengeAt = 0
+        hasPassword = true
         importPending = false
         dirty = false
         save()
@@ -83,7 +87,10 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
                 importPending = i.readBoolean()
                 dirty = i.readBoolean()
                 if (version >= 2) deviceAttested = i.readBoolean()
-                if (version >= 3) lastSentChallengeAt = i.readLong()
+                if (version >= 3) {
+                    lastSentChallengeAt = i.readLong()
+                    hasPassword = i.readBoolean()
+                }
             }
         } catch (e: Exception) {
             Log.w("FishingParty", "Nie można odczytać sesji konta", e)
@@ -106,6 +113,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
             o.writeBoolean(dirty)
             o.writeBoolean(deviceAttested)
             o.writeLong(lastSentChallengeAt)
+            o.writeBoolean(hasPassword)
         }
         val plain = bytes.toByteArray()
         io.execute {
