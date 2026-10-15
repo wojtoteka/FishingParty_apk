@@ -7,6 +7,7 @@ import wojtoteka.ovh.fishingparty.gfx.SailDesign
 import wojtoteka.ovh.fishingparty.gfx.SailPattern
 import wojtoteka.ovh.fishingparty.gfx.SailStyles
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.hypot
 import kotlin.math.max
 
 /**
@@ -63,7 +64,7 @@ object Workshop {
     fun groupOf(color: Int): ColorGroup {
         val c = ColorMath.toHsv(color)
         val neutral = when {
-            c.v < 0.18f -> Neutral.BLACK
+            looksBlack(color, c) -> Neutral.BLACK
             c.s >= 0.15f -> null
             c.v < 0.42f -> Neutral.GRAPHITE
             c.v < 0.72f -> Neutral.GREY
@@ -78,6 +79,17 @@ object Workshop {
             else -> Tone.VIVID
         }
         return groups.first { it.hue == hue && it.tone == tone }
+    }
+
+    /**
+     * Czerń to nie tylko najniższa jasność na palecie: bardzo ciemny granat czy bordo też wyglądają
+     * na łodzi jak czarne. Liczy się jasność widziana przez oko (L* w Lab) – poniżej 10 każdy kolor
+     * jest czarny, a do 20 – gdy ma mało barwy.
+     */
+    private fun looksBlack(color: Int, hsv: Hsv): Boolean {
+        if (hsv.v < 0.18f) return true
+        val lab = ColorMath.lab(color)
+        return lab[0] < 10f || (lab[0] < 20f && hypot(lab[1], lab[2]) < 25f)
     }
 
     /** Kolory, od których zaczyna kreator. */
@@ -104,9 +116,14 @@ object Workshop {
 
     fun boatQuote(color: Int): Quote {
         val hull = labs(HullPaints.shades(color))
-        val similar = presetHulls.filter { (_, preset) -> hullDistance(hull, preset) < HULL_SIMILAR }.keys.maxByOrNull { it.price }
-        return quote(groupOf(color).boatPrice, similar)
+        val group = groupOf(color)
+        val similar = presetHulls.filter { (boat, preset) -> hullDistance(hull, preset) < HULL_SIMILAR || sameNeutral(group, presetGroups.getValue(boat)) }
+            .keys.maxByOrNull { it.price }
+        return quote(group.boatPrice, similar)
     }
+
+    /** Biel, szarość czy czerń nie mają barwy – dwa kolory z tej samej takiej grupy wyglądają tak samo. */
+    private fun sameNeutral(a: ColorGroup, b: ColorGroup) = a.neutral != null && a === b
 
     /** Wycena żagla; null, gdy kolory są prawie takie same (to nie byłby dwukolorowy żagiel). */
     fun sailQuote(design: SailDesign): Quote? {
@@ -114,7 +131,7 @@ object Workshop {
         if (sailQuotes.size > 512) sailQuotes.clear()
         // Porównanie z każdym żaglem ze sklepu pole po polu – wynik zapamiętany, bo sklep pyta o niego przy każdym odświeżeniu.
         return sailQuotes.getOrPut(design.id) {
-            val grid = labGrid(design.grid())
+            val grid = swatchGrid(design.grid())
             val similar = presetSails.filter { (_, preset) -> sailMatch(grid, preset) >= SAIL_MATCH }.keys.maxByOrNull { it.price }
             quote(patternPrice(design.pattern) + groupOf(design.first).sailPrice + groupOf(design.second).sailPrice, similar)
         }
@@ -154,7 +171,7 @@ object Workshop {
     /** Kadłub jest podobny, gdy średnia różnica jego odcieni jest mniejsza niż ta. */
     const val HULL_SIMILAR = 26f
 
-    /** Pole żagla „ma ten sam kolor”, gdy różni się najwyżej o tyle. */
+    /** Pole żagla „ma ten sam kolor”, gdy różni się najwyżej o tyle (albo oba są z tej samej grupy bez barwy). */
     const val CELL_SIMILAR = 30f
 
     /** Żagiel jest podobny, gdy tak duża część pól ma ten sam kolor (wzór i kolory prawie się pokrywają). */
@@ -167,9 +184,27 @@ object Workshop {
         Catalog.boats.associateWith { labs(HullPaints.presets.getValue(it.id)) }
     }
 
-    private val presetSails: Map<ShopItem, Array<Array<FloatArray>>> by lazy {
-        Catalog.sails.associateWith { labGrid(SailStyles.grid(it.id)) }
+    /** Grupa koloru głównego (drugiego odcienia) każdej łodzi ze sklepu. */
+    private val presetGroups: Map<ShopItem, ColorGroup> by lazy {
+        Catalog.boats.associateWith { groupOf(HullPaints.presets.getValue(it.id)[1]) }
     }
+
+    private val presetSails: Map<ShopItem, Array<Array<Swatch>>> by lazy {
+        Catalog.sails.associateWith { swatchGrid(SailStyles.grid(it.id)) }
+    }
+
+    /** Pole żagla do porównań: kolor w Lab i grupa bez barwy (biel, szarość, czerń…), jeśli do takiej należy. */
+    class Swatch(val lab: FloatArray, val neutral: Neutral?)
+
+    fun swatchGrid(grid: Array<IntArray>): Array<Array<Swatch>> {
+        val known = HashMap<Int, Swatch>()
+        return Array(grid.size) { r ->
+            Array(grid[r].size) { c -> known.getOrPut(grid[r][c]) { Swatch(ColorMath.lab(grid[r][c]), groupOf(grid[r][c]).neutral) } }
+        }
+    }
+
+    private fun sameColor(a: Swatch, b: Swatch): Boolean =
+        ColorMath.deltaE(a.lab, b.lab) <= CELL_SIMILAR || (a.neutral != null && a.neutral == b.neutral)
 
     /** Różnica kadłubów: odcienie ważone liczbą pikseli, które zajmują na łodzi. */
     fun hullDistance(a: Array<FloatArray>, b: Array<FloatArray>): Float {
@@ -178,20 +213,18 @@ object Workshop {
     }
 
     /** Jaka część pól żagla ma ten sam kolor; żagiel odwraca się z kursem łodzi, więc liczy się też odbicie. */
-    fun sailMatch(a: Array<Array<FloatArray>>, b: Array<Array<FloatArray>>): Float {
+    fun sailMatch(a: Array<Array<Swatch>>, b: Array<Array<Swatch>>): Float {
         var straight = 0
         var mirrored = 0
         for (row in a.indices) {
             val cols = a[row].size
             for (col in 0 until cols) {
-                if (ColorMath.deltaE(a[row][col], b[row][col]) <= CELL_SIMILAR) straight++
-                if (ColorMath.deltaE(a[row][col], b[row][cols - 1 - col]) <= CELL_SIMILAR) mirrored++
+                if (sameColor(a[row][col], b[row][col])) straight++
+                if (sameColor(a[row][col], b[row][cols - 1 - col])) mirrored++
             }
         }
         return max(straight, mirrored).toFloat() / (a.size * a[0].size)
     }
 
     fun labs(colors: IntArray): Array<FloatArray> = Array(colors.size) { ColorMath.lab(colors[it]) }
-
-    fun labGrid(grid: Array<IntArray>): Array<Array<FloatArray>> = Array(grid.size) { labs(grid[it]) }
 }

@@ -87,6 +87,19 @@ class WorkshopTest {
             val main = HullPaints.presets.getValue(boat.id)[1]
             assertTrue(boat.id, Workshop.boatItem(main).price > boat.price)
         }
+        // Kolor z grupy czerni zawsze droższy niż „mroczna”, z szarości – niż „srebrna”, bez względu na odcień.
+        for (color in sweep) {
+            val group = Workshop.groupOf(color).neutral
+            if (group == Workshop.Neutral.BLACK) assertTrue(HullPaints.hex(color), Workshop.boatItem(color).price > 2000)
+            if (group == Workshop.Neutral.GREY) assertTrue(HullPaints.hex(color), Workshop.boatItem(color).price > 1600)
+        }
+        // Prawie czarne kolory z barwą (granatowa, bordowa, zielona czerń) to też czerń – nie da się nimi obejść ceny.
+        for (rgb in listOf(0x000033, 0x00002D, 0x031240, 0x2D0000, 0x00260A, 0x1A0A2E, 0x2C2C34)) {
+            assertEquals(HullPaints.hex(rgb), Workshop.Neutral.BLACK, Workshop.groupOf(c(rgb)).neutral)
+            assertTrue(HullPaints.hex(rgb), Workshop.boatItem(c(rgb)).price > 2000)
+        }
+        // …ale wyraźny granat to nadal niebieski, nie czerń.
+        assertEquals(Workshop.Hue.BLUE, Workshop.groupOf(c(0x000080)).hue)
         // Przykłady z życia: czarna jak „mroczna”, szara jak „srebrna”, bursztynowa jak „złota”.
         assertTrue(Workshop.boatItem(c(0x1E1E24)).price > 2000)
         assertTrue(Workshop.boatItem(c(0x8C9098)).price > 1600)
@@ -96,7 +109,7 @@ class WorkshopTest {
 
     @Test
     fun creatorSailIsNeverCheaperThanASimilarShopSail() {
-        val presets = Catalog.sails.associateWith { Workshop.labGrid(SailStyles.grid(it.id)) }
+        val presets = Catalog.sails.associateWith { Workshop.swatchGrid(SailStyles.grid(it.id)) }
         // Kolory z flag i żagli sklepu oraz losowe z palety – w każdym wzorze.
         val shopColors = Catalog.sails.flatMap { s -> SailStyles.grid(s.id).flatMap { it.toList() } }.distinct()
         val random = java.util.Random(7)
@@ -108,7 +121,7 @@ class WorkshopTest {
             val price = Workshop.sailItem(design)?.price ?: continue
             checked++
             assertTrue(price >= Workshop.patternPrice(pattern) + Workshop.groupOf(a).sailPrice + Workshop.groupOf(b).sailPrice)
-            val grid = Workshop.labGrid(design.grid())
+            val grid = Workshop.swatchGrid(design.grid())
             for ((sail, preset) in presets) {
                 if (Workshop.sailMatch(grid, preset) >= Workshop.SAIL_MATCH) assertTrue("${design.id} vs ${sail.id}", price > sail.price)
             }
@@ -126,6 +139,8 @@ class WorkshopTest {
             SailDesign(SailPattern.CROSS, red, white) to "denmark",
             SailDesign(SailPattern.STRIPES, white, red) to "striped",
             SailDesign(SailPattern.STRIPES, yellow, c(0xF7EA94)) to "gold",
+            // Dwie czernie (granatowa i grafitowa) to wciąż czarny żagiel.
+            SailDesign(SailPattern.DOTS, c(0x000033), c(0x2C2C34)) to "black",
         )
         for ((design, id) in cases) {
             val shop = Catalog.sails.first { it.id == id }
@@ -134,7 +149,7 @@ class WorkshopTest {
             assertTrue("${design.id} ~ $id", quote.similar!!.price >= shop.price)
             // Odbity żagiel (łódź płynie w drugą stronę) to ten sam wygląd.
             if (design.pattern == SailPattern.CROSS) {
-                val mirrored = Workshop.sailMatch(Workshop.labGrid(design.grid().map { it.reversedArray() }.toTypedArray()), Workshop.labGrid(SailStyles.grid(id)))
+                val mirrored = Workshop.sailMatch(Workshop.swatchGrid(design.grid().map { it.reversedArray() }.toTypedArray()), Workshop.swatchGrid(SailStyles.grid(id)))
                 assertTrue(mirrored >= Workshop.SAIL_MATCH)
             }
         }
