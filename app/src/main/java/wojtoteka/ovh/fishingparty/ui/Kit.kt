@@ -22,7 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -141,9 +144,14 @@ fun fontPixels(size: Int): Int {
     }
 }
 
+/**
+ * Wynik pomiaru tekstu. Stan Compose, a nie zwykłe pola: gdy tekst się zmienia, a szerokość
+ * zostaje ta sama (np. sekundy w odliczaniu), węzeł nie zmienia rozmiaru i bez odczytu stanu
+ * w rysowaniu na ekranie zostawałby stary napis.
+ */
 private class TextHolder {
-    var result: TextLayoutResult? = null
-    var offsetX = 0
+    var result by mutableStateOf<TextLayoutResult?>(null)
+    var offsetX by mutableIntStateOf(0)
 }
 
 /** Tekst BitCell z pikselowym obrysem (jak napisy w grze). */

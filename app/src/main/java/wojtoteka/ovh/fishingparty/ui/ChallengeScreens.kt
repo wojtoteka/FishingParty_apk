@@ -130,13 +130,21 @@ fun ChallengeDialog(kind: ChallengeKind, onPlay: (Challenge, Set<PowerUp>) -> Un
         Box(Modifier.fillMaxWidth()) {
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                PixelText(challengeTitle(kind), size = 4, color = challengeAccent(kind))
+                // Odstęp po bokach, żeby tytuł („POZIOM TYGODNIA”) i opis nie wchodziły na przycisk zamknięcia.
+                PixelText(
+                    challengeTitle(kind),
+                    size = 3,
+                    color = challengeAccent(kind),
+                    align = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = px(18)),
+                )
                 PixelText(
                     stringResource(if (kind == ChallengeKind.DAILY) R.string.challenge_daily_info else R.string.challenge_weekly_info),
                     size = 1,
                     color = Pal.Outline,
                     outline = null,
                     align = TextAlign.Center,
+                    modifier = Modifier.padding(horizontal = px(18)),
                 )
             }
         }
