@@ -415,6 +415,51 @@ def build_drawn_sailors():
         save(image, OUT_SPRITES / "sailors" / f"{sailor_id}.png")
 
 
+# Wersja 2.3: widmokuda – najgroźniejszy potwór, narysowany od zera (patrzy w prawo jak rekin).
+# k – obrys, b/d/l – grzbiet, pręgi i jego jasna krawędź, w – brzuch, f – płetwy, t/m – zęby i paszcza,
+# e/g – świecące oko i jego blask. Wariant „lock” (namierzyła łódź) ma czerwone oko.
+STALKER_FRAMES = [
+    ["............ff..........",
+     "...........fffk.........",
+     "ff.......kkkkkkkkkkk....",
+     "fff....kkllllllllllllk..",
+     ".fffkkkbbdbbdbbdbbbgek..",
+     "..ffbbbbbdbbdbbdbbbeekkk",
+     "..ffbwwwwwwwwwwwwwwkttt.",
+     ".fffkkwwwwwwwwwwwwwkmmmk",
+     "fff...kkkkkkkkkkkkkkttk.",
+     "ff.........kff.......k..",
+     "............f..........."],
+    ["............ff..........",
+     "...........fffk.........",
+     ".........kkkkkkkkkkk....",
+     "f......kkllllllllllllk..",
+     "ff..kkkbbdbbdbbdbbbgek..",
+     "fffbbbbbbdbbdbbdbbbeekkk",
+     "fffbbwwwwwwwwwwwwwwkttt.",
+     "ff..kkwwwwwwwwwwwwwkmmmk",
+     "f.....kkkkkkkkkkkkkkttk.",
+     "...........kff.......k..",
+     ".............f.........."],
+]
+STALKER_COLORS = dict(k=(22, 20, 46), b=(84, 70, 150), d=(54, 44, 108), l=(132, 120, 200), w=(210, 216, 242),
+                      f=(60, 44, 118), t=(255, 255, 255), m=(160, 26, 54), e=(255, 214, 40), g=(255, 250, 200))
+STALKER_LOCK = dict(e=(255, 60, 40), g=(255, 190, 170))
+
+
+def build_stalker():
+    for prefix, extra in (("stalker", {}), ("stalkerlock", STALKER_LOCK)):
+        palette = {**STALKER_COLORS, **extra}
+        for i, rows in enumerate(STALKER_FRAMES, start=1):
+            image = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
+            for y, row in enumerate(rows):
+                assert len(row) == len(rows[0]), (prefix, i, y)
+                for x, ch in enumerate(row):
+                    if ch != ".":
+                        image.putpixel((x, y), palette[ch] + (255,))
+            save(image, OUT_SPRITES / f"{prefix}{i}.png")
+
+
 def build_notification_icon():
     """Ikona na pasku powiadomień: biała sylwetka oryginalnej rybki, powiększona bez wygładzania."""
     src = load("fishscore")
@@ -434,5 +479,6 @@ if __name__ == "__main__":
     build_boats()
     build_sailors()
     build_drawn_sailors()
+    build_stalker()
     build_notification_icon()
     print("OK")
