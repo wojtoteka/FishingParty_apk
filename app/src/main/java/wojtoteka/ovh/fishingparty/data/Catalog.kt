@@ -37,6 +37,37 @@ object Catalog {
         ShopItem(ItemKind.BOAT, "shadow", 2000),
         ShopItem(ItemKind.BOAT, "golden", 3500),
     )
+
+    /** Żagle-flagi – w sklepie na osobnej karcie (przed [sails], bo te z nich korzystają). */
+    val flags = listOf(
+        ShopItem(ItemKind.SAIL, "poland", 700),
+        ShopItem(ItemKind.SAIL, "germany", 600),
+        ShopItem(ItemKind.SAIL, "ukraine", 600),
+        ShopItem(ItemKind.SAIL, "lithuania", 600),
+        ShopItem(ItemKind.SAIL, "czechia", 700),
+        ShopItem(ItemKind.SAIL, "netherlands", 600),
+        ShopItem(ItemKind.SAIL, "austria", 600),
+        ShopItem(ItemKind.SAIL, "hungary", 600),
+        ShopItem(ItemKind.SAIL, "france", 600),
+        ShopItem(ItemKind.SAIL, "italy", 600),
+        ShopItem(ItemKind.SAIL, "spain", 600),
+        ShopItem(ItemKind.SAIL, "ireland", 600),
+        ShopItem(ItemKind.SAIL, "belgium", 600),
+        ShopItem(ItemKind.SAIL, "sweden", 700),
+        ShopItem(ItemKind.SAIL, "norway", 700),
+        ShopItem(ItemKind.SAIL, "finland", 700),
+        ShopItem(ItemKind.SAIL, "denmark", 700),
+        ShopItem(ItemKind.SAIL, "switzerland", 700),
+        ShopItem(ItemKind.SAIL, "portugal", 700),
+        ShopItem(ItemKind.SAIL, "greece", 800),
+        ShopItem(ItemKind.SAIL, "uk", 800),
+        ShopItem(ItemKind.SAIL, "usa", 800),
+        ShopItem(ItemKind.SAIL, "canada", 800),
+        ShopItem(ItemKind.SAIL, "mexico", 800),
+        ShopItem(ItemKind.SAIL, "brazil", 800),
+        ShopItem(ItemKind.SAIL, "argentina", 800),
+        ShopItem(ItemKind.SAIL, "japan", 800),
+    )
     val sails = listOf(
         ShopItem(ItemKind.SAIL, "white", 0),
         ShopItem(ItemKind.SAIL, "red", 200),
@@ -50,14 +81,13 @@ object Catalog {
         ShopItem(ItemKind.SAIL, "marine", 500),
         ShopItem(ItemKind.SAIL, "black", 600),
         ShopItem(ItemKind.SAIL, "candy", 600),
-        ShopItem(ItemKind.SAIL, "poland", 700),
         ShopItem(ItemKind.SAIL, "pirate", 800),
         ShopItem(ItemKind.SAIL, "striped", 900),
         ShopItem(ItemKind.SAIL, "ocean", 1000),
         ShopItem(ItemKind.SAIL, "sunset", 1200),
         ShopItem(ItemKind.SAIL, "rainbow", 1500),
         ShopItem(ItemKind.SAIL, "gold", 2000),
-    )
+    ) + flags
     val sailors = listOf(
         ShopItem(ItemKind.SAILOR, "ginger", 0),
         ShopItem(ItemKind.SAILOR, "blond", 250),

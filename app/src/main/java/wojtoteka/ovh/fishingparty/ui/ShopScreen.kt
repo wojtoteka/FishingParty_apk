@@ -84,7 +84,7 @@ fun ShipPreview(look: ShipLook, scale: Int, modifier: Modifier = Modifier, sway:
 private const val SHIP_H = 28f
 private const val SHIP_W = 24f
 
-private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
+private enum class ShopTab { BOATS, SAILS, FLAGS, SAILORS, POWERUPS }
 
 @Composable
 fun ShopScreen(onBack: () -> Unit) {
@@ -103,7 +103,8 @@ fun ShopScreen(onBack: () -> Unit) {
     }
     val items = when (tab) {
         ShopTab.BOATS -> Catalog.boats
-        ShopTab.SAILS -> Catalog.sails
+        ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
+        ShopTab.FLAGS -> Catalog.flags
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
     }
@@ -123,6 +124,7 @@ fun ShopScreen(onBack: () -> Unit) {
                             when (t) {
                                 ShopTab.BOATS -> R.string.shop_boats
                                 ShopTab.SAILS -> R.string.shop_sails
+                                ShopTab.FLAGS -> R.string.shop_flags
                                 ShopTab.SAILORS -> R.string.shop_sailors
                                 ShopTab.POWERUPS -> R.string.shop_powerups
                             },

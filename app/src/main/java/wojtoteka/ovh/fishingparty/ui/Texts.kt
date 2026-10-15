@@ -184,6 +184,32 @@ fun itemName(item: ShopItem): String {
             "sailor:ghost" -> R.string.sailor_ghost
             "sailor:king" -> R.string.sailor_king
             "sailor:golden" -> R.string.sailor_golden
+            "sail:germany" -> R.string.sail_germany
+            "sail:ukraine" -> R.string.sail_ukraine
+            "sail:lithuania" -> R.string.sail_lithuania
+            "sail:czechia" -> R.string.sail_czechia
+            "sail:netherlands" -> R.string.sail_netherlands
+            "sail:austria" -> R.string.sail_austria
+            "sail:hungary" -> R.string.sail_hungary
+            "sail:france" -> R.string.sail_france
+            "sail:italy" -> R.string.sail_italy
+            "sail:spain" -> R.string.sail_spain
+            "sail:ireland" -> R.string.sail_ireland
+            "sail:belgium" -> R.string.sail_belgium
+            "sail:sweden" -> R.string.sail_sweden
+            "sail:norway" -> R.string.sail_norway
+            "sail:finland" -> R.string.sail_finland
+            "sail:denmark" -> R.string.sail_denmark
+            "sail:switzerland" -> R.string.sail_switzerland
+            "sail:portugal" -> R.string.sail_portugal
+            "sail:greece" -> R.string.sail_greece
+            "sail:uk" -> R.string.sail_uk
+            "sail:usa" -> R.string.sail_usa
+            "sail:canada" -> R.string.sail_canada
+            "sail:mexico" -> R.string.sail_mexico
+            "sail:brazil" -> R.string.sail_brazil
+            "sail:argentina" -> R.string.sail_argentina
+            "sail:japan" -> R.string.sail_japan
             else -> R.string.app_name
         },
     )

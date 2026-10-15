@@ -134,8 +134,10 @@ class SaveAndProgressTest {
             assertEquals(item.key, 2, Regex("name=\"$name\"").findAll(strings).count())
         }
         // Żagle mają własne kolory (nieznany żagiel rysowałby się na biało).
-        val white = wojtoteka.ovh.fishingparty.gfx.SailStyles.colors("white")
-        for (item in Catalog.sails.drop(1)) assertFalse(item.key, wojtoteka.ovh.fishingparty.gfx.SailStyles.colors(item.id).contentEquals(white))
+        for (item in Catalog.sails) assertTrue(item.key, wojtoteka.ovh.fishingparty.gfx.SailStyles.has(item.id))
+        val looks = Catalog.sails.map { s -> wojtoteka.ovh.fishingparty.gfx.SailStyles.bands(s.id).joinToString { it.contentToString() } }
+        assertEquals("każdy żagiel wygląda inaczej", looks.size, looks.toSet().size)
+        assertTrue(Catalog.flags.size >= 25 && Catalog.sails.containsAll(Catalog.flags))
         assertEquals(Catalog.cosmetics.size, Catalog.cosmetics.map { it.key }.toSet().size)
     }
 
