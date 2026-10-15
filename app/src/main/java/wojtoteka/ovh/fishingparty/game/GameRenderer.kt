@@ -17,6 +17,8 @@ import wojtoteka.ovh.fishingparty.level.LevelSpec
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.Worlds
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.exp
 import kotlin.math.floor
@@ -45,6 +47,8 @@ class HudStrings(
     val finaleStages: List<String> = emptyList(),
     /** Zamiast „Lv numer” (poziom dnia/tygodnia nie ma numeru). */
     val levelTag: String? = null,
+    /** Widmokuda pierwszy raz zobaczyła łódź (na poziomach, które ją przedstawiają). */
+    val spotted: String = "",
 )
 
 /**
@@ -248,7 +252,26 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
                     val flip = if (e.dirX != 0) -e.dirX else e.dirY
                     ship.sprite(canvas, Sprites.sprite(base + if (second) "2" else "1"), e.x, e.y, 0f, flipX = flip < 0)
                 }
+                EnemyKind.STALKER -> drawStalker(canvas, e, t, second)
             }
+        }
+    }
+
+    /**
+     * Widmokuda patrzy w prawo i pochyla się w stronę, w którą płynie (najwyżej o 35°). Gdy namierzy
+     * łódź, oczy świecą na czerwono, a nad głową miga wykrzyknik – to sygnał, żeby uciekać w bok.
+     */
+    private fun drawStalker(canvas: Canvas, e: Enemy, t: Float, second: Boolean) {
+        val right = e.vx >= 0f
+        val tilt = Math.toDegrees(atan2(e.vy.toDouble(), abs(e.vx).toDouble().coerceAtLeast(0.001))).toFloat().coerceIn(-35f, 35f)
+        val frame = (if (e.locked) "stalkerlock" else "stalker") + if (second || e.hunt == Hunt.DASH) "2" else "1"
+        ship.sprite(canvas, Sprites.sprite(frame), e.x, e.y, if (right) tilt else -tilt, flipX = !right)
+        if (e.locked && (e.hunt == Hunt.DASH || t % 0.16f < 0.1f)) {
+            fill.color = ALERT
+            fill.alpha = 255
+            // Wykrzyknik 1×5 pikseli świata nad grzbietem.
+            canvas.drawRect(e.x - 0.5f, e.y - 15f, e.x + 0.5f, e.y - 11f, fill)
+            canvas.drawRect(e.x - 0.5f, e.y - 10f, e.x + 0.5f, e.y - 9f, fill)
         }
     }
 
@@ -479,6 +502,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             MessageKind.SHIELD -> strings.shield
             MessageKind.TIME_LOW -> strings.timeLow
             MessageKind.COMBO -> strings.combo.format(msg.arg)
+            MessageKind.SPOTTED -> strings.spotted
         }
         // Sprężynujące powiększenie jak w oryginale, a na końcu szybkie zniknięcie.
         val age = msg.age
@@ -491,7 +515,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (w > width * 0.92f) p *= width * 0.92f / w
         if (p < 0.5f) return
         val color = when (msg.kind) {
-            MessageKind.LAST_LIFE, MessageKind.TIME_LOW -> PixelText.RED
+            MessageKind.LAST_LIFE, MessageKind.TIME_LOW, MessageKind.SPOTTED -> PixelText.RED
             MessageKind.COMBO, MessageKind.FINISH, MessageKind.FINISH_OPEN, MessageKind.FINALE -> PixelText.GOLD
             else -> PixelText.WHITE
         }
@@ -522,6 +546,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     companion object {
         private const val JOY_DARK = 0xFF0A1E38.toInt()
         private const val JOY_LIGHT = 0xFFE3ECFF.toInt()
+        private const val ALERT = 0xFFFF3C28.toInt()
         private const val COURSE_MARKS = 3
 
         /**

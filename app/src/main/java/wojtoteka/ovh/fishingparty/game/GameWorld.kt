@@ -10,6 +10,7 @@ import wojtoteka.ovh.fishingparty.level.LevelLayout
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Scoring
+import wojtoteka.ovh.fishingparty.level.Stalkers
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
 import kotlin.math.PI
@@ -129,6 +130,9 @@ class GameWorld(
     private var movedTime = 0f
     var showGateArrow = false
         private set
+
+    /** Czy któraś widmokuda już namierzyła łódź w tym przejeździe. */
+    private var stalkerSpotted = false
 
     // ---------------------------------------------------------------- kamera
     var camX = 0f
@@ -363,7 +367,11 @@ class GameWorld(
                     else -> DIR_Y[dir]
                 },
                 phase = rng.nextFloat() * 0.4f,
-            ).also { it.fadeIn = fadeIn }
+            ).also {
+                it.fadeIn = fadeIn
+                it.vx = it.dirX.toFloat()
+                it.vy = it.dirY.toFloat()
+            }
         }
     }
 
@@ -567,6 +575,13 @@ class GameWorld(
             EnemyKind.DARK_SHARK -> 44f
             EnemyKind.OCTOPUS -> if (e.dash > 0f) 60f else 12f
             EnemyKind.RED_OCTOPUS -> if (e.dash > 0f) 72f else 14f
+            EnemyKind.STALKER -> when (e.hunt) {
+                Hunt.PATROL -> STALKER_PATROL
+                Hunt.AIM -> 0f
+                Hunt.DASH -> STALKER_DASH
+                Hunt.REST -> STALKER_REST
+                Hunt.SEARCH -> STALKER_SEARCH
+            }
         }
         return base * spec.enemySpeed * if (loadout.frost) FROST_SLOWDOWN else 1f
     }
@@ -576,6 +591,7 @@ class GameWorld(
         EnemyKind.OCTOPUS, EnemyKind.RED_OCTOPUS -> 11f
         EnemyKind.PIRANHA, EnemyKind.RED_PIRANHA -> 9f
         EnemyKind.PIRANHA_VERTICAL -> 7f
+        EnemyKind.STALKER -> 10f
     }
 
     private fun updateEnemies(dt: Float) {
@@ -585,15 +601,19 @@ class GameWorld(
                 continue
             }
             val stage = stages[e.stage]
-            val look = if (e.kind == EnemyKind.SHARK || e.kind == EnemyKind.DARK_SHARK) 12f else 8f
-            val ahead = waterFor(e.x + e.dirX * look, e.y + e.dirY * look, stage)
-            if (!ahead || rng.nextFloat() < TURN_CHANCE * dt) {
-                turnEnemy(e)
+            if (e.kind == EnemyKind.STALKER) {
+                updateStalker(e, stage, dt)
             } else {
-                val v = enemySpeed(e)
-                e.x += e.dirX * v * dt
-                e.y += e.dirY * v * dt
-                if (e.dash > 0f) e.dash -= dt
+                val look = if (e.kind == EnemyKind.SHARK || e.kind == EnemyKind.DARK_SHARK) 12f else 8f
+                val ahead = waterFor(e.x + e.dirX * look, e.y + e.dirY * look, stage)
+                if (!ahead || rng.nextFloat() < TURN_CHANCE * dt) {
+                    turnEnemy(e)
+                } else {
+                    val v = enemySpeed(e)
+                    e.x += e.dirX * v * dt
+                    e.y += e.dirY * v * dt
+                    if (e.dash > 0f) e.dash -= dt
+                }
             }
             if (phase != Phase.PLAYING || invulnerable > 0f) continue
             val dx = e.x - shipX
@@ -635,7 +655,134 @@ class GameWorld(
         }
     }
 
+    // ================================================================ widmokuda
+
+    /**
+     * Widmokuda patroluje jak rekin, ale patrzy przed siebie: gdy zobaczy łódź (w zasięgu wzroku,
+     * w polu widzenia i bez skały, wyspy ani brzegu na linii), staje, świeci oczami i po chwili
+     * skacze w miejsce, gdzie łódź była. Przez przeszkody nie widzi – za skałą można się schować.
+     */
+    private fun updateStalker(e: Enemy, stage: StageLayout, dt: Float) {
+        val sees = phase == Phase.PLAYING && e.stage == stageIndex && sees(e)
+        if (sees) {
+            e.seenX = shipX
+            e.seenY = shipY
+        }
+        e.huntTimer -= dt
+        when (e.hunt) {
+            Hunt.PATROL -> {
+                if (sees) return aim(e)
+                if (!waterFor(e.x + e.dirX * STALKER_LOOK, e.y + e.dirY * STALKER_LOOK, stage) || rng.nextFloat() < TURN_CHANCE * dt) {
+                    val d = rng.nextInt(4)
+                    e.dirX = DIR_X[d]
+                    e.dirY = DIR_Y[d]
+                } else {
+                    swim(e, e.dirX.toFloat(), e.dirY.toFloat(), enemySpeed(e) * dt, stage)
+                }
+                e.vx = e.dirX.toFloat()
+                e.vy = e.dirY.toFloat()
+            }
+            Hunt.AIM -> {
+                faceSeen(e)
+                if (e.huntTimer <= 0f) {
+                    val d = max(1f, hypot(e.seenX - e.x, e.seenY - e.y))
+                    e.hunt = Hunt.DASH
+                    // Skacze trochę dalej niż łódź – kto stoi w miejscu, zostanie trafiony.
+                    e.huntTimer = min(d / (STALKER_DASH * spec.enemySpeed) + 0.2f, STALKER_DASH_MAX)
+                }
+            }
+            Hunt.DASH -> {
+                if (!swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage) || e.huntTimer <= 0f) rest(e, STALKER_REST_TIME)
+            }
+            Hunt.REST -> {
+                swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage)
+                if (e.huntTimer <= 0f) {
+                    if (sees) aim(e) else {
+                        e.hunt = Hunt.SEARCH
+                        e.huntTimer = STALKER_SEARCH_TIME
+                    }
+                }
+            }
+            Hunt.SEARCH -> {
+                if (sees) return aim(e)
+                faceSeen(e)
+                val near = hypot(e.seenX - e.x, e.seenY - e.y) < 8f
+                if (near || e.huntTimer <= 0f || !swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage)) {
+                    e.hunt = Hunt.PATROL
+                    e.dirX = if (e.vx >= 0f) 1 else -1
+                    e.dirY = 0
+                }
+            }
+        }
+    }
+
+    private fun aim(e: Enemy) {
+        e.hunt = Hunt.AIM
+        e.huntTimer = STALKER_AIM_TIME
+        faceSeen(e)
+        if (!stalkerSpotted) {
+            stalkerSpotted = true
+            listener.onVibrate(25)
+            // Na poziomach, które przedstawiają widmokudę, pierwszy raz pokazujemy też napis.
+            if (Stalkers.isIntro(spec.number)) message = GameMessage(MessageKind.SPOTTED, 0, 0)
+        }
+    }
+
+    private fun rest(e: Enemy, time: Float) {
+        e.hunt = Hunt.REST
+        e.huntTimer = time
+    }
+
+    private fun faceSeen(e: Enemy) {
+        val dx = e.seenX - e.x
+        val dy = e.seenY - e.y
+        val d = hypot(dx, dy)
+        if (d > 0.5f) {
+            e.vx = dx / d
+            e.vy = dy / d
+        }
+    }
+
+    /** Ruch o [distance] w kierunku (dx, dy); false – dalej jest już brzeg albo skała. */
+    private fun swim(e: Enemy, dx: Float, dy: Float, distance: Float, stage: StageLayout): Boolean {
+        val len = hypot(dx, dy)
+        if (len < 0.01f) return true
+        val ux = dx / len
+        val uy = dy / len
+        if (!waterFor(e.x + ux * (STALKER_LOOK + distance), e.y + uy * (STALKER_LOOK + distance), stage)) return false
+        e.x += ux * distance
+        e.y += uy * distance
+        return true
+    }
+
+    /** Czy widmokuda widzi łódź: zasięg wzroku, pole widzenia (z bliska wyczuje też z tyłu) i czysta linia. */
+    private fun sees(e: Enemy): Boolean {
+        val dx = shipX - e.x
+        val dy = shipY - e.y
+        val d = hypot(dx, dy)
+        if (d > STALKER_SIGHT) return false
+        if (d > STALKER_SENSE) {
+            val f = hypot(e.vx, e.vy)
+            if (f > 0.01f && (dx * e.vx + dy * e.vy) / (d * f) < STALKER_FOV_COS) return false
+        }
+        return clearLine(e.x, e.y, shipX, shipY)
+    }
+
+    /** Linia wzroku: co 4 jednostki sprawdzamy, czy po drodze jest tylko woda (skała, wyspa, brzeg i brama zasłaniają). */
+    fun clearLine(x0: Float, y0: Float, x1: Float, y1: Float): Boolean {
+        val steps = (hypot(x1 - x0, y1 - y0) / 4f).toInt() + 1
+        for (i in 1 until steps) {
+            val t = i / steps.toFloat()
+            val c = floor((x0 + (x1 - x0) * t) / TILE).toInt()
+            val r = floor((y0 + (y1 - y0) * t) / TILE).toInt()
+            if (grid[c, r] != Tile.SEA) return false
+        }
+        return true
+    }
+
     private fun hitShip(e: Enemy) {
+        // Po trafieniu widmokuda odpływa na chwilę – nie poluje na łódź w czasie nietykalności.
+        if (e.kind == EnemyKind.STALKER) rest(e, STALKER_AFTER_HIT)
         val dx = shipX - e.x
         val dy = shipY - e.y
         val d = max(1f, sqrt(dx * dx + dy * dy))
@@ -780,6 +927,22 @@ class GameWorld(
         private const val CAUGHT_ANIM = 0.33f
         private const val TURN_CHANCE = 0.3f
         const val MESSAGE_TIME = 2f
+        // Widmokuda: prędkości (× tempo potworów poziomu), czasy faz polowania i wzrok.
+        private const val STALKER_PATROL = 22f
+        private const val STALKER_DASH = 105f
+        private const val STALKER_REST = 8f
+        private const val STALKER_SEARCH = 44f
+        private const val STALKER_AIM_TIME = 0.55f
+        private const val STALKER_DASH_MAX = 1f
+        private const val STALKER_REST_TIME = 0.8f
+        private const val STALKER_AFTER_HIT = 1.6f
+        private const val STALKER_SEARCH_TIME = 2.5f
+        private const val STALKER_LOOK = 8f
+        const val STALKER_SIGHT = 120f
+        private const val STALKER_SENSE = 28f
+
+        /** Pole widzenia ±70° od kierunku pływania. */
+        private val STALKER_FOV_COS = cos(Math.toRadians(70.0)).toFloat()
         private val DIR_X = intArrayOf(1, 0, -1, 0)
         private val DIR_Y = intArrayOf(0, 1, 0, -1)
     }

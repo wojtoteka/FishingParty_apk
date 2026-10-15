@@ -166,6 +166,7 @@ fun GameScreen(
         tutorialJoystick = stringResource(R.string.hud_tutorial_joystick),
         finale = stringResource(R.string.type_finale),
         finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
+        spotted = stringResource(R.string.hud_spotted),
         levelTag = challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) },
     )
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)

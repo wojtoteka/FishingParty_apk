@@ -176,7 +176,17 @@ class LevelGeneratorTest {
         assertEquals(FIRST_VOYAGE_FINGERPRINT, fingerprint(1..LevelConstants.FIRST_VOYAGE_LEVELS))
     }
 
-    private fun fingerprint(range: IntRange): String {
+    /**
+     * Widmokuda (wersja 2.3) zmieniła tylko skład potworów: plansze, ryby, czasy i cele są te same co
+     * w wersji 2.2 (odcisk policzony na kodzie sprzed widmokudy), a poziomy 1–19 są identyczne w całości.
+     */
+    @Test
+    fun stalkerChangesOnlyMonsters() {
+        assertEquals(CAMPAIGN_WITHOUT_MONSTERS, fingerprint(1..LevelConstants.LEVEL_COUNT, monsters = false))
+        assertEquals(BEFORE_STALKER, fingerprint(1 until 20))
+    }
+
+    private fun fingerprint(range: IntRange, monsters: Boolean = true): String {
         val md = MessageDigest.getInstance("SHA-256")
         fun put(v: Any) = md.update(v.toString().toByteArray())
         for (n in range) {
@@ -185,7 +195,8 @@ class LevelGeneratorTest {
             put("L$n|${sp.type}|${sp.seed}|${sp.secondGoal}|${sp.thirdGoal}|${sp.parSeconds}|${sp.timeLimitSeconds}|")
             put("${sp.scoreTarget}|${sp.comboTarget}|${sp.enemySpeed.toBits()}|${sp.currentX.toBits()}|${sp.currentY.toBits()}|${sp.world}|")
             for (st in plan.stages) {
-                put("S${st.rows},${st.quota},${st.common},${st.blue},${st.golden},${st.enemies},${st.rocks},${st.islands},${st.doorCenter},${st.wideBanks}|")
+                val enemies = if (monsters) st.enemies.toString() else ""
+                put("S${st.rows},${st.quota},${st.common},${st.blue},${st.golden},$enemies,${st.rocks},${st.islands},${st.doorCenter},${st.wideBanks}|")
             }
             val layout = all[n - 1]
             val g = layout.grid
@@ -195,7 +206,7 @@ class LevelGeneratorTest {
                 put("G${st.gateRow},${st.topRow},${st.bottomRow},${st.doorCols},${st.quota},${st.reachable.contentHashCode()}|")
                 for (f in st.fish) put("f${f.kind}${f.col},${f.row}")
                 for (f in st.golden) put("g${f.delaySeconds}${f.col},${f.row}")
-                for (e in st.enemies) put("e${e.kind}${e.col},${e.row}")
+                if (monsters) for (e in st.enemies) put("e${e.kind}${e.col},${e.row}")
             }
             put("c${layout.crabs}s${layout.startCol},${layout.startRow}")
         }
@@ -203,6 +214,9 @@ class LevelGeneratorTest {
     }
 
     private companion object {
-        const val FIRST_VOYAGE_FINGERPRINT = "8a85a72a69b121fbe8daaf20a8b1e08ac7c6977e2af8ecf4dc9a8495ecb16271"
+        /** Od wersji 2.3 z widmokudą (wcześniej 8a85a72a…16271). */
+        const val FIRST_VOYAGE_FINGERPRINT = "33717631853fa5788f46847684b5b0c3950e973250bf43b9eea5fb5852786cc4"
+        const val CAMPAIGN_WITHOUT_MONSTERS = "3aafc4ac7255b99d10ded34cce10aa25366e34688bfe6528976dad4a535d40ed"
+        const val BEFORE_STALKER = "7e6f4cd641ed149535ccd91a3e5e0ff808294409f12e8bf09c3c25ea764bb433"
     }
 }

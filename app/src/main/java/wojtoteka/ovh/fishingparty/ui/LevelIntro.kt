@@ -63,6 +63,24 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
                 )
             }
         }
+        // Nowy potwór (pierwsze 4 poziomy, na których występuje) – co to jest i jak go omijać.
+        val newcomers = remember(level) {
+            plan.stages.flatMap { it.enemies }.distinct().filter { level - it.firstLevel in 0 until NEW_MONSTER_LEVELS }
+        }
+        for (kind in newcomers) {
+            VSpace(4)
+            DarkCard(Modifier.fillMaxWidth(), highlight = true) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(px(54)), contentAlignment = Alignment.Center) { SpriteImage(enemyIcon(kind), 2) }
+                    HSpace(4)
+                    Column(Modifier.weight(1f)) {
+                        PixelText(stringResource(R.string.intro_new_monster), size = 1, color = Pal.Gold)
+                        PixelText(enemyName(kind), size = 2)
+                        PixelText(enemyDescription(kind), size = 1, color = Pal.Foam)
+                    }
+                }
+            }
+        }
         VSpace(6)
         for ((i, goal) in goalTexts(spec).withIndex()) {
             Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
@@ -129,6 +147,9 @@ fun PowerUpPicker(selected: SnapshotStateList<PowerUp>) {
         modifier = Modifier.fillMaxWidth(),
     )
 }
+
+/** Przez tyle poziomów od pierwszego pojawienia się potwór jest przedstawiany na karcie poziomu. */
+private const val NEW_MONSTER_LEVELS = 4
 
 /** Szerokość kafelka wzmocnienia – pięć mieści się w oknie, kolejne są po przewinięciu w prawo. */
 private const val POWERUP_TILE = 52

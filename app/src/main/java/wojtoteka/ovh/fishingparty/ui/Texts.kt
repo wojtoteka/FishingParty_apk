@@ -9,6 +9,7 @@ import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.ShopItem
 import wojtoteka.ovh.fishingparty.data.Workshop
+import wojtoteka.ovh.fishingparty.level.EnemyKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSpec
 import wojtoteka.ovh.fishingparty.level.LevelType
@@ -69,6 +70,46 @@ fun typeDescription(type: LevelType): String = stringResource(
         LevelType.FINALE -> R.string.type_finale_desc
     },
 )
+
+@Composable
+fun enemyName(kind: EnemyKind): String = stringResource(
+    when (kind) {
+        EnemyKind.PIRANHA -> R.string.enemy_piranha
+        EnemyKind.PIRANHA_VERTICAL -> R.string.enemy_piranha_vertical
+        EnemyKind.OCTOPUS -> R.string.enemy_octopus
+        EnemyKind.SHARK -> R.string.enemy_shark
+        EnemyKind.RED_PIRANHA -> R.string.enemy_red_piranha
+        EnemyKind.RED_OCTOPUS -> R.string.enemy_red_octopus
+        EnemyKind.DARK_SHARK -> R.string.enemy_dark_shark
+        EnemyKind.STALKER -> R.string.enemy_stalker
+    },
+)
+
+@Composable
+fun enemyDescription(kind: EnemyKind): String = stringResource(
+    when (kind) {
+        EnemyKind.PIRANHA -> R.string.enemy_piranha_desc
+        EnemyKind.PIRANHA_VERTICAL -> R.string.enemy_piranha_vertical_desc
+        EnemyKind.OCTOPUS -> R.string.enemy_octopus_desc
+        EnemyKind.SHARK -> R.string.enemy_shark_desc
+        EnemyKind.RED_PIRANHA -> R.string.enemy_red_piranha_desc
+        EnemyKind.RED_OCTOPUS -> R.string.enemy_red_octopus_desc
+        EnemyKind.DARK_SHARK -> R.string.enemy_dark_shark_desc
+        EnemyKind.STALKER -> R.string.enemy_stalker_desc
+    },
+)
+
+/** Sprite potwora na kartę poziomu. */
+fun enemyIcon(kind: EnemyKind): String = when (kind) {
+    EnemyKind.PIRANHA -> "piranha1"
+    EnemyKind.PIRANHA_VERTICAL -> "piranhafront0"
+    EnemyKind.OCTOPUS -> "octopus1"
+    EnemyKind.SHARK -> "shark1"
+    EnemyKind.RED_PIRANHA -> "piranhared1"
+    EnemyKind.RED_OCTOPUS -> "octopusred1"
+    EnemyKind.DARK_SHARK -> "sharkdark1"
+    EnemyKind.STALKER -> "stalkerlock1"
+}
 
 /** Opisy trzech celów gwiazdkowych poziomu. */
 @Composable

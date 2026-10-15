@@ -52,13 +52,44 @@ class Enemy(
     var dash = 0f
     var fadeIn = 1.2f
     val harmless: Boolean get() = fadeIn > 0f
+
+    // Widmokuda: pływa w dowolnym kierunku i poluje na to, co widzi.
+    var hunt = Hunt.PATROL
+    var huntTimer = 0f
+    var vx = 0f
+    var vy = 0f
+
+    /** Gdzie ostatnio widziała łódź. */
+    var seenX = 0f
+    var seenY = 0f
+
+    /** Namierzyła łódź (oczy świecą na czerwono, nad głową wykrzyknik). */
+    val locked: Boolean get() = hunt == Hunt.AIM || hunt == Hunt.DASH
+}
+
+/** Kolejne fazy polowania widmokudy. */
+enum class Hunt {
+    /** Pływa i rozgląda się przed siebie. */
+    PATROL,
+
+    /** Zobaczyła łódź: staje, obraca się do niej i za chwilę skoczy (czas na unik). */
+    AIM,
+
+    /** Błyskawiczny skok w miejsce, gdzie widziała łódź. */
+    DASH,
+
+    /** Chwila oddechu po skoku. */
+    REST,
+
+    /** Zgubiła łódź z oczu – płynie sprawdzić miejsce, gdzie widziała ją ostatnio. */
+    SEARCH,
 }
 
 class Popup(var x: Float, var y: Float, val value: Int, val golden: Boolean) {
     var age = 0f
 }
 
-enum class MessageKind { GO, FINALE, STAGE, GATE_OPEN, FINISH_OPEN, FINISH, LAST_LIFE, SHIELD, TIME_LOW, COMBO }
+enum class MessageKind { GO, FINALE, STAGE, GATE_OPEN, FINISH_OPEN, FINISH, LAST_LIFE, SHIELD, TIME_LOW, COMBO, SPOTTED }
 
 class GameMessage(val kind: MessageKind, val arg: Int, val arg2: Int) {
     var age = 0f

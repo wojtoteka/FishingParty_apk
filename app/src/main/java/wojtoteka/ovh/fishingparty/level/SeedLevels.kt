@@ -173,7 +173,7 @@ object SeedLevels {
             currentX = currentX,
             currentY = currentY,
         )
-        return LevelPlan(spec, stages)
+        return LevelPlan(spec, Stalkers.place(spec, stages, ef, intro = false))
     }
 
     /** Czas wzorcowy jak w poziomach 1–999 (ilość ryb × 2,6 s + wiersze × 0,32 s + potwory × 0,6 s + 3 s), w setnych sekundy. */
@@ -181,7 +181,7 @@ object SeedLevels {
         ceilDiv(stages.sumOf { it.quota * 260 + it.rows * 32 + it.enemies.size * 60 } + 300, 100)
 
     private fun planEnemies(rng: Rng, type: LevelType, e: Int): List<EnemyKind> {
-        val all = EnemyKind.entries
+        val all = EnemyKind.rolled
         val result = mutableListOf<EnemyKind>()
         if (type == LevelType.SWARM) {
             repeat(3 + e * 5 / 1000) { result += rng.pick(PIRANHAS) }
