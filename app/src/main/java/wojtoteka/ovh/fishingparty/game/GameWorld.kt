@@ -55,6 +55,10 @@ class GameWorld(
     private var knockY = 0f
     private var bumpCooldown = 0f
     val maxSpeed = if (loadout.turbo) SHIP_SPEED * 1.2f else SHIP_SPEED
+    private val catchRadius = if (loadout.net) NET_CATCH_RADIUS else CATCH_RADIUS
+
+    /** Czas na złowienie kolejnej ryby, żeby combo trwało (Rytm go wydłuża). */
+    val comboWindow = if (loadout.rhythm) Scoring.COMBO_WINDOW_SECONDS * RHYTHM_FACTOR else Scoring.COMBO_WINDOW_SECONDS
 
     var lives = if (loadout.extraLife) 4 else 3
         private set
@@ -390,7 +394,7 @@ class GameWorld(
                         }
                         var vx: Float
                         var vy: Float
-                        if (dist < GOLDEN_FLEE_RADIUS) {
+                        if (dist < (if (loadout.lure) LURE_FLEE_RADIUS else GOLDEN_FLEE_RADIUS)) {
                             vx = dx / max(dist, 1f) * GOLDEN_FLEE_SPEED
                             vy = dy / max(dist, 1f) * GOLDEN_FLEE_SPEED
                             f.facing = if (vx >= 0) 1 else -1
@@ -404,7 +408,7 @@ class GameWorld(
                 }
             }
 
-            if (phase == Phase.PLAYING && dist < CATCH_RADIUS) {
+            if (phase == Phase.PLAYING && dist < catchRadius) {
                 it.remove()
                 catchFish(f)
             }
@@ -414,11 +418,11 @@ class GameWorld(
     private fun sign(v: Float) = if (v > 0f) 1f else if (v < 0f) -1f else 0f
 
     private fun catchFish(f: Fish) {
-        combo = if (elapsed - lastCatch <= Scoring.COMBO_WINDOW_SECONDS && combo > 0) {
+        combo = if (elapsed - lastCatch <= comboWindow && combo > 0) {
             min(LevelConstants.MAX_COMBO, combo + 1)
         } else 1
         lastCatch = elapsed
-        comboTimer = Scoring.COMBO_WINDOW_SECONDS
+        comboTimer = comboWindow
         maxCombo = max(maxCombo, combo)
         val points = Scoring.fishPoints(f.kind, combo)
         scoreValue.add(points.toLong())
@@ -463,7 +467,8 @@ class GameWorld(
         for (i in stage.golden.indices) {
             if (goldenSpawned[k][i]) continue
             val g = stage.golden[i]
-            if (elapsed - stageEnter[k] < g.delaySeconds) continue
+            val delay = if (loadout.lure) g.delaySeconds * LURE_DELAY_FACTOR else g.delaySeconds
+            if (elapsed - stageEnter[k] < delay) continue
             goldenSpawned[k][i] = true
             var gx = g.col * TILE + TILE / 2f
             var gy = g.row * TILE + TILE / 2f
@@ -479,7 +484,9 @@ class GameWorld(
                     }
                 }
             }
-            pendingFish += Fish(gx, gy, FishKind.GOLDEN, k, rng.sign(), 1, rng.nextFloat()).also { it.life = GOLDEN_LIFE }
+            pendingFish += Fish(gx, gy, FishKind.GOLDEN, k, rng.sign(), 1, rng.nextFloat()).also {
+                it.life = if (loadout.lure) GOLDEN_LIFE * LURE_LIFE_FACTOR else GOLDEN_LIFE
+            }
         }
     }
 
@@ -549,7 +556,7 @@ class GameWorld(
             EnemyKind.OCTOPUS -> if (e.dash > 0f) 60f else 12f
             EnemyKind.RED_OCTOPUS -> if (e.dash > 0f) 72f else 14f
         }
-        return base * spec.enemySpeed
+        return base * spec.enemySpeed * if (loadout.frost) FROST_SLOWDOWN else 1f
     }
 
     private fun hitRadius(kind: EnemyKind): Float = when (kind) {
@@ -750,6 +757,12 @@ class GameWorld(
         private const val GOLDEN_FLEE_RADIUS = 56f
         private const val GOLDEN_LIFE = 10f
         private const val CATCH_RADIUS = 13f
+        private const val NET_CATCH_RADIUS = 20f
+        private const val FROST_SLOWDOWN = 0.65f
+        private const val LURE_DELAY_FACTOR = 0.5f
+        private const val LURE_LIFE_FACTOR = 1.6f
+        private const val LURE_FLEE_RADIUS = 30f
+        private const val RHYTHM_FACTOR = 1.6f
         private const val MAGNET_RADIUS = 44f
         private const val MAGNET_SPEED = 55f
         private const val CAUGHT_ANIM = 0.33f

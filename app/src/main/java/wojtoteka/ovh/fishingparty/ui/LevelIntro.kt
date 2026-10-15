@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -79,36 +83,7 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
             PixelText(stringResource(R.string.intro_best, progress.best(level)), size = 2, color = Pal.WoodDark, outline = null)
         }
         VSpace(6)
-        PixelText(stringResource(R.string.intro_powerups), size = 2, color = Pal.Outline, outline = null)
-        VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            for (p in PowerUp.entries) {
-                val count = progress.powerups(p)
-                val on = p in selected
-                PixelButton(
-                    text = "",
-                    onClick = { if (on) selected.remove(p) else if (count > 0) selected.add(p) },
-                    style = if (on) ButtonStyle.GREEN else ButtonStyle.SEA,
-                    enabled = count > 0 || on,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.height(px(18)), contentAlignment = Alignment.Center) { SpriteImage(powerUpIcon(p), 2) }
-                        PixelText("x$count", size = 1)
-                    }
-                }
-            }
-        }
-        VSpace(2)
-        val hint = selected.lastOrNull()
-        PixelText(
-            if (hint != null) powerUpName(hint) + ": " + powerUpDescription(hint) else stringResource(R.string.intro_powerups_hint),
-            size = 1,
-            color = Pal.WoodDark,
-            outline = null,
-            align = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        PowerUpPicker(selected)
         VSpace(8)
         PixelButton(
             stringResource(R.string.play),
@@ -119,3 +94,48 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
         )
     }
 }
+
+/**
+ * Wybór wzmocnień na kartę poziomu. Wzmocnień jest więcej, niż mieści się w oknie,
+ * więc rząd przewija się w bok (okno zostaje tej samej wielkości).
+ */
+@Composable
+fun PowerUpPicker(selected: SnapshotStateList<PowerUp>) {
+    val progress = LocalServices.current.repo.progress
+    PixelText(stringResource(R.string.intro_powerups), size = 2, color = Pal.Outline, outline = null)
+    VSpace(3)
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(px(3)),
+    ) {
+        for (p in PowerUp.entries) {
+            val count = progress.powerups(p)
+            val on = p in selected
+            PixelButton(
+                text = "",
+                onClick = { if (on) selected.remove(p) else if (count > 0) selected.add(p) },
+                style = if (on) ButtonStyle.GREEN else ButtonStyle.SEA,
+                enabled = count > 0 || on,
+                modifier = Modifier.width(px(POWERUP_TILE)),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.height(px(18)), contentAlignment = Alignment.Center) { SpriteImage(powerUpIcon(p), powerUpIconScale(p, 2)) }
+                    PixelText("x$count", size = 1)
+                }
+            }
+        }
+    }
+    VSpace(2)
+    val hint = selected.lastOrNull()
+    PixelText(
+        if (hint != null) powerUpName(hint) + ": " + powerUpDescription(hint) else stringResource(R.string.intro_powerups_hint),
+        size = 1,
+        color = Pal.WoodDark,
+        outline = null,
+        align = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Szerokość kafelka wzmocnienia – pięć mieści się w oknie, kolejne są po przewinięciu w prawo. */
+private const val POWERUP_TILE = 52

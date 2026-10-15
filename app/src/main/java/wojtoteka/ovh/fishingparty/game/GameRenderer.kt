@@ -361,6 +361,24 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         text.draw(canvas, strings.tutorialJoystick, width / 2f, y, p * 1.5f, PixelText.WHITE, align = 0)
     }
 
+    private var boostLoadout: Loadout? = null
+    private var boostBitmaps: List<Bitmap> = emptyList()
+
+    private fun boostIcons(loadout: Loadout): List<Bitmap> {
+        if (loadout !== boostLoadout) {
+            boostLoadout = loadout
+            boostBitmaps = listOfNotNull(
+                Sprites.sprite("fish1").takeIf { loadout.magnet },
+                Sprites.sprite("arrowup").takeIf { loadout.turbo },
+                Sprites.sprite("fishblue1").takeIf { loadout.net },
+                Sprites.sprite("sharkfrost1").takeIf { loadout.frost },
+                Sprites.sprite("fishgold1").takeIf { loadout.lure },
+                Sprites.sprite("combo").takeIf { loadout.rhythm },
+            )
+        }
+        return boostBitmaps
+    }
+
     private fun icon(canvas: Canvas, bitmap: Bitmap, left: Float, top: Float, k: Float, alpha: Int = 255) {
         paint.alpha = alpha
         rect.set(left, top, left + bitmap.width * k, top + bitmap.height * k)
@@ -397,6 +415,15 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             canvas, "${world.stageIndex + 1}/${world.stages.size}", margin + door.width * doorK + 2 * p1,
             stageTop + (door.height * doorK - 7 * p2) / 2f, p2, PixelText.WHITE,
         )
+
+        // Wzmocnienia działające przez cały poziom (tarcza i dodatkowe życie są widoczne przy łodziach).
+        var boostLeft = margin
+        val boostTop = stageTop + door.height * doorK + 3 * p1
+        for (b in boostIcons(world.loadout)) {
+            val k = max(1f, floor(8f * p1 / b.height))
+            icon(canvas, b, boostLeft, boostTop + (8f * p1 - b.height * k) / 2f, k)
+            boostLeft += b.width * k + 2 * p1
+        }
 
         // Prawa strona (miejsce na przycisk pauzy zostaje): wynik i licznik ryb etapu.
         val right = width - margin - 40 * p1

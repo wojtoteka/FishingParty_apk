@@ -210,6 +210,13 @@ class SaveAndProgressTest {
         val loadout = p.consume(setOf(PowerUp.SHIELD, PowerUp.TURBO))
         assertTrue(loadout.shield && loadout.turbo && !loadout.magnet)
         assertEquals(1, p.powerups(PowerUp.SHIELD))
+        // Nowe wzmocnienia (2.3): na start po 2 sztuki, jak pozostałe.
+        val extra = p.consume(setOf(PowerUp.NET, PowerUp.FROST, PowerUp.LURE, PowerUp.RHYTHM))
+        assertTrue(extra.net && extra.frost && extra.lure && extra.rhythm && !extra.shield)
+        assertEquals(1, p.powerups(PowerUp.RHYTHM))
+        p.addCoins(1000)
+        assertTrue(p.buy(Catalog.powerups.first { it.id == "frost" }))
+        assertEquals(2, p.powerups(PowerUp.FROST))
     }
 
     @Test

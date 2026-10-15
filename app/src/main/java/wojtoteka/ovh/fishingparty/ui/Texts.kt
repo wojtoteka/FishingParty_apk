@@ -92,6 +92,10 @@ fun powerUpName(p: PowerUp): String = stringResource(
         PowerUp.SHIELD -> R.string.powerup_shield
         PowerUp.TURBO -> R.string.powerup_turbo
         PowerUp.LIFE -> R.string.powerup_life
+        PowerUp.NET -> R.string.powerup_net
+        PowerUp.FROST -> R.string.powerup_frost
+        PowerUp.LURE -> R.string.powerup_lure
+        PowerUp.RHYTHM -> R.string.powerup_rhythm
     },
 )
 
@@ -102,6 +106,10 @@ fun powerUpDescription(p: PowerUp): String = stringResource(
         PowerUp.SHIELD -> R.string.powerup_shield_desc
         PowerUp.TURBO -> R.string.powerup_turbo_desc
         PowerUp.LIFE -> R.string.powerup_life_desc
+        PowerUp.NET -> R.string.powerup_net_desc
+        PowerUp.FROST -> R.string.powerup_frost_desc
+        PowerUp.LURE -> R.string.powerup_lure_desc
+        PowerUp.RHYTHM -> R.string.powerup_rhythm_desc
     },
 )
 
@@ -110,6 +118,16 @@ fun powerUpIcon(p: PowerUp): String = when (p) {
     PowerUp.SHIELD -> "boats/navy/ship"
     PowerUp.TURBO -> "arrowup"
     PowerUp.LIFE -> "boats/classic/ship"
+    PowerUp.NET -> "fishblue1"
+    PowerUp.FROST -> "sharkfrost1"
+    PowerUp.LURE -> "fishgold1"
+    PowerUp.RHYTHM -> "combo"
+}
+
+/** Duże ikony (rekin, pętla) rysujemy o stopień mniejsze, żeby wszystkie kafelki miały podobną wielkość. */
+fun powerUpIconScale(p: PowerUp, base: Int): Int = when (p) {
+    PowerUp.FROST, PowerUp.RHYTHM -> (base - 1).coerceAtLeast(1)
+    else -> base
 }
 
 @Composable

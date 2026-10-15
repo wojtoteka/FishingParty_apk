@@ -55,10 +55,15 @@ class GameSimulationTest {
 
     private fun play(number: Int): Pair<RunResult?, GameWorld> = play(LevelGenerator.generate(number), tutorial = false)
 
-    private fun play(source: LevelLayout, tutorial: Boolean, onFrame: (GameWorld) -> Unit = {}): Pair<RunResult?, GameWorld> {
+    private fun play(
+        source: LevelLayout,
+        tutorial: Boolean,
+        loadout: Loadout = Loadout(),
+        onFrame: (GameWorld) -> Unit = {},
+    ): Pair<RunResult?, GameWorld> {
         val layout = withoutEnemies(source)
         val recorder = Recorder()
-        val world = GameWorld(layout, Loadout(), tutorial = tutorial, listener = recorder)
+        val world = GameWorld(layout, loadout, tutorial = tutorial, listener = recorder)
         world.setViewport(180f, 390f)
         val frame = 1f / 60f
         var t = 0f
@@ -196,7 +201,7 @@ class GameSimulationTest {
     fun botCompletesGrandFinale() {
         val n = LevelConstants.LEVEL_COUNT
         val messages = ArrayList<MessageKind>()
-        val (result, world) = play(LevelGenerator.generate(n), tutorial = false) { w ->
+        val (result, world) = play(LevelGenerator.generate(n), tutorial = false) { w: GameWorld ->
             w.message?.kind?.let { if (messages.lastOrNull() != it) messages += it }
         }
         assertTrue("finał nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
@@ -206,6 +211,17 @@ class GameSimulationTest {
         // Najpierw napis Wielkiego Finału, potem zwykłe polecenie łowienia.
         assertEquals(listOf(MessageKind.FINALE, MessageKind.GO), messages.take(2))
         assertTrue(MessageKind.STAGE in messages)
+    }
+
+    /** Wzmocnienia ułatwiają grę, ale nie mogą dać wyniku ponad limity anty-cheat (serwer liczy je bez wzmocnień). */
+    @Test
+    fun allPowerUpsKeepScoresPlausible() {
+        val all = Loadout(magnet = true, shield = true, turbo = true, extraLife = true, net = true, frost = true, lure = true, rhythm = true)
+        for (n in listOf(3, 12, 40, 120, 333, 640, 999, 1001, 1500)) {
+            val (result, world) = play(LevelGenerator.generate(n), tutorial = false, loadout = all)
+            assertTrue("poziom $n nieukończony z wzmocnieniami (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            assertTrue("poziom $n: wynik z wzmocnieniami ponad limit", ScoreValidator.isPlausible(LevelGenerator.plan(n), result!!))
+        }
     }
 
     @Test

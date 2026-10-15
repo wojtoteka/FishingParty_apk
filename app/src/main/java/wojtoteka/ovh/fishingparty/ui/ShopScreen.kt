@@ -184,7 +184,7 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
                     ItemKind.BOAT -> SpriteImage("boats/${item.id}/ship", 3)
                     ItemKind.SAIL -> ShipPreview(ShipLook(sail = item.id), 3, Modifier.size(px(54)), sway = false)
                     ItemKind.SAILOR -> SpriteImage("sailors/${item.id}", 4)
-                    ItemKind.POWERUP -> SpriteImage(powerUpIcon(PowerUp.entries.first { it.id == item.id }), 3)
+                    ItemKind.POWERUP -> PowerUp.entries.first { it.id == item.id }.let { SpriteImage(powerUpIcon(it), powerUpIconScale(it, 3)) }
                 }
             }
             PixelText(itemName(item), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth(), maxLines = 1)

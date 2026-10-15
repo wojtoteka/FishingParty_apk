@@ -77,6 +77,14 @@
     <string name="powerup_turbo_desc" formatted="false">Your boat sails 20% faster</string>
     <string name="powerup_life">EXTRA LIFE</string>
     <string name="powerup_life_desc">Start with 4 lives</string>
+    <string name="powerup_net">NET</string>
+    <string name="powerup_net_desc">Catch fish from farther away</string>
+    <string name="powerup_frost">FROST</string>
+    <string name="powerup_frost_desc" formatted="false">Monsters swim 35% slower</string>
+    <string name="powerup_lure">GOLDEN LURE</string>
+    <string name="powerup_lure_desc">Golden fish come sooner and stay longer</string>
+    <string name="powerup_rhythm">RHYTHM</string>
+    <string name="powerup_rhythm_desc">More time to keep your combo going</string>
     <string name="result_win">LEVEL COMPLETE!</string>
     <string name="result_lose">GAME OVER</string>
     <string name="lose_caught">The sea beasts got you.</string>

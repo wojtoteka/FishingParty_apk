@@ -6,11 +6,16 @@ class ShopItem(val kind: ItemKind, val id: String, val price: Int) {
     val key: String get() = "${kind.name.lowercase()}:$id"
 }
 
+/** Kolejność jest częścią zapisu gry (liczniki po indeksie) – nowe wzmocnienia tylko na końcu. */
 enum class PowerUp(val id: String, val price: Int) {
     MAGNET("magnet", 60),
     SHIELD("shield", 80),
     TURBO("turbo", 50),
     LIFE("life", 120),
+    NET("net", 70),
+    FROST("frost", 90),
+    LURE("lure", 100),
+    RHYTHM("rhythm", 80),
 }
 
 object Catalog {

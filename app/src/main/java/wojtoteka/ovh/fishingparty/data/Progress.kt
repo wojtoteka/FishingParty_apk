@@ -282,6 +282,10 @@ class Progress(val save: SaveData, private val time: GameTime) {
             shield = PowerUp.SHIELD in used,
             turbo = PowerUp.TURBO in used,
             extraLife = PowerUp.LIFE in used,
+            net = PowerUp.NET in used,
+            frost = PowerUp.FROST in used,
+            lure = PowerUp.LURE in used,
+            rhythm = PowerUp.RHYTHM in used,
         )
     }
 

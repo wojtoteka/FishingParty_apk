@@ -5,12 +5,23 @@ import wojtoteka.ovh.fishingparty.level.FishKind
 
 enum class Sfx { FISH, FISH_GOLD, COMBO, HIT, LOST, START, BUMP, GATE_OPEN, STAGE, WIN, CLICK, COIN, ACHIEVEMENT, SHIELD, STAR }
 
-/** Wzmocnienia wybrane przed startem poziomu. */
+/**
+ * Wzmocnienia wybrane przed startem poziomu. Żadne nie podnosi maksymalnego wyniku
+ * ani nie skraca minimalnego czasu przejazdu – limity anty-cheat zostają bez zmian.
+ */
 class Loadout(
     val magnet: Boolean = false,
     val shield: Boolean = false,
     val turbo: Boolean = false,
     val extraLife: Boolean = false,
+    /** Sieć: ryby łowią się z większej odległości. */
+    val net: Boolean = false,
+    /** Lodowa mgła: potwory płyną wolniej. */
+    val frost: Boolean = false,
+    /** Złota przynęta: złote ryby pojawiają się szybciej, zostają dłużej i mniej uciekają. */
+    val lure: Boolean = false,
+    /** Rytm: dłuższy czas na podtrzymanie combo. */
+    val rhythm: Boolean = false,
 )
 
 class Fish(

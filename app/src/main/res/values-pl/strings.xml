@@ -76,6 +76,14 @@
     <string name="powerup_turbo_desc" formatted="false">Łódź płynie o 20% szybciej</string>
     <string name="powerup_life">DODATKOWE ŻYCIE</string>
     <string name="powerup_life_desc">Zaczynasz z 4 życiami</string>
+    <string name="powerup_net">SIEĆ</string>
+    <string name="powerup_net_desc">Łowisz ryby z większej odległości</string>
+    <string name="powerup_frost">LODOWA MGŁA</string>
+    <string name="powerup_frost_desc" formatted="false">Potwory płyną o 35% wolniej</string>
+    <string name="powerup_lure">ZŁOTA PRZYNĘTA</string>
+    <string name="powerup_lure_desc">Złote ryby szybciej przypływają i dłużej zostają</string>
+    <string name="powerup_rhythm">RYTM</string>
+    <string name="powerup_rhythm_desc">Więcej czasu na podtrzymanie combo</string>
     <string name="result_win">POZIOM UKOŃCZONY!</string>
     <string name="result_lose">KONIEC GRY</string>
     <string name="lose_caught">Morskie bestie cię dopadły.</string>

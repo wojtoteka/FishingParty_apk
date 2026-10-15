@@ -193,6 +193,16 @@ def build_characters():
     for i in (1, 2):
         save(recolor(load(f"shark{i}"), mapping(dark_shark)), OUT_SPRITES / f"sharkdark{i}.png")
 
+    # Ikony wzmocnień: lodowy rekin (Lodowa mgła) i złota pętla (Rytm).
+    frost_shark = {
+        (82, 158, 196): (170, 225, 245), (52, 128, 166): (120, 190, 225), (127, 203, 241): (220, 245, 255),
+        (145, 186, 207): (200, 235, 250), (117, 158, 178): (160, 210, 235), (161, 202, 223): (235, 250, 255),
+        (0, 76, 114): (40, 110, 160), (105, 105, 105): (190, 225, 245), (75, 75, 75): (130, 180, 215),
+        (99, 98, 136): (150, 185, 225),
+    }
+    save(recolor(load("shark1"), mapping(frost_shark)), OUT_SPRITES / "sharkfrost1.png")
+    save(recolor(load("huit"), mapping({(255, 255, 255): (255, 196, 32)})), OUT_SPRITES / "combo.png")
+
     red_octopus = {
         (140, 112, 226): (220, 70, 60), (185, 101, 227): (250, 110, 70),
         (228, 144, 255): (255, 170, 120), (170, 170, 255): (255, 200, 170),
