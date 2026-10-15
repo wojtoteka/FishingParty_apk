@@ -204,7 +204,6 @@ private fun ChallengeIntro(challenge: Challenge, now: Long, onPlay: (Challenge, 
     val selected = remember(challenge.kind, challenge.period) { mutableStateListOf<PowerUp>() }
     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
         PixelText(worldName(spec.world), size = 1, color = Pal.Outline, outline = null)
-        PixelText(stringResource(R.string.endless_seed, challenge.seed.code), size = 1, color = Pal.SeaDark, outline = null)
         PixelText(stringResource(R.string.challenge_left, countdownText(challenge.endsAt - now)), size = 2, color = Pal.RedDark, outline = null)
     }
     VSpace(4)

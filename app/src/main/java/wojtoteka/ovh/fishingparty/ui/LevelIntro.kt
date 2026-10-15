@@ -20,9 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
-import wojtoteka.ovh.fishingparty.level.EndlessLevels
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
-import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelType
 
 /** Karta poziomu przed startem: typ, cele na gwiazdki i wybór wzmocnień. */
@@ -34,7 +32,6 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
     val plan = remember(level) { LevelGenerator.plan(level) }
     val spec = plan.spec
     val worldName = rememberWorldNames()
-    val endless = EndlessLevels.isEndless(level)
     val selected = remember(level) { mutableStateListOf<PowerUp>() }
     val earned = progress.stars(level)
     val finale = spec.type == LevelType.FINALE
@@ -49,10 +46,6 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
                     PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
                 } else {
                     PixelText(worldName(spec.world), size = 1, color = Pal.Foam)
-                }
-                if (endless) {
-                    // Seed planszy – ten sam kod oznacza u każdego gracza ten sam poziom.
-                    PixelText(stringResource(R.string.endless_seed, LevelSeed(spec.seed).code), size = 1, color = Pal.SeaLight)
                 }
             }
         }

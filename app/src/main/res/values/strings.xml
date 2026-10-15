@@ -54,7 +54,6 @@
     <string name="finale_win_text">All 1000 levels are done! Beyond the harbour lies the Endless Sea – new levels without end.</string>
     <string name="finale_bonus">FINALE BONUS</string>
     <string name="endless_world_name">%1$s of %2$s</string>
-    <string name="endless_seed">SEED %s</string>
     <string name="daily_level">DAILY LEVEL</string>
     <string name="weekly_level">WEEKLY LEVEL</string>
     <string name="challenge_new">NEW!</string>
