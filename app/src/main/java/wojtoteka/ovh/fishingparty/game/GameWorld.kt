@@ -672,12 +672,11 @@ class GameWorld(
         when (e.hunt) {
             Hunt.PATROL -> {
                 if (sees) return aim(e)
-                if (!waterFor(e.x + e.dirX * STALKER_LOOK, e.y + e.dirY * STALKER_LOOK, stage) || rng.nextFloat() < TURN_CHANCE * dt) {
+                // Skręca losowo albo gdy dalej jest brzeg – ten sam test co przy ruchu, więc nie utknie przy ścianie.
+                if (rng.nextFloat() < TURN_CHANCE * dt || !swim(e, e.dirX.toFloat(), e.dirY.toFloat(), enemySpeed(e) * dt, stage)) {
                     val d = rng.nextInt(4)
                     e.dirX = DIR_X[d]
                     e.dirY = DIR_Y[d]
-                } else {
-                    swim(e, e.dirX.toFloat(), e.dirY.toFloat(), enemySpeed(e) * dt, stage)
                 }
                 e.vx = e.dirX.toFloat()
                 e.vy = e.dirY.toFloat()

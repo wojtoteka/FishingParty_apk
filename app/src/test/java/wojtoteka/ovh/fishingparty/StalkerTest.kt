@@ -10,6 +10,7 @@ import wojtoteka.ovh.fishingparty.game.GameWorld
 import wojtoteka.ovh.fishingparty.game.Hunt
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
+import wojtoteka.ovh.fishingparty.game.Phase
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
@@ -91,6 +92,38 @@ class StalkerTest {
     private fun wojtoteka.ovh.fishingparty.level.StagePlan.withAllSlots() = wojtoteka.ovh.fishingparty.level.StagePlan(
         rows, quota, common, blue, golden, enemySlots.map { it ?: EnemyKind.PIRANHA }, rocks, islands, doorCenter, wideBanks,
     )
+
+    /** Na prawdziwych planszach widmokuda nie utyka przy brzegu – w patrolu cały czas płynie. */
+    @Test
+    fun neverGetsStuckOnRealLevels() {
+        var checked = 0
+        for (n in (20..120) + (500..520) + (1001..1020)) {
+            val full = LevelGenerator.generate(n)
+            for (s in full.stages.filter { st -> st.enemies.any { it.kind == EnemyKind.STALKER } }) {
+                // Sam ten etap, a łódź stoi w murze pod nim – widmokuda jej nie widzi i tylko patroluje.
+                val only = StageLayout(0, s.gateRow, s.topRow, s.bottomRow, s.doorCols, s.quota, s.fish, s.golden, s.enemies, s.reachable)
+                val layout = LevelLayout(full.spec, full.grid, listOf(only), WIDTH / 2, s.bottomRow + 1, full.crabs)
+                val world = GameWorld(layout, Loadout(), tutorial = false, listener = Hits())
+                world.setViewport(180f, 390f)
+                val stalkers = world.enemies.filter { it.kind == EnemyKind.STALKER }
+                val last = stalkers.map { it.x to it.y }.toMutableList()
+                val still = FloatArray(stalkers.size)
+                repeat(60 * 20) {
+                    world.advance(1f / 60f)
+                    assertEquals(Phase.PLAYING, world.phase)
+                    for ((i, e) in stalkers.withIndex()) {
+                        if (e.harmless || e.hunt != Hunt.PATROL) continue
+                        val moved = (e.x to e.y) != last[i]
+                        still[i] = if (moved) 0f else still[i] + 1f / 60f
+                        last[i] = e.x to e.y
+                        assertTrue("poziom $n: widmokuda stoi w miejscu ${still[i]} s (${e.x}, ${e.y})", still[i] < 0.5f)
+                    }
+                }
+                checked++
+            }
+        }
+        assertTrue(checked > 30)
+    }
 
     // ---------------------------------------------------------------- polowanie na prostej planszy
 
