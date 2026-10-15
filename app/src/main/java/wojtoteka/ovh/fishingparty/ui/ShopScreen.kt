@@ -23,7 +23,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -100,8 +99,8 @@ fun ShopScreen(onBack: () -> Unit) {
     var preview by remember { mutableStateOf<ShopItem?>(null) }
     // Kreator na dole kart ŁODZIE i ŻAGLE – stan trzymany tutaj, bo karta w siatce znika po przewinięciu.
     var workshopOpen by remember { mutableStateOf(false) }
-    var boatColor by remember { mutableIntStateOf(Workshop.DEFAULT_BOAT) }
-    var sailDesign by remember { mutableStateOf(Workshop.DEFAULT_SAIL) }
+    var boatPick by remember { mutableStateOf(Workshop.DEFAULT_BOAT) }
+    var sailDraft by remember { mutableStateOf(SailDraft()) }
     val equipped = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val look = when (preview?.kind) {
         ItemKind.BOAT -> equipped.copy(boat = preview!!.id)
@@ -186,18 +185,18 @@ fun ShopScreen(onBack: () -> Unit) {
                             workshopOpen = !workshopOpen
                             preview = when {
                                 !workshopOpen -> null
-                                tab == ShopTab.BOATS -> Workshop.boatItem(boatColor)
-                                else -> Workshop.sailItem(sailDesign)
+                                tab == ShopTab.BOATS -> Workshop.boatItem(boatPick.color)
+                                else -> Workshop.sailItem(sailDraft.design)
                             }
                         }
                         if (tab == ShopTab.BOATS) {
                             BoatWorkshop(
                                 open = workshopOpen,
                                 onToggle = toggle,
-                                color = boatColor,
-                                onColor = {
-                                    boatColor = it
-                                    preview = Workshop.boatItem(it)
+                                pick = boatPick,
+                                onPick = {
+                                    boatPick = it
+                                    preview = Workshop.boatItem(it.color)
                                 },
                                 onBuy = buy,
                                 onEquip = equip,
@@ -206,11 +205,11 @@ fun ShopScreen(onBack: () -> Unit) {
                             SailWorkshop(
                                 open = workshopOpen,
                                 onToggle = toggle,
-                                design = sailDesign,
-                                onDesign = {
-                                    sailDesign = it
-                                    // Dwa takie same kolory to nie projekt – podgląd pokazuje wtedy ostatni poprawny.
-                                    Workshop.sailItem(it)?.let { item -> preview = item }
+                                draft = sailDraft,
+                                onDraft = {
+                                    sailDraft = it
+                                    // Dwa prawie takie same kolory to nie projekt – podgląd pokazuje wtedy ostatni poprawny.
+                                    Workshop.sailItem(it.design)?.let { item -> preview = item }
                                 },
                                 onBuy = buy,
                                 onEquip = equip,

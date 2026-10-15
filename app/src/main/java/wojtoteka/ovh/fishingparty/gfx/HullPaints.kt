@@ -1,8 +1,6 @@
 package wojtoteka.ovh.fishingparty.gfx
 
 import kotlin.math.max
-import kotlin.math.min
-import kotlin.math.roundToInt
 
 /**
  * Kolory kadłuba łodzi: oryginalny sprite ma 4 odcienie brązu (od najciemniejszego),
@@ -57,11 +55,11 @@ object HullPaints {
      * Jasnym kolorom brakuje miejsca na rozjaśnienie, więc jaśniejsze odcienie tracą wtedy nasycenie.
      */
     fun shades(main: Int): IntArray {
-        val hsv = toHsv(main)
+        val hsv = ColorMath.toHsv(main)
         fun shade(sat: Float, valueMul: Float, valueAdd: Float): Int {
-            val v = hsv[2] * valueMul + valueAdd
-            val s = hsv[1] * sat - max(0f, v - 1f) * 0.9f
-            return fromHsv(hsv[0], s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))
+            val v = hsv.v * valueMul + valueAdd
+            val s = hsv.s * sat - max(0f, v - 1f) * 0.9f
+            return ColorMath.fromHsv(hsv.h, s.coerceIn(0f, 1f), v.coerceIn(0f, 1f))
         }
         return intArrayOf(shade(1.05f, 0.78f, 0f), main or OPAQUE, shade(0.92f, 1.12f, 0.04f), shade(0.82f, 1.24f, 0.08f))
     }
@@ -70,43 +68,10 @@ object HullPaints {
 
     private fun table(vararg c: Int) = IntArray(4) { rgb(c[it * 3], c[it * 3 + 1], c[it * 3 + 2]) }
 
-    fun rgb(r: Int, g: Int, b: Int): Int = OPAQUE or (r shl 16) or (g shl 8) or b
+    private fun rgb(r: Int, g: Int, b: Int): Int = ColorMath.rgb(r, g, b)
 
     fun hex(color: Int): String = "%06X".format(color and 0xFFFFFF)
 
     fun parseHex(text: String): Int? =
         if (text.length == 6 && text.all { it in '0'..'9' || it in 'A'..'F' }) OPAQUE or text.toInt(16) else null
-
-    private fun toHsv(c: Int): FloatArray {
-        val r = (c shr 16 and 0xFF) / 255f
-        val g = (c shr 8 and 0xFF) / 255f
-        val b = (c and 0xFF) / 255f
-        val hi = max(r, max(g, b))
-        val lo = min(r, min(g, b))
-        val d = hi - lo
-        val h = when {
-            d == 0f -> 0f
-            hi == r -> ((g - b) / d).mod(6f)
-            hi == g -> (b - r) / d + 2f
-            else -> (r - g) / d + 4f
-        } / 6f
-        return floatArrayOf(h, if (hi == 0f) 0f else d / hi, hi)
-    }
-
-    private fun fromHsv(h: Float, s: Float, v: Float): Int {
-        val i = (h * 6f).toInt().mod(6)
-        val f = h * 6f - (h * 6f).toInt()
-        val p = v * (1 - s)
-        val q = v * (1 - s * f)
-        val t = v * (1 - s * (1 - f))
-        val (r, g, b) = when (i) {
-            0 -> Triple(v, t, p)
-            1 -> Triple(q, v, p)
-            2 -> Triple(p, v, t)
-            3 -> Triple(p, q, v)
-            4 -> Triple(t, p, v)
-            else -> Triple(v, p, q)
-        }
-        return rgb((r * 255).roundToInt(), (g * 255).roundToInt(), (b * 255).roundToInt())
-    }
 }

@@ -1,43 +1,90 @@
 package wojtoteka.ovh.fishingparty.data
 
+import wojtoteka.ovh.fishingparty.gfx.ColorMath
+import wojtoteka.ovh.fishingparty.gfx.Hsv
 import wojtoteka.ovh.fishingparty.gfx.HullPaints
 import wojtoteka.ovh.fishingparty.gfx.SailDesign
 import wojtoteka.ovh.fishingparty.gfx.SailPattern
 import wojtoteka.ovh.fishingparty.gfx.SailStyles
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.math.cbrt
 import kotlin.math.max
-import kotlin.math.pow
-import kotlin.math.sqrt
 
 /**
- * Kreator wyglądu w sklepie: własny kolor łodzi i dwukolorowy żagiel z palety odcieni.
- * Każdy odcień i każdy wzór ma swoją cenę. Projekt podobny do czegoś ze sklepu kosztuje
- * zawsze więcej niż ta rzecz – kreator nie jest tańszą drogą do tego samego wyglądu.
+ * Kreator wyglądu w sklepie: dowolny kolor łodzi z pełnej palety i dwukolorowy żagiel.
+ * Cena koloru zależy od grupy, do której wpada (barwa × odcień albo biel, szarość, czerń).
+ * Projekt podobny do czegoś ze sklepu kosztuje zawsze więcej niż ta rzecz – kreator
+ * nie jest tańszą drogą do tego samego wyglądu.
  */
 object Workshop {
-    /** Odcień palety: cena jako kolor łodzi i jako jeden z kolorów żagla. */
-    class Shade(val color: Int, val boatPrice: Int, val sailPrice: Int)
+    /** Rodziny barw – zakres w stopniach koła barw (czerwień przechodzi przez 0°). */
+    enum class Hue(val from: Int, val to: Int, val center: Int, val boatPrice: Int) {
+        RED(345, 15, 0, 750),
+        ORANGE(15, 40, 28, 750),
+        YELLOW(40, 70, 55, 800),
+        GREEN(70, 160, 115, 700),
+        TEAL(160, 200, 180, 800),
+        BLUE(200, 250, 222, 700),
+        PURPLE(250, 290, 270, 850),
+        PINK(290, 345, 318, 800);
 
-    /** Paleta to siatka [COLUMNS] kolumn: jasne, nasycone i ciemne barwy, a pod nimi biele, szarości i brązy. */
-    const val COLUMNS = 12
-
-    val palette: List<Shade> = buildList {
-        fun row(boatPrice: Int, sailPrice: Int, vararg colors: Int) = colors.forEach { add(Shade(OPAQUE or it, boatPrice, sailPrice)) }
-        row(850, 150, 0xF79494, 0xF7B994, 0xF7D394, 0xF7EA94, 0xCEF794, 0x94F7AD, 0x94F7E7, 0x94E4F7, 0x94BEF7, 0x9494F7, 0xCE94F7, 0xF794CE)
-        row(750, 100, 0xDB2C2C, 0xDB6C2C, 0xDB9B2C, 0xDBC42C, 0x92DB2C, 0x2CDB58, 0x2CDBBE, 0x2CB8DB, 0x2C75DB, 0x2C2CDB, 0x922CDB, 0xDB2C92)
-        row(900, 150, 0x801313, 0x803B13, 0x805813, 0x807113, 0x528013, 0x13802E, 0x13806D, 0x136A80, 0x134080, 0x131380, 0x521380, 0x801352)
-        // Biel, srebro, szarość, grafit, czerń, krem, beż, jasny brąz, brąz, czekolada, wino, nocny granat.
-        for ((color, boat, sail) in listOf(
-            Triple(0xEEEEEE, 1000, 100), Triple(0xBEC2CA, 1100, 200), Triple(0x8C9098, 800, 100), Triple(0x55585F, 900, 150),
-            Triple(0x1E1E24, 1200, 200), Triple(0xF2E6C4, 900, 150), Triple(0xD8BC8E, 850, 150), Triple(0xB4824E, 800, 100),
-            Triple(0x7E4E2A, 800, 100), Triple(0x4C2C18, 900, 150), Triple(0x7A1E36, 950, 150), Triple(0x1C2850, 1000, 200),
-        )) add(Shade(OPAQUE or color, boat, sail))
+        fun contains(degrees: Float): Boolean = if (from < to) degrees >= from && degrees < to else degrees >= from || degrees < to
     }
 
-    /** Odcień i wzór, od których zaczyna kreator. */
-    val DEFAULT_BOAT = OPAQUE or 0x2CB8DB
-    val DEFAULT_SAIL = SailDesign(SailPattern.DIAGONAL, OPAQUE or 0xEEEEEE, OPAQUE or 0x2C75DB)
+    /** Odcień barwy: dopłata do ceny rodziny i przykładowe nasycenie/jasność (do cennika). */
+    enum class Tone(val extra: Int, val s: Float, val v: Float) {
+        PASTEL(100, 0.35f, 0.97f),
+        VIVID(0, 0.8f, 0.86f),
+        DARK(150, 0.85f, 0.38f),
+    }
+
+    /** Kolory bez barwy, od najjaśniejszego. */
+    enum class Neutral(val boatPrice: Int, val v: Float) {
+        WHITE(1000, 0.95f),
+        SILVER(1100, 0.8f),
+        GREY(800, 0.57f),
+        GRAPHITE(900, 0.3f),
+        BLACK(1200, 0.1f),
+    }
+
+    /** Grupa kolorów z własną ceną; [sample] to jej typowy kolor (w cenniku). */
+    class ColorGroup(val hue: Hue?, val tone: Tone?, val neutral: Neutral?, val boatPrice: Int, val sample: Hsv) {
+        /** Jeden kolor żagla kosztuje mniej więcej piątą część koloru łodzi (w górę do 50). */
+        val sailPrice: Int get() = (boatPrice / 5 + 49) / 50 * 50
+    }
+
+    /** Wszystkie grupy: wiersze pastelowe, nasycone i ciemne po 8 barw, na końcu biele, szarości i czerń. */
+    val groups: List<ColorGroup> = buildList {
+        for (tone in Tone.entries) for (hue in Hue.entries) {
+            add(ColorGroup(hue, tone, null, hue.boatPrice + tone.extra, Hsv(hue.center / 360f, tone.s, tone.v)))
+        }
+        for (n in Neutral.entries) add(ColorGroup(null, null, n, n.boatPrice, Hsv(0f, 0f, n.v)))
+    }
+
+    fun groupOf(color: Int): ColorGroup {
+        val c = ColorMath.toHsv(color)
+        val neutral = when {
+            c.v < 0.18f -> Neutral.BLACK
+            c.s >= 0.15f -> null
+            c.v < 0.42f -> Neutral.GRAPHITE
+            c.v < 0.72f -> Neutral.GREY
+            c.v < 0.9f -> Neutral.SILVER
+            else -> Neutral.WHITE
+        }
+        if (neutral != null) return groups.first { it.neutral == neutral }
+        val hue = Hue.entries.first { it.contains(c.h * 360f) }
+        val tone = when {
+            c.v < 0.55f -> Tone.DARK
+            c.s < 0.45f -> Tone.PASTEL
+            else -> Tone.VIVID
+        }
+        return groups.first { it.hue == hue && it.tone == tone }
+    }
+
+    /** Kolory, od których zaczyna kreator. */
+    val DEFAULT_BOAT = Hsv(192 / 360f, 0.8f, 0.86f)
+    val DEFAULT_SAIL_PATTERN = SailPattern.DIAGONAL
+    val DEFAULT_SAIL_FIRST = Hsv(0f, 0f, 0.93f)
+    val DEFAULT_SAIL_SECOND = Hsv(215 / 360f, 0.8f, 0.86f)
 
     fun patternPrice(pattern: SailPattern): Int = when (pattern) {
         SailPattern.HALVES, SailPattern.VERTICAL -> 300
@@ -47,35 +94,34 @@ object Workshop {
         SailPattern.DOTS, SailPattern.CHECKER -> 500
     }
 
-    fun shade(color: Int): Shade? = palette.firstOrNull { it.color == (OPAQUE or color) }
-
     /**
-     * Wycena projektu: [base] to suma cen odcienia (i wzoru), [similar] – najdroższa podobna rzecz ze sklepu.
+     * Wycena projektu: [base] to cena grupy koloru (i wzoru), [similar] – najdroższa podobna rzecz ze sklepu.
      * Gdy taka jest, [price] przebija jej cenę o co najmniej 25%.
      */
     class Quote(val price: Int, val base: Int, val similar: ShopItem?) {
         val raised: Boolean get() = price > base
     }
 
-    fun boatQuote(color: Int): Quote? {
-        val shade = shade(color) ?: return null
-        val hull = labs(HullPaints.shades(shade.color))
+    fun boatQuote(color: Int): Quote {
+        val hull = labs(HullPaints.shades(color))
         val similar = presetHulls.filter { (_, preset) -> hullDistance(hull, preset) < HULL_SIMILAR }.keys.maxByOrNull { it.price }
-        return quote(shade.boatPrice, similar)
+        return quote(groupOf(color).boatPrice, similar)
     }
 
-    /** Wycena żagla; null, gdy kolor spoza palety albo oba kolory są takie same (to nie byłby dwukolorowy żagiel). */
+    /** Wycena żagla; null, gdy kolory są prawie takie same (to nie byłby dwukolorowy żagiel). */
     fun sailQuote(design: SailDesign): Quote? {
-        val a = shade(design.first) ?: return null
-        val b = shade(design.second) ?: return null
-        if (a === b) return null
+        if (!twoColors(design.first, design.second)) return null
+        if (sailQuotes.size > 512) sailQuotes.clear()
         // Porównanie z każdym żaglem ze sklepu pole po polu – wynik zapamiętany, bo sklep pyta o niego przy każdym odświeżeniu.
         return sailQuotes.getOrPut(design.id) {
             val grid = labGrid(design.grid())
             val similar = presetSails.filter { (_, preset) -> sailMatch(grid, preset) >= SAIL_MATCH }.keys.maxByOrNull { it.price }
-            quote(patternPrice(design.pattern) + a.sailPrice + b.sailPrice, similar)
+            quote(patternPrice(design.pattern) + groupOf(design.first).sailPrice + groupOf(design.second).sailPrice, similar)
         }
     }
+
+    /** Czy dwa kolory żagla da się odróżnić na łodzi. */
+    fun twoColors(a: Int, b: Int): Boolean = ColorMath.deltaE(ColorMath.lab(a), ColorMath.lab(b)) >= MIN_CONTRAST
 
     private val sailQuotes = ConcurrentHashMap<String, Quote>()
 
@@ -85,11 +131,11 @@ object Workshop {
         return Quote(max(base, floor), base, similar)
     }
 
-    fun boatItem(color: Int): ShopItem? = boatQuote(color)?.let { ShopItem(ItemKind.BOAT, HullPaints.ownId(OPAQUE or color), it.price) }
+    fun boatItem(color: Int): ShopItem = ShopItem(ItemKind.BOAT, HullPaints.ownId(color), boatQuote(color).price)
 
     fun sailItem(design: SailDesign): ShopItem? = sailQuote(design)?.let { ShopItem(ItemKind.SAIL, design.id, it.price) }
 
-    /** Rzecz z kreatora po kluczu z zapisu („boat:own-…”, „sail:own-…”); null dla innych kluczy i kolorów spoza palety. */
+    /** Rzecz z kreatora po kluczu z zapisu („boat:own-…”, „sail:own-…”); null dla innych kluczy. */
     fun find(key: String): ShopItem? = when {
         key.startsWith("boat:") -> HullPaints.ownColor(key.removePrefix("boat:"))?.let(::boatItem)
         key.startsWith("sail:") -> SailDesign.parse(key.removePrefix("sail:"))?.let(::sailItem)
@@ -102,11 +148,11 @@ object Workshop {
 
     /*
      * Progi celowo hojne – lepiej policzyć drożej niż sprzedać taniej to samo co w sklepie.
-     * Różnica kolorów to ΔE w przestrzeni Lab (ok. 2 = ledwo widać, 30 = ten sam kolor w innym odcieniu).
+     * Różnice kolorów to ΔE w przestrzeni Lab (ColorMath.deltaE).
      */
 
     /** Kadłub jest podobny, gdy średnia różnica jego odcieni jest mniejsza niż ta. */
-    const val HULL_SIMILAR = 22f
+    const val HULL_SIMILAR = 26f
 
     /** Pole żagla „ma ten sam kolor”, gdy różni się najwyżej o tyle. */
     const val CELL_SIMILAR = 30f
@@ -114,7 +160,8 @@ object Workshop {
     /** Żagiel jest podobny, gdy tak duża część pól ma ten sam kolor (wzór i kolory prawie się pokrywają). */
     const val SAIL_MATCH = 0.9f
 
-    private const val OPAQUE = 0xFF000000.toInt()
+    /** Najmniejsza różnica dwóch kolorów żagla. */
+    const val MIN_CONTRAST = 10f
 
     private val presetHulls: Map<ShopItem, Array<FloatArray>> by lazy {
         Catalog.boats.associateWith { labs(HullPaints.presets.getValue(it.id)) }
@@ -127,7 +174,7 @@ object Workshop {
     /** Różnica kadłubów: odcienie ważone liczbą pikseli, które zajmują na łodzi. */
     fun hullDistance(a: Array<FloatArray>, b: Array<FloatArray>): Float {
         val w = HullPaints.WEIGHTS
-        return a.indices.sumOf { (w[it] * deltaE(a[it], b[it])).toDouble() }.toFloat() / w.sum()
+        return a.indices.sumOf { (w[it] * ColorMath.deltaE(a[it], b[it])).toDouble() }.toFloat() / w.sum()
     }
 
     /** Jaka część pól żagla ma ten sam kolor; żagiel odwraca się z kursem łodzi, więc liczy się też odbicie. */
@@ -137,37 +184,14 @@ object Workshop {
         for (row in a.indices) {
             val cols = a[row].size
             for (col in 0 until cols) {
-                if (deltaE(a[row][col], b[row][col]) <= CELL_SIMILAR) straight++
-                if (deltaE(a[row][col], b[row][cols - 1 - col]) <= CELL_SIMILAR) mirrored++
+                if (ColorMath.deltaE(a[row][col], b[row][col]) <= CELL_SIMILAR) straight++
+                if (ColorMath.deltaE(a[row][col], b[row][cols - 1 - col]) <= CELL_SIMILAR) mirrored++
             }
         }
         return max(straight, mirrored).toFloat() / (a.size * a[0].size)
     }
 
-    fun labs(colors: IntArray): Array<FloatArray> = Array(colors.size) { lab(colors[it]) }
+    fun labs(colors: IntArray): Array<FloatArray> = Array(colors.size) { ColorMath.lab(colors[it]) }
 
     fun labGrid(grid: Array<IntArray>): Array<Array<FloatArray>> = Array(grid.size) { labs(grid[it]) }
-
-    private fun deltaE(a: FloatArray, b: FloatArray): Float {
-        val l = a[0] - b[0]
-        val x = a[1] - b[1]
-        val y = a[2] - b[2]
-        return sqrt(l * l + x * x + y * y)
-    }
-
-    /** sRGB → CIE Lab (biel D65). */
-    fun lab(color: Int): FloatArray {
-        fun linear(channel: Int): Double {
-            val c = channel / 255.0
-            return if (c <= 0.04045) c / 12.92 else ((c + 0.055) / 1.055).pow(2.4)
-        }
-        val r = linear(color shr 16 and 0xFF)
-        val g = linear(color shr 8 and 0xFF)
-        val b = linear(color and 0xFF)
-        fun f(t: Double) = if (t > 0.008856) cbrt(t) else 7.787 * t + 16.0 / 116.0
-        val fx = f((0.4124 * r + 0.3576 * g + 0.1805 * b) / 0.95047)
-        val fy = f(0.2126 * r + 0.7152 * g + 0.0722 * b)
-        val fz = f((0.0193 * r + 0.1192 * g + 0.9505 * b) / 1.08883)
-        return floatArrayOf((116 * fy - 16).toFloat(), (500 * (fx - fy)).toFloat(), (200 * (fy - fz)).toFloat())
-    }
 }

@@ -34,7 +34,12 @@ object Sprites {
             ?: error("Brak grafiki $path")
     }
 
-    fun get(path: String): Bitmap = cache.getOrPut(path) { ownBoat(path) ?: load(path) }
+    /** Łodzie z kreatora – przy przeciąganiu palcem po palecie powstaje ich dużo, więc pamiętamy tylko ostatnie. */
+    private val ownBoats = object : LinkedHashMap<String, Bitmap>(64, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>) = size > 48
+    }
+
+    fun get(path: String): Bitmap = cache[path] ?: ownBoats[path] ?: ownBoat(path)?.also { ownBoats[path] = it } ?: load(path).also { cache[path] = it }
 
     /** Łódź z kreatora („sprites/boats/own-RRGGBB/część”): klasyczny kadłub w odcieniach wybranego koloru. */
     private fun ownBoat(path: String): Bitmap? {

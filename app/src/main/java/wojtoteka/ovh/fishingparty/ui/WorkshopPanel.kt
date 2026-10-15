@@ -1,6 +1,7 @@
 package wojtoteka.ovh.fishingparty.ui
 
-import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,17 +13,16 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -31,63 +31,74 @@ import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.ShopItem
 import wojtoteka.ovh.fishingparty.data.Workshop
 import wojtoteka.ovh.fishingparty.game.Sfx
+import wojtoteka.ovh.fishingparty.gfx.ColorMath
+import wojtoteka.ovh.fishingparty.gfx.Hsv
 import wojtoteka.ovh.fishingparty.gfx.SailDesign
 import wojtoteka.ovh.fishingparty.gfx.SailPattern
 import kotlin.math.floor
 
 /*
  * Kreator na dole kart ŁODZIE i ŻAGLE: zwinięty to jeden przycisk („Chcesz własny kolor?”),
- * rozwinięty – paleta odcieni (każdy ze swoją ceną) i przycisk zakupu. Podgląd projektu
- * pokazuje duża łódź na górze sklepu.
+ * rozwinięty – pełna paleta (pole nasycenia i jasności + pasek barw), cena grupy wybranego
+ * koloru, cennik wszystkich grup i przycisk zakupu. Podgląd projektu pokazuje duża łódź
+ * na górze sklepu.
  */
+
+/** Projekt żagla w kreatorze: wzór, oba kolory (jak na palecie) i który z nich teraz zmieniamy. */
+data class SailDraft(
+    val pattern: SailPattern = Workshop.DEFAULT_SAIL_PATTERN,
+    val first: Hsv = Workshop.DEFAULT_SAIL_FIRST,
+    val second: Hsv = Workshop.DEFAULT_SAIL_SECOND,
+    val slot: Int = 1,
+) {
+    val design: SailDesign get() = SailDesign(pattern, first.color, second.color)
+    val editing: Hsv get() = if (slot == 0) first else second
+
+    fun withEditing(hsv: Hsv) = if (slot == 0) copy(first = hsv) else copy(second = hsv)
+}
 
 /** Własny kolor kadłuba. */
 @Composable
 fun BoatWorkshop(
     open: Boolean,
     onToggle: () -> Unit,
-    color: Int,
-    onColor: (Int) -> Unit,
+    pick: Hsv,
+    onPick: (Hsv) -> Unit,
     onBuy: (ShopItem) -> Unit,
     onEquip: (ShopItem) -> Unit,
 ) {
     WorkshopFrame(stringResource(R.string.workshop_boat_open), stringResource(R.string.workshop_boat_title), open, onToggle) {
-        PixelText(stringResource(R.string.workshop_pick_shade), size = 1, color = Pal.Foam, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
-        VSpace(3)
-        ShadePalette(selected = color, other = null, onPick = onColor)
+        PixelText(stringResource(R.string.workshop_pick_color), size = 1, color = Pal.Foam, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         VSpace(4)
-        val quote = Workshop.boatQuote(color)
-        WorkshopBuy(
-            item = Workshop.boatItem(color),
-            breakdown = quote?.let { stringResource(R.string.workshop_boat_price, it.base) },
-            quote = quote,
-            problem = null,
-            onBuy = onBuy,
-            onEquip = onEquip,
-        )
+        ColorPicker(pick, onPick)
+        VSpace(4)
+        val color = pick.color
+        ColorReadout(color, Workshop.groupOf(color).boatPrice)
+        VSpace(4)
+        PriceTable(Workshop.groupOf(color), { it.boatPrice }) { onPick(sampleOf(it, pick)) }
+        VSpace(4)
+        WorkshopBuy(Workshop.boatItem(color), breakdown = null, quote = Workshop.boatQuote(color), onBuy = onBuy, onEquip = onEquip)
     }
 }
 
-/** Dwukolorowy żagiel: wzór, dwa kolory z palety. */
+/** Dwukolorowy żagiel: wzór i dwa kolory z palety. */
 @Composable
 fun SailWorkshop(
     open: Boolean,
     onToggle: () -> Unit,
-    design: SailDesign,
-    onDesign: (SailDesign) -> Unit,
+    draft: SailDraft,
+    onDraft: (SailDraft) -> Unit,
     onBuy: (ShopItem) -> Unit,
     onEquip: (ShopItem) -> Unit,
 ) {
-    // Który kolor zmienia paleta: 0 – pierwszy (tło), 1 – drugi (wzór).
-    var slot by remember { mutableIntStateOf(1) }
     WorkshopFrame(stringResource(R.string.workshop_sail_open), stringResource(R.string.workshop_sail_title), open, onToggle) {
         PixelText(stringResource(R.string.workshop_pattern), size = 1, color = Pal.Foam)
         VSpace(2)
         for (line in SailPattern.entries.chunked(5)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                 for (pattern in line) {
-                    PatternChip(design.copy(pattern = pattern), selected = pattern == design.pattern, modifier = Modifier.weight(1f)) {
-                        onDesign(design.copy(pattern = pattern))
+                    PatternChip(draft.design.copy(pattern = pattern), selected = pattern == draft.pattern, modifier = Modifier.weight(1f)) {
+                        onDraft(draft.copy(pattern = pattern))
                     }
                 }
             }
@@ -98,41 +109,40 @@ fun SailWorkshop(
             for (i in 0..1) {
                 PixelButton(
                     text = "",
-                    onClick = { slot = i },
-                    style = if (slot == i) ButtonStyle.GREEN else ButtonStyle.SEA,
+                    onClick = { onDraft(draft.copy(slot = i)) },
+                    style = if (draft.slot == i) ButtonStyle.GREEN else ButtonStyle.SEA,
                     modifier = Modifier.weight(1f),
                 ) {
-                    ColorDot(if (i == 0) design.first else design.second)
+                    ColorDot((if (i == 0) draft.first else draft.second).color, 8)
                     HSpace(3)
                     PixelText(stringResource(R.string.workshop_color_n, i + 1), size = 2)
                 }
             }
             PixelButton(
                 stringResource(R.string.workshop_swap),
-                onClick = { onDesign(design.copy(first = design.second, second = design.first)) },
+                onClick = { onDraft(draft.copy(first = draft.second, second = draft.first)) },
                 style = ButtonStyle.WOOD,
                 size = 2,
             )
         }
         VSpace(4)
-        ShadePalette(
-            selected = if (slot == 0) design.first else design.second,
-            other = if (slot == 0) design.second else design.first,
-            onPick = { c -> onDesign(if (slot == 0) design.copy(first = c) else design.copy(second = c)) },
-        )
+        ColorPicker(draft.editing) { onDraft(draft.withEditing(it)) }
         VSpace(4)
-        val quote = Workshop.sailQuote(design)
-        val a = Workshop.shade(design.first)
-        val b = Workshop.shade(design.second)
+        val color = draft.editing.color
+        ColorReadout(color, Workshop.groupOf(color).sailPrice)
+        VSpace(4)
+        PriceTable(Workshop.groupOf(color), { it.sailPrice }) { onDraft(draft.withEditing(sampleOf(it, draft.editing))) }
+        VSpace(4)
+        val design = draft.design
         WorkshopBuy(
             item = Workshop.sailItem(design),
-            breakdown = if (a != null && b != null) {
-                stringResource(R.string.workshop_sail_price, Workshop.patternPrice(design.pattern), a.sailPrice, b.sailPrice)
-            } else {
-                null
-            },
-            quote = quote,
-            problem = stringResource(R.string.workshop_same_colors),
+            breakdown = stringResource(
+                R.string.workshop_sail_price,
+                Workshop.patternPrice(design.pattern),
+                Workshop.groupOf(design.first).sailPrice,
+                Workshop.groupOf(design.second).sailPrice,
+            ),
+            quote = Workshop.sailQuote(design),
             onBuy = onBuy,
             onEquip = onEquip,
         )
@@ -163,45 +173,166 @@ private fun WorkshopFrame(
     }
 }
 
-/** Siatka odcieni; [selected] ma złotą ramkę, [other] (drugi kolor żagla) – białą. */
+/**
+ * Pełna paleta: pole nasycenie (w prawo) × jasność (w górę) dla wybranej barwy i pasek wszystkich barw pod nim.
+ * Dotyk i przeciąganie palcem od razu zmieniają kolor (i nie przewijają przy tym listy sklepu).
+ */
 @Composable
-private fun ShadePalette(selected: Int?, other: Int?, onPick: (Int) -> Unit) {
+private fun ColorPicker(pick: Hsv, onPick: (Hsv) -> Unit) {
     val u = LocalUnit.current.toFloat()
-    val audio = LocalServices.current.audio
-    val pick by rememberUpdatedState(onPick)
-    val palette = Workshop.palette
-    val rows = palette.size / Workshop.COLUMNS
+    val current by rememberUpdatedState(pick)
+    val update by rememberUpdatedState(onPick)
+    val pure = Color(ColorMath.fromHsv(pick.h, 1f, 1f))
     Box(
         Modifier
             .fillMaxWidth()
-            .height(px(rows * SHADE_H))
-            .pointerInput(Unit) {
-                detectTapGestures { pos ->
-                    val col = (pos.x / (size.width / Workshop.COLUMNS.toFloat())).toInt().coerceIn(0, Workshop.COLUMNS - 1)
-                    val row = (pos.y / (size.height / rows.toFloat())).toInt().coerceIn(0, rows - 1)
-                    audio.play(Sfx.CLICK)
-                    pick(palette[row * Workshop.COLUMNS + col].color)
-                }
-            }
+            .height(px(PICKER_H))
             .drawBehind {
-                // Całe piksele ekranu na pole – ostre krawędzie jak w reszcie gry.
-                val cw = floor(size.width / Workshop.COLUMNS)
-                val ch = floor(size.height / rows)
-                val left = floor((size.width - cw * Workshop.COLUMNS) / 2f)
-                for ((i, shade) in palette.withIndex()) {
-                    val x = left + (i % Workshop.COLUMNS) * cw
-                    val y = (i / Workshop.COLUMNS) * ch
-                    val frame = when (shade.color) {
-                        selected -> Pal.Gold
-                        other -> Pal.White
-                        else -> Pal.Outline
-                    }
-                    val border = if (frame == Pal.Outline) u else 2 * u
-                    drawRect(frame, Offset(x, y), Size(cw, ch))
-                    drawRect(Color(shade.color), Offset(x + border, y + border), Size(cw - 2 * border, ch - 2 * border))
+                drawRect(Pal.Outline)
+                val inner = Size(size.width - 2 * u, size.height - 2 * u)
+                drawRect(Brush.horizontalGradient(listOf(Color.White, pure), startX = u, endX = size.width - u), Offset(u, u), inner)
+                drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black), startY = u, endY = size.height - u), Offset(u, u), inner)
+                marker(Offset(u + pick.s * inner.width, u + (1 - pick.v) * inner.height), u)
+            }
+            .pointerInput(Unit) {
+                track { pos ->
+                    val s = ((pos.x - u) / (size.width - 2 * u)).coerceIn(0f, 1f)
+                    val v = 1f - ((pos.y - u) / (size.height - 2 * u)).coerceIn(0f, 1f)
+                    update(current.copy(s = s, v = v))
                 }
             },
     )
+    VSpace(3)
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(px(HUE_H))
+            .drawBehind {
+                drawRect(Pal.Outline)
+                val hues = List(7) { Color(ColorMath.fromHsv(it / 6f, 1f, 1f)) }
+                drawRect(Brush.horizontalGradient(hues, startX = u, endX = size.width - u), Offset(u, u), Size(size.width - 2 * u, size.height - 2 * u))
+                val x = u + pick.h * (size.width - 2 * u)
+                drawRect(Pal.Outline, Offset(x - 2 * u, 0f), Size(4 * u, size.height))
+                drawRect(Color.White, Offset(x - u, u), Size(2 * u, size.height - 2 * u))
+            }
+            .pointerInput(Unit) {
+                track { pos ->
+                    // Barwa 1.0 to znów czerwień – zostajemy tuż przed nią, żeby znacznik nie skakał na początek paska.
+                    val h = ((pos.x - u) / (size.width - 2 * u)).coerceIn(0f, 0.999f)
+                    update(current.copy(h = h))
+                }
+            },
+    )
+}
+
+/** Typowy kolor grupy z cennika; biel, szarość i czerń nie mają barwy, więc pasek barw zostaje tam, gdzie był. */
+private fun sampleOf(group: Workshop.ColorGroup, current: Hsv): Hsv =
+    if (group.neutral != null) group.sample.copy(h = current.h) else group.sample
+
+/** Kwadratowy celownik: biała ramka w ciemnej obwódce, widoczny na każdym kolorze. */
+private fun DrawScope.marker(center: Offset, u: Float) {
+    val r = 4 * u
+    drawRect(Pal.Outline, Offset(center.x - r, center.y - r), Size(2 * r, 2 * r))
+    drawRect(Color.White, Offset(center.x - r + u, center.y - r + u), Size(2 * r - 2 * u, 2 * r - 2 * u))
+    drawRect(Pal.Outline, Offset(center.x - r + 2 * u, center.y - r + 2 * u), Size(2 * r - 4 * u, 2 * r - 4 * u))
+}
+
+/** Śledzi palec od dotknięcia do puszczenia; zjada ruch, żeby lista sklepu się nie przewijała. */
+private suspend fun PointerInputScope.track(onPosition: (Offset) -> Unit) {
+    awaitEachGesture {
+        val down = awaitFirstDown()
+        down.consume()
+        onPosition(down.position)
+        while (true) {
+            val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+            if (!change.pressed) break
+            change.consume()
+            onPosition(change.position)
+        }
+    }
+}
+
+/** Wybrany kolor: próbka, wartości RGB, grupa i jej cena. */
+@Composable
+private fun ColorReadout(color: Int, price: Int) {
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        ColorDot(color, 18)
+        HSpace(5)
+        Column {
+            PixelText(stringResource(R.string.workshop_rgb, ColorMath.red(color), ColorMath.green(color), ColorMath.blue(color)), size = 2)
+            PixelText(stringResource(R.string.workshop_group, groupName(Workshop.groupOf(color)), price), size = 1, color = Pal.Gold)
+        }
+    }
+}
+
+/** Cennik: każda grupa kolorów z ceną; dotknięcie ustawia jej typowy kolor, bieżąca ma złotą ramkę. */
+@Composable
+private fun PriceTable(current: Workshop.ColorGroup, priceOf: (Workshop.ColorGroup) -> Int, onGroup: (Workshop.ColorGroup) -> Unit) {
+    val u = LocalUnit.current.toFloat()
+    val audio = LocalServices.current.audio
+    PixelText(stringResource(R.string.workshop_prices), size = 1, color = Pal.Foam)
+    VSpace(2)
+    val rows = Workshop.groups.filter { it.tone != null }.chunked(Workshop.Hue.entries.size) + listOf(Workshop.groups.filter { it.neutral != null })
+    for (row in rows) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(1))) {
+            for (group in row) {
+                val sample = Color(group.sample.color)
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .height(px(15))
+                        .drawBehind {
+                            drawRect(if (group === current) Pal.Gold else Pal.Outline)
+                            val b = if (group === current) 2 * u else u
+                            drawRect(sample, Offset(b, b), Size(size.width - 2 * b, size.height - 2 * b))
+                        }
+                        .noRippleClick {
+                            audio.play(Sfx.CLICK)
+                            onGroup(group)
+                        },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PixelText(priceOf(group).toString(), size = 1)
+                }
+            }
+        }
+        VSpace(1)
+    }
+}
+
+@Composable
+private fun groupName(group: Workshop.ColorGroup): String {
+    group.neutral?.let {
+        return stringResource(
+            when (it) {
+                Workshop.Neutral.WHITE -> R.string.color_white
+                Workshop.Neutral.SILVER -> R.string.color_silver
+                Workshop.Neutral.GREY -> R.string.color_grey
+                Workshop.Neutral.GRAPHITE -> R.string.color_graphite
+                Workshop.Neutral.BLACK -> R.string.color_black
+            },
+        )
+    }
+    val hue = stringResource(
+        when (group.hue!!) {
+            Workshop.Hue.RED -> R.string.color_reds
+            Workshop.Hue.ORANGE -> R.string.color_oranges
+            Workshop.Hue.YELLOW -> R.string.color_yellows
+            Workshop.Hue.GREEN -> R.string.color_greens
+            Workshop.Hue.TEAL -> R.string.color_teals
+            Workshop.Hue.BLUE -> R.string.color_blues
+            Workshop.Hue.PURPLE -> R.string.color_purples
+            Workshop.Hue.PINK -> R.string.color_pinks
+        },
+    )
+    val tone = stringResource(
+        when (group.tone!!) {
+            Workshop.Tone.PASTEL -> R.string.color_pastel
+            Workshop.Tone.VIVID -> R.string.color_vivid
+            Workshop.Tone.DARK -> R.string.color_dark
+        },
+    )
+    return stringResource(R.string.color_group_name, hue, tone)
 }
 
 /** Miniatura wzoru w wybranych kolorach. */
@@ -241,10 +372,10 @@ private fun DrawScope.drawGrid(grid: Array<IntArray>, topLeft: Offset, area: Siz
 }
 
 @Composable
-private fun ColorDot(color: Int) {
+private fun ColorDot(color: Int, units: Int) {
     val u = LocalUnit.current.toFloat()
     Box(
-        Modifier.size(px(8)).drawBehind {
+        Modifier.size(px(units)).drawBehind {
             drawRect(Pal.Outline)
             drawRect(Color(color), Offset(u, u), Size(size.width - 2 * u, size.height - 2 * u))
         },
@@ -257,7 +388,6 @@ private fun WorkshopBuy(
     item: ShopItem?,
     breakdown: String?,
     quote: Workshop.Quote?,
-    problem: String?,
     onBuy: (ShopItem) -> Unit,
     onEquip: (ShopItem) -> Unit,
 ) {
@@ -281,7 +411,7 @@ private fun WorkshopBuy(
     }
     VSpace(3)
     when {
-        item == null -> PixelButton(problem ?: "", onClick = {}, enabled = false, size = 2, modifier = Modifier.fillMaxWidth())
+        item == null -> PixelButton(stringResource(R.string.workshop_same_colors), onClick = {}, enabled = false, size = 2, modifier = Modifier.fillMaxWidth())
         progress.isEquipped(item) -> PixelButton(stringResource(R.string.shop_equipped), onClick = {}, enabled = false, size = 2, modifier = Modifier.fillMaxWidth())
         progress.owns(item) -> PixelButton(stringResource(R.string.shop_equip), onClick = { onEquip(item) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
         else -> PixelButton(
@@ -298,5 +428,6 @@ private fun WorkshopBuy(
     }
 }
 
-/** Wysokość wiersza palety w pikselach interfejsu. */
-private const val SHADE_H = 18
+/** Wysokość pola palety i paska barw w pikselach interfejsu. */
+private const val PICKER_H = 90
+private const val HUE_H = 14
