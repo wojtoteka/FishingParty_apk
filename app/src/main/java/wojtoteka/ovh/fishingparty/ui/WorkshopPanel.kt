@@ -13,7 +13,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -25,6 +28,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.ItemKind
@@ -176,6 +181,7 @@ private fun WorkshopFrame(
 /**
  * Pełna paleta: pole nasycenie (w prawo) × jasność (w górę) dla wybranej barwy i pasek wszystkich barw pod nim.
  * Dotyk i przeciąganie palcem od razu zmieniają kolor (i nie przewijają przy tym listy sklepu).
+ * Pod paskiem można też wpisać kolor liczbami RGB.
  */
 @Composable
 private fun ColorPicker(pick: Hsv, onPick: (Hsv) -> Unit) {
@@ -223,7 +229,43 @@ private fun ColorPicker(pick: Hsv, onPick: (Hsv) -> Unit) {
                 }
             },
     )
+    VSpace(3)
+    RgbInput(pick, onPick)
 }
+
+/**
+ * Kolor wpisany liczbami: trzy pola R, G, B (0–255). Każda poprawna liczba od razu zmienia kolor,
+ * a grupę i cenę gra dobiera sama, tak jak przy wyborze palcem. Puste pole czeka na wpisanie liczby.
+ */
+@Composable
+private fun RgbInput(pick: Hsv, onPick: (Hsv) -> Unit) {
+    val color = pick.color
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        for (channel in 0..2) {
+            val value = ColorMath.channel(color, channel)
+            // Tekst pola nadąża za kolorem z palety, ale nie przeszkadza w pisaniu (np. pustemu polu).
+            var text by remember(value) { mutableStateOf(value.toString()) }
+            PixelTextField(
+                value = text,
+                onValueChange = { typed ->
+                    val digits = typed.filter { it.isDigit() }
+                    text = digits
+                    val number = digits.toIntOrNull() ?: return@PixelTextField
+                    val clamped = number.coerceAtMost(255)
+                    if (clamped != number) text = clamped.toString()
+                    if (clamped != value) onPick(ColorMath.withChannel(pick, channel, clamped))
+                },
+                label = RGB_LABELS[channel],
+                keyboard = KeyboardType.Number,
+                maxLength = 3,
+                imeAction = if (channel < 2) ImeAction.Next else ImeAction.Done,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+private val RGB_LABELS = listOf("R", "G", "B")
 
 /** Typowy kolor grupy z cennika; biel, szarość i czerń nie mają barwy, więc pasek barw zostaje tam, gdzie był. */
 private fun sampleOf(group: Workshop.ColorGroup, current: Hsv): Hsv =

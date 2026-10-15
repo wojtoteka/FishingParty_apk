@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,6 +86,9 @@ fun PixelTextField(
     val style = remember(fp, density) {
         with(density) { TextStyle(fontFamily = BitCell, fontSize = (16 * fp).toSp(), lineHeight = (12 * fp).toSp(), color = Pal.White) }
     }
+    // Stała wysokość wiersza – puste pole nie jest wyższe od wypełnionego (np. pola RGB w kreatorze nie skaczą).
+    val measurer = rememberTextMeasurer()
+    val lineHeight = remember(style, density) { with(density) { measurer.measure("0", style).size.height.toDp() } }
     Column(modifier) {
         PixelText(label, size = 1, color = Pal.Foam)
         VSpace(1)
@@ -104,7 +109,8 @@ fun PixelTextField(
             modifier = Modifier
                 .fillMaxWidth()
                 .drawBehind { pixelBox(u, Pal.Outline.copy(alpha = 0.9f), Pal.Navy, Pal.Outline, shadow = 0f) }
-                .padding(horizontal = px(5), vertical = px(4)),
+                .padding(horizontal = px(5), vertical = px(4))
+                .height(lineHeight),
         )
     }
 }

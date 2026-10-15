@@ -216,4 +216,38 @@ class WorkshopTest {
         p.equip(boat)
         assertTrue(p.isEquipped(boat))
     }
+
+    /** Kolor wpisany liczbami RGB wraca w polach dokładnie taki sam i dostaje grupę (a z nią cenę) jak z palety. */
+    @Test
+    fun typedRgbIsKeptExactly() {
+        val start = Hsv(0.6f, 0.7f, 0.8f)
+        for (channel in 0..2) for (value in 0..255) {
+            val hsv = ColorMath.withChannel(start, channel, value)
+            assertEquals(value, ColorMath.channel(hsv.color, channel))
+            for (other in (0..2) - channel) assertEquals(ColorMath.channel(start.color, other), ColorMath.channel(hsv.color, other))
+        }
+        // Każdy z 16,7 mln kolorów przechodzi przez barwę/nasycenie/jasność bez zmiany.
+        for (r in 0..255) for (g in 0..255) for (b in 0..255) {
+            val color = ColorMath.rgb(r, g, b)
+            if (ColorMath.toHsv(color).color != color) throw AssertionError("RGB $r $g $b")
+        }
+        // Wpisana szarość i czerń nie przestawiają paska barw.
+        val green = Hsv(0.33f, 0.5f, 0.5f)
+        val gray = ColorMath.withChannel(ColorMath.withChannel(ColorMath.withChannel(green, 0, 128), 1, 128), 2, 128)
+        assertEquals(ColorMath.rgb(128, 128, 128), gray.color)
+        // Zielonkawa szarość (126, 128, 126) → po wpisaniu G = 126 czysta szarość, pasek barw zostaje na zieleni.
+        val greenish = Hsv(1f / 3f, 0.01f, 0.5f)
+        assertEquals(ColorMath.rgb(126, 128, 126), greenish.color)
+        val grayed = ColorMath.withChannel(greenish, 1, 126)
+        assertEquals(ColorMath.rgb(126, 126, 126), grayed.color)
+        assertEquals(1f / 3f, grayed.h, 0f)
+        val black = ColorMath.withChannel(Hsv(1f / 3f, 0.5f, 0.5f).let { ColorMath.withChannel(ColorMath.withChannel(it, 0, 0), 2, 0) }, 1, 0)
+        assertEquals(ColorMath.rgb(0, 0, 0), black.color)
+        assertEquals(1f / 3f, black.h, 0.001f)
+        assertEquals(1f, black.s, 0f)
+        // Cena to cena grupy koloru – tak samo jak przy wyborze palcem.
+        val typed = ColorMath.withChannel(ColorMath.withChannel(ColorMath.withChannel(start, 0, 0xDB), 1, 0x2C), 2, 0x2C)
+        assertEquals(red, typed.color)
+        assertEquals(Workshop.groupOf(red), Workshop.groupOf(typed.color))
+    }
 }

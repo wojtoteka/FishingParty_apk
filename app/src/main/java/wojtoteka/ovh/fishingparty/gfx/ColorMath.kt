@@ -22,6 +22,25 @@ object ColorMath {
     fun green(c: Int) = c shr 8 and 0xFF
     fun blue(c: Int) = c and 0xFF
 
+    /** Składowa koloru: 0 – czerwona, 1 – zielona, 2 – niebieska. */
+    fun channel(c: Int, channel: Int) = c shr (16 - 8 * channel) and 0xFF
+
+    /**
+     * Kolor z [current] ze zmienioną jedną składową RGB, z powrotem jako barwa/nasycenie/jasność.
+     * Biel, szarość i czerń nie mają barwy (a czerń także nasycenia) – te zostają z [current],
+     * żeby pasek barw i znacznik na palecie nie skakały.
+     */
+    fun withChannel(current: Hsv, channel: Int, value: Int): Hsv {
+        val shift = 16 - 8 * channel
+        val c = current.color and (0xFF shl shift).inv() or (value.coerceIn(0, 255) shl shift)
+        val hsv = toHsv(c)
+        return when {
+            hsv.v == 0f -> hsv.copy(h = current.h, s = current.s)
+            hsv.s == 0f -> hsv.copy(h = current.h)
+            else -> hsv
+        }
+    }
+
     fun toHsv(c: Int): Hsv {
         val r = red(c) / 255f
         val g = green(c) / 255f
