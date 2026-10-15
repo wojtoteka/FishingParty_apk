@@ -12,6 +12,7 @@ import wojtoteka.ovh.fishingparty.data.Progress
 import wojtoteka.ovh.fishingparty.data.SaveCodec
 import wojtoteka.ovh.fishingparty.data.SaveData
 import wojtoteka.ovh.fishingparty.data.Workshop
+import wojtoteka.ovh.fishingparty.gfx.ColorMath
 import wojtoteka.ovh.fishingparty.gfx.Hsv
 import wojtoteka.ovh.fishingparty.gfx.HullPaints
 import wojtoteka.ovh.fishingparty.gfx.SailDesign
@@ -19,6 +20,7 @@ import wojtoteka.ovh.fishingparty.gfx.SailPattern
 import wojtoteka.ovh.fishingparty.gfx.SailStyles
 import java.io.File
 import javax.imageio.ImageIO
+import kotlin.math.hypot
 
 class WorkshopTest {
     private fun c(rgb: Int) = 0xFF000000.toInt() or rgb
@@ -98,6 +100,14 @@ class WorkshopTest {
             assertEquals(HullPaints.hex(rgb), Workshop.Neutral.BLACK, Workshop.groupOf(c(rgb)).neutral)
             assertTrue(HullPaints.hex(rgb), Workshop.boatItem(c(rgb)).price > 2000)
         }
+        // Kolory, które wyglądają na białe (bardzo jasne i prawie bez barwy, także lekko różowe czy niebieskawe),
+        // nie są tańsze niż „lodowa” – najbliższa bieli łódź ze sklepu.
+        val ice = Catalog.boats.first { it.id == "ice" }.price
+        for (h in 0 until 72) for (s in 0..20) for (v in 85..100) {
+            val color = Hsv(h / 72f, s / 100f, v / 100f).color
+            val lab = ColorMath.lab(color)
+            if (lab[0] >= 90f && hypot(lab[1], lab[2]) <= 15f) assertTrue(HullPaints.hex(color), Workshop.boatItem(color).price > ice)
+        }
         // …ale wyraźny granat to nadal niebieski, nie czerń.
         assertEquals(Workshop.Hue.BLUE, Workshop.groupOf(c(0x000080)).hue)
         // Przykłady z życia: czarna jak „mroczna”, szara jak „srebrna”, bursztynowa jak „złota”.
@@ -133,6 +143,7 @@ class WorkshopTest {
     fun copiesOfShopSailsCostMoreThanInTheShop() {
         val cases = listOf(
             SailDesign(SailPattern.HALVES, white, red) to "poland",
+            SailDesign(SailPattern.HALVES, c(0xFFE6E6), red) to "poland", // lekko różowa biel to wciąż biel
             SailDesign(SailPattern.HALVES, blue, yellow) to "ukraine",
             SailDesign(SailPattern.BAND, red, white) to "austria",
             SailDesign(SailPattern.CROSS, blue, yellow) to "sweden",
