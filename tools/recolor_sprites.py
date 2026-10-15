@@ -264,6 +264,133 @@ def build_sailors():
         save(recolor(load("sailor"), mapping(table or {})), OUT_SPRITES / "sailors" / f"{sailor_id}.png")
 
 
+# Wersja 2.3: postacie narysowane od zera (9x9, jak oryginalny marynarz), a nie przemalowane.
+# Litery a/d/c to skóra, jej cień i oczy oryginału; pozostałe – kolory z tabeli danej postaci.
+DRAWN_SAILORS = {
+ "viking": (["w.......w",
+             "w.ggggg.w",
+             ".wgggggw.",
+             "..gcacg..",
+             "..yaaay..",
+             ".ayyyyya.",
+             "..arrra..",
+             "...ppp...",
+             "...p.p..."], dict(w=(240,232,205), g=(150,158,170), y=(255,206,60), r=(190,40,40), p=(110,70,40))),
+ "chef": ([".wwwwwww.",
+           "..wwwww..",
+           "..ggggg..",
+           "..acaca..",
+           "..ammma..",
+           ".awwwwwa.",
+           "..wwkww..",
+           "...kwk...",
+           "...k.k..."], dict(w=(250,250,250), g=(200,205,215), k=(40,40,48), m=(90,50,20))),
+ "cat": (["..o...o..",
+          "..oo.oo..",
+          "..ooooo..",
+          "..gcocg..",
+          "..oopoo..",
+          ".owwwwwo.",
+          "..nnnnn..",
+          "...www...",
+          "...o.o..."], dict(o=(245,150,40), g=(245,150,40), p=(255,130,150), w=(240,240,250), n=(30,60,150))),
+ "penguin": (["...kkk...",
+              "..kkkkk..",
+              "..kwkwk..",
+              "..kwowk..",
+              "..kwwwk..",
+              ".kkwwwkk.",
+              "..kwwwk..",
+              "...kkk...",
+              "..oo.oo.."], dict(k=(30,32,40), w=(245,245,250), o=(255,150,30))),
+ "frog": (["..g...g..",
+           ".gwg.gwg.",
+           ".gcgggcg.",
+           ".ggggggg.",
+           "..grrrg..",
+           ".lgggggl.",
+           "..lllll..",
+           "...ggg...",
+           "..gg.gg.."], dict(g=(70,170,60), w=(250,250,250), r=(200,40,60), l=(150,215,90))),
+ "skeleton": (["..rrrrr..",
+               ".rrwwwrr.",
+               "..kkwkk..",
+               "..wwkww..",
+               "...wkw...",
+               ".w.www.w.",
+               "...www...",
+               "...w.w...",
+               "...w.w..."], dict(r=(200,30,40), w=(235,235,225), k=(20,20,24))),
+ "santa": (["....rrw..",
+            "...rrr...",
+            "..wwwww..",
+            "..acaca..",
+            "..wwwww..",
+            ".rwwwwwr.",
+            "..rkykr..",
+            "...rrr...",
+            "...k.k..."], dict(r=(210,30,40), w=(250,250,250), k=(30,30,34), y=(255,200,40))),
+ "alien": (["..a...a..",
+            "...a.a...",
+            "..ggggg..",
+            ".gkkgkkg.",
+            "..ggggg..",
+            "...gdg...",
+            "..sssss..",
+            "...sss...",
+            "...s.s..."], dict(a=(120,230,90), g=(120,230,90), k=(20,20,30), d=(60,140,50), s=(160,90,220))),
+ "robot": (["....r....",
+            "....m....",
+            "..mmmmm..",
+            "..mcmcm..",
+            "..mmmmm..",
+            ".dmyyymd.",
+            "..mmmmm..",
+            "...mmm...",
+            "...d.d..."], dict(r=(255,60,60), m=(170,180,195), c=(60,220,255), d=(100,110,125), y=(255,200,40))),
+ "astronaut": (["...www...",
+                "..wwwww..",
+                ".wwbbbww.",
+                ".wbbllbw.",
+                ".wwbbbww.",
+                "..wwwww..",
+                ".wwrwrww.",
+                "...www...",
+                "...w.w..."], dict(w=(240,242,248), b=(30,50,110), l=(130,200,255), r=(220,60,60))),
+ "wizard": (["....p....",
+             "...ppp...",
+             "...pyp...",
+             ".ppppppp.",
+             "..acaca..",
+             "..wwwww..",
+             ".pwwwwwp.",
+             "..ppwpp..",
+             "...ppp..."], dict(p=(100,60,180), y=(255,215,60), w=(235,235,240))),
+ "shark": (["....g....",
+            "...ggg...",
+            "..ggggg..",
+            ".gcgggcg.",
+            ".wrwrwrw.",
+            "..rrrrr..",
+            ".gwwwwwg.",
+            "...ggg...",
+            "..gg.gg.."], dict(g=(110,130,150), w=(250,250,250), r=(200,40,50))),
+}
+
+
+def build_drawn_sailors():
+    base = {"a": (255, 227, 170), "d": (227, 185, 101), "c": (0, 0, 0)}
+    for sailor_id, (rows, colors) in DRAWN_SAILORS.items():
+        palette = {**base, **colors}
+        image = Image.new("RGBA", (9, 9), (0, 0, 0, 0))
+        for y, row in enumerate(rows):
+            assert len(row) == 9 and len(rows) == 9, sailor_id
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    image.putpixel((x, y), palette[ch] + (255,))
+        save(image, OUT_SPRITES / "sailors" / f"{sailor_id}.png")
+
+
 def build_notification_icon():
     """Ikona na pasku powiadomień: biała sylwetka oryginalnej rybki, powiększona bez wygładzania."""
     src = load("fishscore")
@@ -282,5 +409,6 @@ if __name__ == "__main__":
     build_characters()
     build_boats()
     build_sailors()
+    build_drawn_sailors()
     build_notification_icon()
     print("OK")

@@ -146,7 +146,7 @@ class SaveAndProgressTest {
         val save = sample().apply {
             boat = "spaceship"
             sail = "laser"
-            sailor = "robot"
+            sailor = "cyborg"
         }
         val copy = SaveCodec.decode(SaveCodec.encode(save))
         assertEquals("classic", copy.boat)

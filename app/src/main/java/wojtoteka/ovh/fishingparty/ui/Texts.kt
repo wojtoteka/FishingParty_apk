@@ -210,6 +210,18 @@ fun itemName(item: ShopItem): String {
             "sail:brazil" -> R.string.sail_brazil
             "sail:argentina" -> R.string.sail_argentina
             "sail:japan" -> R.string.sail_japan
+            "sailor:cat" -> R.string.sailor_cat
+            "sailor:penguin" -> R.string.sailor_penguin
+            "sailor:frog" -> R.string.sailor_frog
+            "sailor:chef" -> R.string.sailor_chef
+            "sailor:viking" -> R.string.sailor_viking
+            "sailor:santa" -> R.string.sailor_santa
+            "sailor:skeleton" -> R.string.sailor_skeleton
+            "sailor:shark" -> R.string.sailor_shark
+            "sailor:robot" -> R.string.sailor_robot
+            "sailor:wizard" -> R.string.sailor_wizard
+            "sailor:alien" -> R.string.sailor_alien
+            "sailor:astronaut" -> R.string.sailor_astronaut
             else -> R.string.app_name
         },
     )
