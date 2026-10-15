@@ -41,6 +41,7 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
 - Gradle 9.8.1 uruchamiany na **JDK 27** (`gradle/gradle-daemon-jvm.properties`), kompilacja przez toolchain JDK 27.
 - AGP 9.4.1, Kotlin 2.4.21, Compose BOM 2026.09.00, compileSdk 37, targetSdk 36, minSdk 26.
 - Bajtkod ma target 26 – stabilny Kotlin nie obsługuje jeszcze celu 27 (pojawi się w Kotlinie 2.5).
+- `app/src/main/baseline-prof.txt` – profil kompilacji: kod gry jest kompilowany z wyprzedzeniem przy instalacji wersji release (płynne menu i listy od pierwszego uruchomienia).
 
 Ranking online wymaga w `local.properties` (plik poza repozytorium) sekretu podpisu – tego samego co `HMAC_SECRET` w `.env` serwera:
 

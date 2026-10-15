@@ -55,8 +55,10 @@ import wojtoteka.ovh.fishingparty.AppLanguage
 import wojtoteka.ovh.fishingparty.BuildConfig
 import wojtoteka.ovh.fishingparty.Language
 import wojtoteka.ovh.fishingparty.R
+import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
+import wojtoteka.ovh.fishingparty.data.Metric
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.Worlds
@@ -80,20 +82,24 @@ fun AchievementsScreen(onBack: () -> Unit) {
     val repo = services.repo
     repo.revision.intValue
     val progress = repo.progress
-    val visible = Achievements.all.filter { !it.hidden || progress.isUnlocked(it) }
+    // Postęp każdej miary liczony raz na odświeżenie ekranu, a nie w każdej karcie przy przewijaniu
+    // (niektóre miary przechodzą przez wszystkie poziomy).
+    val metrics = remember(repo.revision.intValue) { Metric.entries.associateWith { progress.metric(it) } }
+    fun isUnlocked(a: Achievement) = metrics.getValue(a.metric) >= a.target
+    val visible = Achievements.all.filter { !it.hidden || isUnlocked(it) }
     // Kolejność ustalana raz przy wejściu – odebrana odznaka zostaje na miejscu,
     // inaczej lista przeskakiwała za nią na sam dół.
     val order = remember {
         visible.sortedBy {
             when {
-                progress.isUnlocked(it) && !progress.isClaimed(it) -> 0
-                !progress.isUnlocked(it) -> 1
+                isUnlocked(it) && !progress.isClaimed(it) -> 0
+                !isUnlocked(it) -> 1
                 else -> 2
             }
         }.map { it.id }
     }
     val sorted = order.mapNotNull { id -> visible.firstOrNull { it.id == id } }
-    val unlockedCount = visible.count { progress.isUnlocked(it) }
+    val unlockedCount = visible.count { isUnlocked(it) }
     val percent = if (visible.isEmpty()) 0 else unlockedCount * 100 / visible.size
     ScreenFrame(stringResource(R.string.achievements_title), onBack) {
         PixelText(
@@ -104,11 +110,12 @@ fun AchievementsScreen(onBack: () -> Unit) {
         )
         LazyColumn(
             Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
+            state = rememberListState(),
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(4)),
         ) {
             items(sorted, key = { it.id }) { a ->
-                val unlocked = progress.isUnlocked(a)
+                val unlocked = isUnlocked(a)
                 val claimed = progress.isClaimed(a)
                 DarkCard(Modifier.fillMaxWidth(), highlight = unlocked && !claimed) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -120,7 +127,7 @@ fun AchievementsScreen(onBack: () -> Unit) {
                             PixelText(achievementTitle(a), size = 2, color = if (unlocked) Pal.Gold else Pal.White)
                             PixelText(achievementDescription(a), size = 1, color = Pal.Foam)
                             VSpace(2)
-                            val value = progress.metric(a.metric).coerceAtMost(a.target)
+                            val value = metrics.getValue(a.metric).coerceAtMost(a.target)
                             PixelBar(value.toFloat() / a.target, Modifier.fillMaxWidth().height(px(5)))
                             PixelText("$value/${a.target}", size = 1, color = Pal.SeaLight)
                         }

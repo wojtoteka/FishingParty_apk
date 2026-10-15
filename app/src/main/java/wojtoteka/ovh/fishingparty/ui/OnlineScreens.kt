@@ -523,6 +523,7 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
         }
         LazyColumn(
             Modifier.fillMaxSize(),
+            state = rememberListState(),
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(3)),
             horizontalAlignment = Alignment.CenterHorizontally,

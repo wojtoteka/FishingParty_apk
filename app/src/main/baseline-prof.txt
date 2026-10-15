@@ -1,0 +1,5 @@
+# Profil kompilacji: cały kod gry (pakiet wojtoteka.ovh.fishingparty) kompilowany z wyprzedzeniem
+# przy instalacji, a nie dopiero w trakcie działania – menu, sklep i listy są płynne od pierwszego
+# uruchomienia. Biblioteki Compose mają własne profile, dołączane automatycznie.
+HSPLwojtoteka/ovh/fishingparty/**->**(**)**
+Lwojtoteka/ovh/fishingparty/**;

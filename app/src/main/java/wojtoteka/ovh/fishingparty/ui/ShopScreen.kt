@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,21 +49,30 @@ import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.sin
 
-/** Łódź narysowana w powiększeniu (podgląd w sklepie). */
+/** Jeden pędzel na wszystkie podglądy – wszystko rysuje się w wątku interfejsu, a karta w liście nie tworzy własnych farb. */
+private val previewPainter by lazy { ShipPainter() }
+
+/**
+ * Łódź narysowana w powiększeniu (podgląd w sklepie). Bez kołysania ([sway] = false, karty w liście)
+ * podgląd jest nieruchomy – wcześniej każda widoczna karta przerysowywała się w każdej klatce,
+ * co przy przewijaniu dokładało pracy.
+ */
 @Composable
 fun ShipPreview(look: ShipLook, scale: Int, modifier: Modifier = Modifier, sway: Boolean = true) {
-    val painter = remember { ShipPainter() }
     val time = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        var last = 0L
-        while (isActive) withFrameNanos { now ->
-            if (last != 0L) time.floatValue += ((now - last) / 1e9f).coerceAtMost(0.1f)
-            last = now
+    if (sway) {
+        LaunchedEffect(Unit) {
+            var last = 0L
+            while (isActive) withFrameNanos { now ->
+                if (last != 0L) time.floatValue += ((now - last) / 1e9f).coerceAtMost(0.1f)
+                last = now
+            }
         }
     }
     val u = LocalUnit.current
     Canvas(modifier) {
-        val t = time.floatValue
+        val t = if (sway) time.floatValue else 0f
+        val painter = previewPainter
         // Łódź z masztem i żaglem ma ok. 25×16 pikseli spritu (z kołysaniem więcej) – skala
         // dobrana tak, żeby zawsze mieściła się w polu, w całych pikselach ekranu (ostre krawędzie).
         // Bez kołysania wystarczy mniejszy zapas.
@@ -148,7 +156,7 @@ fun ShopScreen(onBack: () -> Unit) {
                 }
             }
             VSpace(4)
-            val grid = rememberLazyGridState()
+            val grid = rememberGridState()
             // Po rozwinięciu kreatora lista przewija się do niego (jest na samym dole).
             LaunchedEffect(workshopOpen) { if (workshopOpen) grid.animateScrollToItem(items.size) }
             val buy = { item: ShopItem ->

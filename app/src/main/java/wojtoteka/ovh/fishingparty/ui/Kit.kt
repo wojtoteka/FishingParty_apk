@@ -4,6 +4,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -19,6 +20,11 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -42,6 +48,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.Font
@@ -111,13 +118,20 @@ val LocalUnit = staticCompositionLocalOf { 3 }
 
 val BitCell = FontFamily(Font(R.font.bitcell))
 
+/**
+ * Wspólny miernik tekstu z dużą pamięcią. Każdy [PixelText] miał własny, więc w listach (sklep, odznaki)
+ * każda nowa karta przy przewijaniu od nowa układała te same napisy – ceny, „WYBIERZ”, „W UŻYCIU”.
+ */
+val LocalTextMeasurer = staticCompositionLocalOf<TextMeasurer?> { null }
+
 @Composable
 fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
     // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
     val window = LocalWindowInfo.current.containerSize
     val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
     val services = remember(app) { Services(app.repository, app.audio, app.online) }
-    CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, content = content)
+    val measurer = rememberTextMeasurer(cacheSize = 512)
+    CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, LocalTextMeasurer provides measurer, content = content)
 }
 
 /** Piksele interfejsu → dp. */
@@ -167,7 +181,7 @@ fun PixelText(
 ) {
     val fp = fontPixels(size)
     val density = LocalDensity.current
-    val measurer = rememberTextMeasurer(cacheSize = 4)
+    val measurer = LocalTextMeasurer.current ?: rememberTextMeasurer(cacheSize = 4)
     val style = remember(fp, color, align, density) {
         with(density) {
             TextStyle(
@@ -445,6 +459,19 @@ fun Modifier.noRippleClick(onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
 }
+
+/**
+ * Listy (sklep, odznaki, ranking) przygotowują karty z wyprzedzeniem – mniej więcej ekran do przodu
+ * i pół ekranu wstecz – w wolnym czasie między klatkami. Przy szybkim przewijaniu karta jest już
+ * gotowa, zamiast powstawać w tej samej klatce, w której ma się pokazać.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun rememberListState(): LazyListState = rememberLazyListState(LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun rememberGridState(): LazyGridState = rememberLazyGridState(LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
 
 @Composable
 fun VSpace(units: Int) = Box(Modifier.size(width = 1.dp, height = px(units)))
