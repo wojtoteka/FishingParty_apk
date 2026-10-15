@@ -44,7 +44,7 @@
     <string name="enemy_dark_shark">MROCZNY REKIN</string>
     <string name="enemy_dark_shark_desc">Najszybszy z rekinów, prawie zawsze poluje na łódź.</string>
     <string name="enemy_stalker">WIDMOKUDA</string>
-    <string name="enemy_stalker_desc">Najgroźniejszy potwór! Widzi łódź, gdy nic was nie dzieli: oczy jej czerwienieją i po chwili rzuca się błyskawicznie. Uciekaj w bok i chowaj się za skałami i wyspami – przez nie nie widzi.</string>
+    <string name="enemy_stalker_desc">Najgroźniejszy potwór! Widzi łódź, gdy nic was nie dzieli: oko i kolce na grzbiecie robią się czerwone, a po chwili rzuca się błyskawicznie. Uciekaj w bok i chowaj się za skałami i wyspami – przez nie nie widzi.</string>
     <string name="hud_tutorial">PRZESUWAJ PALCEM, BY PŁYNĄĆ</string>
     <string name="type_classic">POŁÓW</string>
     <string name="type_classic_desc">Łów ryby, otwieraj bramy i dopłyń do mety.</string>

@@ -669,6 +669,7 @@ class GameWorld(
             e.seenY = shipY
         }
         e.huntTimer -= dt
+        if (abs(e.vx) > 0.2f) e.faceRight = e.vx > 0f
         when (e.hunt) {
             Hunt.PATROL -> {
                 if (sees) return aim(e)

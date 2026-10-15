@@ -59,6 +59,9 @@ class Enemy(
     var vx = 0f
     var vy = 0f
 
+    /** W którą stronę patrzy (pływając w pionie, zostaje przy ostatniej). */
+    var faceRight = true
+
     /** Gdzie ostatnio widziała łódź. */
     var seenX = 0f
     var seenY = 0f

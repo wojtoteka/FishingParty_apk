@@ -258,18 +258,21 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     }
 
     /**
-     * Widmokuda patrzy w prawo i pochyla się w stronę, w którą płynie (najwyżej o 35°). Gdy namierzy
-     * łódź, oczy świecą na czerwono, a nad głową miga wykrzyknik – to sygnał, żeby uciekać w bok.
+     * Widmokuda patrzy w prawo. Jak inne potwory tylko się odwraca, a lekko (najwyżej o 20°) pochyla się
+     * jedynie przy polowaniu – widać, dokąd skoczy. Gdy namierzy łódź, oko i kolce na grzbiecie robią się
+     * czerwone, a nad głową miga wykrzyknik – to sygnał, żeby uciekać w bok.
      */
     private fun drawStalker(canvas: Canvas, e: Enemy, t: Float, second: Boolean) {
-        val right = e.vx >= 0f
-        val tilt = Math.toDegrees(atan2(e.vy.toDouble(), abs(e.vx).toDouble().coerceAtLeast(0.001))).toFloat().coerceIn(-35f, 35f)
+        val right = e.faceRight
+        val hunting = e.hunt == Hunt.AIM || e.hunt == Hunt.DASH || e.hunt == Hunt.SEARCH
+        val tilt = if (!hunting) 0f
+        else Math.toDegrees(atan2(e.vy.toDouble(), abs(e.vx).toDouble().coerceAtLeast(0.001))).toFloat().coerceIn(-STALKER_TILT, STALKER_TILT)
         val frame = (if (e.locked) "stalkerlock" else "stalker") + if (second || e.hunt == Hunt.DASH) "2" else "1"
         ship.sprite(canvas, Sprites.sprite(frame), e.x, e.y, if (right) tilt else -tilt, flipX = !right)
         if (e.locked && (e.hunt == Hunt.DASH || t % 0.16f < 0.1f)) {
             fill.color = ALERT
             fill.alpha = 255
-            // Wykrzyknik 1×5 pikseli świata nad grzbietem.
+            // Wykrzyknik 1×5 pikseli świata nad kolcami grzbietu.
             canvas.drawRect(e.x - 0.5f, e.y - 15f, e.x + 0.5f, e.y - 11f, fill)
             canvas.drawRect(e.x - 0.5f, e.y - 10f, e.x + 0.5f, e.y - 9f, fill)
         }
@@ -547,6 +550,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         private const val JOY_DARK = 0xFF0A1E38.toInt()
         private const val JOY_LIGHT = 0xFFE3ECFF.toInt()
         private const val ALERT = 0xFFFF3C28.toInt()
+        private const val STALKER_TILT = 20f
         private const val COURSE_MARKS = 3
 
         /**

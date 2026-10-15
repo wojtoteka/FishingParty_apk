@@ -108,7 +108,7 @@ fun enemyIcon(kind: EnemyKind): String = when (kind) {
     EnemyKind.RED_PIRANHA -> "piranhared1"
     EnemyKind.RED_OCTOPUS -> "octopusred1"
     EnemyKind.DARK_SHARK -> "sharkdark1"
-    EnemyKind.STALKER -> "stalkerlock1"
+    EnemyKind.STALKER -> "stalker1"
 }
 
 /** Opisy trzech celów gwiazdkowych poziomu. */

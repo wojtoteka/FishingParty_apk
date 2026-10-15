@@ -415,36 +415,44 @@ def build_drawn_sailors():
         save(image, OUT_SPRITES / "sailors" / f"{sailor_id}.png")
 
 
-# Wersja 2.3: widmokuda – najgroźniejszy potwór, narysowany od zera (patrzy w prawo jak rekin).
-# k – obrys, b/d/l – grzbiet, pręgi i jego jasna krawędź, w – brzuch, f – płetwy, t/m – zęby i paszcza,
-# e/g – świecące oko i jego blask. Wariant „lock” (namierzyła łódź) ma czerwone oko.
+# Wersja 2.3: widmokuda – najgroźniejszy potwór, narysowana od zera w stylu oryginałów (bez czarnego
+# obrysu, jasny grzbiet i ciemny spód, małe oko i paszcza pełna kłów jak u piranii). Patrzy w prawo jak rekin.
+# T/B/M/D – blask grzbietu, grzbiet, bok i spód; W – jasny brzuch; s – kolce grzbietu; f – płetwy;
+# A/a – półprzezroczysty ogon („widmo”); t/h – kły i paszcza; e/p – oko i źrenica.
+# Wariant „lock” (namierzyła łódź): czerwone oko i zjeżone, czerwone kolce.
 STALKER_FRAMES = [
-    ["............ff..........",
-     "...........fffk.........",
-     "ff.......kkkkkkkkkkk....",
-     "fff....kkllllllllllllk..",
-     ".fffkkkbbdbbdbbdbbbgek..",
-     "..ffbbbbbdbbdbbdbbbeekkk",
-     "..ffbwwwwwwwwwwwwwwkttt.",
-     ".fffkkwwwwwwwwwwwwwkmmmk",
-     "fff...kkkkkkkkkkkkkkttk.",
-     "ff.........kff.......k..",
-     "............f..........."],
-    ["............ff..........",
-     "...........fffk.........",
-     ".........kkkkkkkkkkk....",
-     "f......kkllllllllllllk..",
-     "ff..kkkbbdbbdbbdbbbgek..",
-     "fffbbbbbbdbbdbbdbbbeekkk",
-     "fffbbwwwwwwwwwwwwwwkttt.",
-     "ff..kkwwwwwwwwwwwwwkmmmk",
-     "f.....kkkkkkkkkkkkkkttk.",
-     "...........kff.......k..",
-     ".............f.........."],
+    ["..........s..s........",
+     "A........sssssf.......",
+     "AA.......TTTTTTT......",
+     "AAA....TTBBTBBDDDT....",
+     ".AAa.TTBTBBBBBBeeDTT..",
+     "..aaTBBBMMMMMMMepBBBT.",
+     "..aaBBBMMMfMMMMMMMBBBT",
+     "..aaBWWWfffMMMhththth.",
+     ".aaaDWWWWWWWWWhhththtt",
+     "aaa..DDDWWWWWWWWWWWDDD",
+     "aa...ff.DDDDDDDDDDD...",
+     "a........ff..........."],
+    ["..........s..s........",
+     ".........sssssf.......",
+     ".A.......TTTTTTT......",
+     "AAA....TTBBTBBDDDT....",
+     ".AAa.TTBTBBBBBBeeDTT..",
+     "..aaTBBBMMMMMMMepBBBT.",
+     "..aaBBBMMMfMMMMMMMBBBT",
+     "..aaBWWWMfffMMhththth.",
+     ".aaaDWWWWWWWWWhhththtt",
+     "aaa..DDDWWWWWWWWWWWDDD",
+     "aa...ff.DDDDDDDDDDD...",
+     "aa.......ff..........."],
 ]
-STALKER_COLORS = dict(k=(22, 20, 46), b=(84, 70, 150), d=(54, 44, 108), l=(132, 120, 200), w=(210, 216, 242),
-                      f=(60, 44, 118), t=(255, 255, 255), m=(160, 26, 54), e=(255, 214, 40), g=(255, 250, 200))
-STALKER_LOCK = dict(e=(255, 60, 40), g=(255, 190, 170))
+STALKER_COLORS = dict(
+    T=(178, 168, 255), B=(122, 104, 232), M=(92, 72, 196), D=(58, 42, 138), W=(206, 212, 255),
+    s=(150, 136, 250), f=(96, 78, 206), A=(150, 136, 250), a=(96, 78, 206),
+    t=(240, 244, 255), h=(24, 14, 56), e=(255, 224, 64), p=(24, 14, 56),
+)
+STALKER_LOCK = dict(e=(255, 72, 52), s=(255, 96, 72))
+STALKER_GHOST_ALPHA = 170
 
 
 def build_stalker():
@@ -456,7 +464,8 @@ def build_stalker():
                 assert len(row) == len(rows[0]), (prefix, i, y)
                 for x, ch in enumerate(row):
                     if ch != ".":
-                        image.putpixel((x, y), palette[ch] + (255,))
+                        alpha = STALKER_GHOST_ALPHA if ch in "Aa" else 255
+                        image.putpixel((x, y), palette[ch] + (alpha,))
             save(image, OUT_SPRITES / f"{prefix}{i}.png")
 
 
