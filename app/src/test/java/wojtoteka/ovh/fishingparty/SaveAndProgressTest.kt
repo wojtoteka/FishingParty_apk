@@ -23,6 +23,7 @@ import wojtoteka.ovh.fishingparty.data.StreakRepairs
 import wojtoteka.ovh.fishingparty.data.StreakRewards
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import wojtoteka.ovh.fishingparty.ui.Backdrop
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
@@ -67,10 +68,24 @@ class SaveAndProgressTest {
         repairsTotal = 7
         streakReminders = false
         reminderHour = 20
+        dailyLevelReminders = false
+        challengeReminderHour = 9
         keepScreenOn = false
         controls = ControlMode.JOYSTICK
         controlsChosen = true
         joystickLeft = false
+    }
+
+    @Test
+    fun saveFromVersion5KeepsLevelRemindersOn() {
+        // Zapis v5 = v6 bez trzech ostatnich bajtów (ustawień przypomnień o poziomach).
+        val v6 = SaveCodec.encode(sample())
+        val v5 = v6.copyOf(v6.size - 3).also { it[4] = 0; it[5] = 5 }
+        val copy = SaveCodec.decode(v5)
+        assertTrue(copy.dailyLevelReminders)
+        assertTrue(copy.weeklyLevelReminders)
+        assertEquals(ChallengeReminderPlan.DEFAULT_HOUR, copy.challengeReminderHour)
+        assertEquals(1234L, copy.coins.get())
     }
 
     @Test
@@ -96,6 +111,9 @@ class SaveAndProgressTest {
         assertEquals(7, copy.repairsTotal)
         assertFalse(copy.streakReminders)
         assertEquals(20, copy.reminderHour)
+        assertFalse(copy.dailyLevelReminders)
+        assertTrue(copy.weeklyLevelReminders)
+        assertEquals(9, copy.challengeReminderHour)
         assertFalse(copy.keepScreenOn)
         assertEquals(ControlMode.JOYSTICK, copy.controls)
         assertTrue(copy.controlsChosen)

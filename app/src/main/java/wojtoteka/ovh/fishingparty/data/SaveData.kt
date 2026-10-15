@@ -6,6 +6,7 @@ import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSeed
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.DataInputStream
@@ -122,6 +123,11 @@ class SaveData {
     /** Ostatnio pobrane seedy (poziom dnia/tygodnia działa potem także bez internetu, do końca okresu). */
     val challengeCache = ArrayList<Challenge>()
 
+    /** Przypomnienia o nowym poziomie dnia i tygodnia oraz ich godzina (przed przypomnieniami o passie). */
+    var dailyLevelReminders = true
+    var weeklyLevelReminders = true
+    var challengeReminderHour = ChallengeReminderPlan.DEFAULT_HOUR
+
     /** Liczba poziomów w tablicach rekordów i gwiazdek (co najmniej 1000). */
     val levelSlots: Int get() = stars.size
 
@@ -147,7 +153,7 @@ class SaveData {
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 5
+    private const val VERSION = 6
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -247,6 +253,9 @@ object SaveCodec {
                 o.writeLong(c.startsAt)
                 o.writeLong(c.endsAt)
             }
+            o.writeBoolean(d.dailyLevelReminders)
+            o.writeBoolean(d.weeklyLevelReminders)
+            o.writeByte(d.challengeReminderHour)
         }
         return bytes.toByteArray()
     }
@@ -369,6 +378,11 @@ object SaveCodec {
                     val endsAt = i.readLong()
                     if (kind != null) d.challengeCache += Challenge(kind, period, LevelSeed(seed), startsAt, endsAt)
                 }
+            }
+            if (version >= 6) {
+                d.dailyLevelReminders = i.readBoolean()
+                d.weeklyLevelReminders = i.readBoolean()
+                d.challengeReminderHour = i.readByte().toInt()
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.

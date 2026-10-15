@@ -400,6 +400,23 @@
     <string name="notif_last_text">😱 Midnight is close – don\'t let your %s streak slip away! 🔥</string>
     <string name="notif_repair_title">💔 Your streak was broken</string>
     <string name="notif_repair_text">🛟 You can still win back your %s streak in the game – come back before it\'s gone!</string>
+    <string name="notif_challenge_channel">Daily and weekly levels</string>
+    <string name="notif_challenge_channel_desc">At most one reminder a day about the new daily level (on Mondays – about the weekly level)</string>
+    <string name="notif_daily_title_1">🌅 A new daily level has set sail!</string>
+    <string name="notif_daily_text_1">🎣 Today\'s map is the same for every player. Catch the most and grab +%d 🪙 plus ranking points.</string>
+    <string name="notif_daily_title_2">🗺️ A fresh map for today</string>
+    <string name="notif_daily_text_2">🐟 The daily level is waiting – see if you can beat the other crews! Finish it for +%d 🪙.</string>
+    <string name="notif_daily_title_3">⚓ Captain, a new daily voyage!</string>
+    <string name="notif_daily_text_3">🌊 A different map every day, and today\'s is gone at midnight. Up for grabs: +%d 🪙 and ranking points.</string>
+    <string name="notif_daily_title_4">🐠 Today\'s fish are waiting</string>
+    <string name="notif_daily_text_4">🎯 A few minutes, one map, the same for everyone. Finish the daily level and take +%d 🪙.</string>
+    <string name="notif_weekly_title_1">🏆 A new weekly level!</string>
+    <string name="notif_weekly_text_1">💪 A tougher map for the whole week: ×%1$d ranking points and +%2$d 🪙. The daily level is waiting too!</string>
+    <string name="notif_weekly_title_2">🧭 The weekly challenge has begun</string>
+    <string name="notif_weekly_text_2">🌊 One tough map for everyone until Sunday. ×%1$d ranking points and +%2$d 🪙 for finishing it.</string>
+    <string name="notif_weekly_title_3">🦈 Monday = a new challenge!</string>
+    <string name="notif_weekly_text_3">🏁 The weekly level has changed. Finish it early and climb the ranking – ×%1$d points and +%2$d 🪙.</string>
+    <string name="notif_challenge_streak">🔥 It keeps your %s streak going, too.</string>
 
     <!-- Język i nowe elementy interfejsu -->
     <string name="set_language">LANGUAGE</string>
@@ -432,6 +449,10 @@
     <string name="set_reminders">STREAK REMINDERS</string>
     <string name="set_reminder_hour">FIRST REMINDER</string>
     <string name="set_reminder_info">At most 3 a day and only while today\'s streak is not done yet. The last one at 22:00.</string>
+    <string name="set_daily_reminders">NEW DAILY LEVEL</string>
+    <string name="set_weekly_reminders">NEW WEEKLY LEVEL</string>
+    <string name="set_challenge_hour">LEVEL REMINDER</string>
+    <string name="set_challenge_reminder_info">At most one a day (on Mondays about the weekly level) and only if the game hasn\'t been opened today and the level isn\'t finished. Always a few hours before streak reminders.</string>
     <string name="set_notif_blocked">NOTIFICATIONS ARE BLOCKED ON THIS PHONE</string>
     <string name="set_notif_enable">TURN ON</string>
     <string name="set_keep_screen">KEEP SCREEN ON</string>

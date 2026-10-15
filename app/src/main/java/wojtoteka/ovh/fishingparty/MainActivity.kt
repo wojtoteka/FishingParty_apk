@@ -13,6 +13,8 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import wojtoteka.ovh.fishingparty.game.KeyboardSteer
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminder
+import wojtoteka.ovh.fishingparty.notify.ReminderLog
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
 import wojtoteka.ovh.fishingparty.ui.ProvideUi
@@ -42,6 +44,8 @@ class MainActivity : ComponentActivity() {
         app.inForeground = true
         app.audio.setForeground(true)
         StreakReminder.dismiss(this)
+        ChallengeReminder.dismiss(this)
+        ReminderLog.opened(this)
         app.online.onForeground()
     }
 
@@ -49,6 +53,7 @@ class MainActivity : ComponentActivity() {
         app.inForeground = false
         app.audio.setForeground(false)
         StreakReminder.schedule(this)
+        ChallengeReminder.schedule(this)
         app.online.onBackground()
         super.onPause()
     }

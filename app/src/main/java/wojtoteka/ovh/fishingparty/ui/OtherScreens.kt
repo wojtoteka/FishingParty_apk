@@ -38,6 +38,8 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import wojtoteka.ovh.fishingparty.MainActivity
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminder
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import android.content.Context
@@ -234,8 +236,10 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                             align = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        NotificationsBlockedNotice()
                     }
+                    VSpace(6)
+                    ChallengeReminderSettings()
+                    if (save.streakReminders || save.dailyLevelReminders || save.weeklyLevelReminders) NotificationsBlockedNotice()
                 }
 
                 SettingsSection(stringResource(R.string.set_section_game)) {
@@ -358,6 +362,56 @@ private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit
             modifier = Modifier.widthIn(min = px(64)),
         )
     }
+}
+
+/** Przypomnienia o nowym poziomie dnia i tygodnia – osobno włączane, z własną godziną (przed passą). */
+@Composable
+private fun ChallengeReminderSettings() {
+    val context = LocalContext.current
+    val repo = LocalServices.current.repo
+    repo.revision.intValue
+    val save = repo.save
+    val changed = {
+        repo.changed()
+        if (save.dailyLevelReminders || save.weeklyLevelReminders) ChallengeReminder.schedule(context) else ChallengeReminder.cancel(context)
+    }
+    ToggleRow(stringResource(R.string.set_daily_reminders), save.dailyLevelReminders) {
+        save.dailyLevelReminders = it
+        changed()
+    }
+    ToggleRow(stringResource(R.string.set_weekly_reminders), save.weeklyLevelReminders) {
+        save.weeklyLevelReminders = it
+        changed()
+    }
+    if (!save.dailyLevelReminders && !save.weeklyLevelReminders) return
+    VSpace(4)
+    PixelText(
+        stringResource(R.string.set_challenge_hour) + ": %02d:00".format(save.challengeReminderHour),
+        size = 2,
+        color = Pal.Foam,
+    )
+    VSpace(3)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        for (hour in ChallengeReminderPlan.HOURS) {
+            PixelButton(
+                hour.toString(),
+                onClick = {
+                    save.challengeReminderHour = hour
+                    changed()
+                },
+                style = if (hour == save.challengeReminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+    VSpace(3)
+    PixelText(
+        stringResource(R.string.set_challenge_reminder_info),
+        size = 1,
+        color = Pal.SeaLight,
+        align = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** Gdy powiadomienia są wyłączone w systemie, przypomnienia nie dotrą – dajemy skrót do ustawień telefonu. */
