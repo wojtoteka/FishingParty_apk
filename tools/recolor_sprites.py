@@ -8,7 +8,9 @@ Wynik:   app/src/main/assets/sprites/... (postacie, ryby, łodzie, marynarze)
 Skrypt tylko podmienia kolory pikseli - kształty spritów zostają oryginalne.
 Uruchomienie:  python tools/recolor_sprites.py
 """
+import colorsys
 from pathlib import Path
+
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -211,6 +213,19 @@ def build_characters():
         save(recolor(load(f"octopus{i}"), mapping(red_octopus)), OUT_SPRITES / f"octopusred{i}.png")
 
 
+def hull_shades(main):
+    """4 odcienie kadłuba z koloru głównego (jak HullPaints.shades w grze): ciemniejszy, główny, 2 jaśniejsze."""
+    h, s, v = colorsys.rgb_to_hsv(*[c / 255 for c in main])
+
+    def shade(sat, val_mul, val_add):
+        val = v * val_mul + val_add
+        sat = s * sat - max(0.0, val - 1) * 0.9  # zabrakło jasności – rozjaśnia spadek nasycenia
+        rgb = colorsys.hsv_to_rgb(h, max(0.0, min(1.0, sat)), max(0.0, min(1.0, val)))
+        return tuple(clamp(c * 255) for c in rgb)
+
+    return [shade(1.05, 0.78, 0), tuple(main), shade(0.92, 1.12, 0.04), shade(0.82, 1.24, 0.08)]
+
+
 BOATS = {
     "classic": None,
     "crimson": [(110, 10, 10), (140, 25, 25), (165, 40, 40), (190, 60, 55)],
@@ -229,6 +244,15 @@ BOATS = {
     "rose": [(140, 40, 80), (175, 60, 105), (205, 90, 135), (230, 125, 165)],
     "lavender": [(90, 70, 140), (115, 95, 170), (145, 125, 195), (175, 160, 220)],
     "silver": [(90, 95, 105), (125, 130, 140), (160, 165, 175), (195, 200, 210)],
+    # Kolory z jednego odcienia głównego – tak samo liczy je kreator kolorów w grze.
+    "tangerine": hull_shades((225, 95, 20)),
+    "coral": hull_shades((230, 105, 95)),
+    "lemon": hull_shades((225, 200, 40)),
+    "turquoise": hull_shades((30, 180, 170)),
+    "cobalt": hull_shades((30, 70, 200)),
+    "fuchsia": hull_shades((200, 40, 150)),
+    "plum": hull_shades((110, 30, 75)),
+    "ice": hull_shades((185, 220, 235)),
 }
 HULL = [(85, 27, 0), (97, 39, 9), (113, 55, 25), (129, 71, 41)]
 

@@ -157,6 +157,14 @@
     <string name="boat_rose">RÓŻANA</string>
     <string name="boat_lavender">LAWENDOWA</string>
     <string name="boat_silver">SREBRNA</string>
+    <string name="boat_tangerine">MANDARYNKOWA</string>
+    <string name="boat_coral">KORALOWA</string>
+    <string name="boat_lemon">CYTRYNOWA</string>
+    <string name="boat_turquoise">TURKUSOWA</string>
+    <string name="boat_cobalt">KOBALTOWA</string>
+    <string name="boat_fuchsia">FUKSJOWA</string>
+    <string name="boat_plum">ŚLIWKOWA</string>
+    <string name="boat_ice">LODOWA</string>
     <string name="sail_orange">ORANŻOWY</string>
     <string name="sail_pink">RÓŻOWY</string>
     <string name="sail_purple">FIOLETOWY</string>

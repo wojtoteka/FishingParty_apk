@@ -151,6 +151,14 @@ fun itemName(item: ShopItem): String {
             "boat:rose" -> R.string.boat_rose
             "boat:lavender" -> R.string.boat_lavender
             "boat:silver" -> R.string.boat_silver
+            "boat:tangerine" -> R.string.boat_tangerine
+            "boat:coral" -> R.string.boat_coral
+            "boat:lemon" -> R.string.boat_lemon
+            "boat:turquoise" -> R.string.boat_turquoise
+            "boat:cobalt" -> R.string.boat_cobalt
+            "boat:fuchsia" -> R.string.boat_fuchsia
+            "boat:plum" -> R.string.boat_plum
+            "boat:ice" -> R.string.boat_ice
             "sail:white" -> R.string.sail_white
             "sail:red" -> R.string.sail_red
             "sail:blue" -> R.string.sail_blue

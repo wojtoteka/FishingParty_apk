@@ -158,6 +158,14 @@
     <string name="boat_rose">ROSE</string>
     <string name="boat_lavender">LAVENDER</string>
     <string name="boat_silver">SILVER</string>
+    <string name="boat_tangerine">TANGERINE</string>
+    <string name="boat_coral">CORAL</string>
+    <string name="boat_lemon">LEMON</string>
+    <string name="boat_turquoise">TURQUOISE</string>
+    <string name="boat_cobalt">COBALT</string>
+    <string name="boat_fuchsia">FUCHSIA</string>
+    <string name="boat_plum">PLUM</string>
+    <string name="boat_ice">ICE</string>
     <string name="sail_orange">ORANGE</string>
     <string name="sail_pink">PINK</string>
     <string name="sail_purple">PURPLE</string>
