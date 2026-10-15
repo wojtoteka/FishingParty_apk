@@ -104,6 +104,41 @@ class SaveAndProgressTest {
     }
 
     @Test
+    fun everyCosmeticHasGraphicsAndName() {
+        val assets = java.io.File("src/main/assets/sprites")
+        for (item in Catalog.boats) {
+            for (part in listOf("ship", "ship2", "shiptop")) assertTrue("${item.key}/$part", java.io.File(assets, "boats/${item.id}/$part.png").exists())
+        }
+        for (item in Catalog.sailors) assertTrue(item.key, java.io.File(assets, "sailors/${item.id}.png").exists())
+        val strings = java.io.File("src/main/res/values/strings.xml").readText() + java.io.File("src/main/res/values-pl/strings.xml").readText()
+        for (item in Catalog.cosmetics) {
+            val name = "${item.kind.name.lowercase()}_${item.id}"
+            assertEquals(item.key, 2, Regex("name=\"$name\"").findAll(strings).count())
+        }
+        // Żagle mają własne kolory (nieznany żagiel rysowałby się na biało).
+        val white = wojtoteka.ovh.fishingparty.gfx.SailStyles.colors("white")
+        for (item in Catalog.sails.drop(1)) assertFalse(item.key, wojtoteka.ovh.fishingparty.gfx.SailStyles.colors(item.id).contentEquals(white))
+        assertEquals(Catalog.cosmetics.size, Catalog.cosmetics.map { it.key }.toSet().size)
+    }
+
+    @Test
+    fun unknownLookFromNewerVersionFallsBack() {
+        val save = sample().apply {
+            boat = "spaceship"
+            sail = "laser"
+            sailor = "robot"
+        }
+        val copy = SaveCodec.decode(SaveCodec.encode(save))
+        assertEquals("classic", copy.boat)
+        assertEquals("white", copy.sail)
+        assertEquals("ginger", copy.sailor)
+        val known = SaveCodec.decode(SaveCodec.encode(sample().apply { boat = "lavender"; sail = "poland"; sailor = "king" }))
+        assertEquals("lavender", known.boat)
+        assertEquals("poland", known.sail)
+        assertEquals("king", known.sailor)
+    }
+
+    @Test
     fun saveFromBeforeControlsAsksForThem() {
         // Zapis v3 nie miał wyboru sterowania: 3 ostatnie bajty v4 odpadają, wersja w nagłówku to 3.
         val v4 = SaveCodec.encode(sample())

@@ -143,6 +143,14 @@ fun itemName(item: ShopItem): String {
             "boat:royal" -> R.string.boat_royal
             "boat:shadow" -> R.string.boat_shadow
             "boat:golden" -> R.string.boat_golden
+            "boat:sky" -> R.string.boat_sky
+            "boat:teal" -> R.string.boat_teal
+            "boat:mint" -> R.string.boat_mint
+            "boat:lime" -> R.string.boat_lime
+            "boat:amber" -> R.string.boat_amber
+            "boat:rose" -> R.string.boat_rose
+            "boat:lavender" -> R.string.boat_lavender
+            "boat:silver" -> R.string.boat_silver
             "sail:white" -> R.string.sail_white
             "sail:red" -> R.string.sail_red
             "sail:blue" -> R.string.sail_blue
@@ -151,12 +159,31 @@ fun itemName(item: ShopItem): String {
             "sail:black" -> R.string.sail_black
             "sail:striped" -> R.string.sail_striped
             "sail:rainbow" -> R.string.sail_rainbow
+            "sail:orange" -> R.string.sail_orange
+            "sail:pink" -> R.string.sail_pink
+            "sail:purple" -> R.string.sail_purple
+            "sail:cyan" -> R.string.sail_cyan
+            "sail:marine" -> R.string.sail_marine
+            "sail:candy" -> R.string.sail_candy
+            "sail:poland" -> R.string.sail_poland
+            "sail:pirate" -> R.string.sail_pirate
+            "sail:ocean" -> R.string.sail_ocean
+            "sail:sunset" -> R.string.sail_sunset
+            "sail:gold" -> R.string.sail_gold
             "sailor:ginger" -> R.string.sailor_ginger
             "sailor:blond" -> R.string.sailor_blond
             "sailor:brunet" -> R.string.sailor_brunet
             "sailor:diver" -> R.string.sailor_diver
             "sailor:punk" -> R.string.sailor_punk
             "sailor:captain" -> R.string.sailor_captain
+            "sailor:fisher" -> R.string.sailor_fisher
+            "sailor:surfer" -> R.string.sailor_surfer
+            "sailor:beach" -> R.string.sailor_beach
+            "sailor:pirate" -> R.string.sailor_pirate
+            "sailor:ninja" -> R.string.sailor_ninja
+            "sailor:ghost" -> R.string.sailor_ghost
+            "sailor:king" -> R.string.sailor_king
+            "sailor:golden" -> R.string.sailor_golden
             else -> R.string.app_name
         },
     )

@@ -37,7 +37,46 @@ object SailStyles {
             ROPE, 0xFFE8383D.toInt(), 0xFFF58A2A.toInt(), 0xFFFAD02C.toInt(), 0xFF5CC94E.toInt(),
             0xFF2BB5C9.toInt(), 0xFF3466D6.toInt(), 0xFF8048C8.toInt(), 0xFFE058B8.toInt(), 0xFFE8383D.toInt(), ROPE,
         ),
+        // Wersja 2.3. Pasy liczone od dołu żagla (1) do góry (9).
+        "orange" to solid(0xFFF58A2A.toInt()),
+        "pink" to solid(0xFFF06EAA.toInt()),
+        "purple" to solid(0xFF8048C8.toInt()),
+        "cyan" to solid(0xFF2BB5C9.toInt()),
+        "marine" to stripes(0xFFEEEEEE.toInt(), 0xFF1E3C8C.toInt()),
+        "candy" to stripes(0xFFEEEEEE.toInt(), 0xFFF06EAA.toInt()),
+        "poland" to IntArray(11) {
+            when {
+                it == 0 || it == 10 -> ROPE
+                it >= 5 -> 0xFFEEEEEE.toInt()
+                else -> 0xFFDC143C.toInt()
+            }
+        },
+        "pirate" to IntArray(11) {
+            when {
+                it == 0 || it == 10 -> ROPE
+                it == 5 -> 0xFFEEEEEE.toInt()
+                else -> 0xFF2C2C34.toInt()
+            }
+        },
+        "ocean" to intArrayOf(
+            ROPE, 0xFF0F2D6E.toInt(), 0xFF143C8C.toInt(), 0xFF1E50AA.toInt(), 0xFF2864C3.toInt(),
+            0xFF2D7DD2.toInt(), 0xFF3796DC.toInt(), 0xFF50B4E6.toInt(), 0xFF78D2F0.toInt(), 0xFFAAE6F8.toInt(), ROPE,
+        ),
+        "sunset" to intArrayOf(
+            ROPE, 0xFFFFD23C.toInt(), 0xFFFFB43C.toInt(), 0xFFFF8C3C.toInt(), 0xFFF5643C.toInt(),
+            0xFFE6464B.toInt(), 0xFFC83C64.toInt(), 0xFFA0367D.toInt(), 0xFF7D3291.toInt(), 0xFF5A2D9B.toInt(), ROPE,
+        ),
+        "gold" to stripes(0xFFFFC420.toInt(), 0xFFFFE07A.toInt()),
     )
+
+    /** Pasy na zmianę: nieparzyste [odd], parzyste [even] (jak „w paski”). */
+    private fun stripes(odd: Int, even: Int) = IntArray(11) {
+        when {
+            it == 0 || it == 10 -> ROPE
+            it % 2 == 1 -> odd
+            else -> even
+        }
+    }
 
     fun colors(id: String): IntArray = styles[id] ?: styles.getValue("white")
 }

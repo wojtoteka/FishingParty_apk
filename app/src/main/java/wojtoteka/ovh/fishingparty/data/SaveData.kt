@@ -224,9 +224,10 @@ object SaveCodec {
             d.maxCoinsHeld = i.readLong()
             d.purchases = i.readInt()
             readSet(i, d.owned)
-            d.boat = i.readUTF()
-            d.sail = i.readUTF()
-            d.sailor = i.readUTF()
+            // Wygląd z nowszej wersji gry, którego ta nie zna, wraca do domyślnego (brak grafiki = błąd rysowania).
+            d.boat = Catalog.knownOr(ItemKind.BOAT, i.readUTF(), "classic")
+            d.sail = Catalog.knownOr(ItemKind.SAIL, i.readUTF(), "white")
+            d.sailor = Catalog.knownOr(ItemKind.SAILOR, i.readUTF(), "ginger")
             val powerups = i.readShort().toInt()
             for (n in 0 until powerups) {
                 val v = i.readInt()
