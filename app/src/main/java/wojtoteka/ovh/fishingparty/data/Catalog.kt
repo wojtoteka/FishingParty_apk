@@ -130,7 +130,8 @@ object Catalog {
 
     val defaults = setOf("boat:classic", "sail:white", "sailor:ginger")
 
-    fun find(key: String): ShopItem? = (cosmetics + powerups).firstOrNull { it.key == key }
+    /** Rzecz ze sklepu albo z kreatora (własny kolor łodzi, własny żagiel). */
+    fun find(key: String): ShopItem? = (cosmetics + powerups).firstOrNull { it.key == key } ?: Workshop.find(key)
 
     /** Wygląd z zapisu, którego ta wersja gry nie zna (np. zapis z nowszej wersji), wraca do domyślnego. */
     fun knownOr(kind: ItemKind, id: String, fallback: String): String =

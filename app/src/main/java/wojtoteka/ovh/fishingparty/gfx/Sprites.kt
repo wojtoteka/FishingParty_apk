@@ -10,7 +10,8 @@ import wojtoteka.ovh.fishingparty.R
 
 /**
  * Wszystkie grafiki gry to oryginalne sprity (i ich przemalowane wersje)
- * z katalogu assets. Nic nie jest rysowane proceduralnie.
+ * z katalogu assets. Nic nie jest rysowane proceduralnie – jedynie łódź z kreatora
+ * kolorów to oryginalny kadłub przemalowany w grze, tak samo jak robi to skrypt.
  */
 object Sprites {
     private lateinit var assets: AssetManager
@@ -33,7 +34,22 @@ object Sprites {
             ?: error("Brak grafiki $path")
     }
 
-    fun get(path: String): Bitmap = cache.getOrPut(path) { load(path) }
+    fun get(path: String): Bitmap = cache.getOrPut(path) { ownBoat(path) ?: load(path) }
+
+    /** Łódź z kreatora („sprites/boats/own-RRGGBB/część”): klasyczny kadłub w odcieniach wybranego koloru. */
+    private fun ownBoat(path: String): Bitmap? {
+        val parts = path.split('/')
+        if (parts.size != 4 || parts[0] != "sprites" || parts[1] != "boats") return null
+        val shades = HullPaints.ownColor(parts[2])?.let(HullPaints::shades) ?: return null
+        val source = get("sprites/boats/classic/${parts[3]}")
+        val pixels = IntArray(source.width * source.height)
+        source.getPixels(pixels, 0, source.width, 0, 0, source.width, source.height)
+        for (i in pixels.indices) {
+            val k = HullPaints.ORIGINAL.indexOf(pixels[i])
+            if (k >= 0) pixels[i] = shades[k]
+        }
+        return Bitmap.createBitmap(pixels, source.width, source.height, Bitmap.Config.ARGB_8888)
+    }
 
     fun sprite(name: String): Bitmap = get("sprites/$name")
 

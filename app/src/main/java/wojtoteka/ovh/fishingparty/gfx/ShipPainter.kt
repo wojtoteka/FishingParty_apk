@@ -151,11 +151,12 @@ object SailStyles {
             if (star < 0) listOf(row) else List(row.substring(star + 1).toInt()) { row.substring(0, star) }
         }
         require(rows.size == 9) { "Flaga musi mieć 9 wierszy" }
-        // Pas 9 to góra żagla, pas 1 – dół.
-        return Array(11) { i ->
-            if (i == 0 || i == 10) intArrayOf(ROPE) else rows[9 - i].map { palette.getValue(it) }.toIntArray()
-        }
+        return fromRows(rows.map { row -> row.map { palette.getValue(it) }.toIntArray() })
     }
+
+    /** Pasy żagla z 9 wierszy kolorów (od góry); pas 9 to góra żagla, pas 1 – dół. */
+    private fun fromRows(rows: List<IntArray>): Array<IntArray> =
+        Array(11) { i -> if (i == 0 || i == 10) intArrayOf(ROPE) else rows[9 - i] }
 
     /** Krzyż skandynawski: tło [field], krzyż [cross] przesunięty do masztu. */
     private fun nordic(field: Pair<Char, Long>, cross: Pair<Char, Long>) = flag(
@@ -173,10 +174,68 @@ object SailStyles {
 
     /** Pasy żagla od dołu (0 = lina); każdy pas to kolory pól od lewej. */
     fun bands(id: String): Array<IntArray> =
-        flags[id] ?: (styles[id] ?: styles.getValue("white")).let { colors -> Array(11) { intArrayOf(colors[it]) } }
+        flags[id] ?: SailDesign.parse(id)?.let { fromRows(it.grid().toList()) }
+            ?: (styles[id] ?: styles.getValue("white")).let { colors -> Array(11) { intArrayOf(colors[it]) } }
 
-    /** Czy taki żagiel istnieje (sprawdzane w testach katalogu). */
+    /** Czy taki żagiel istnieje w sklepie (sprawdzane w testach katalogu). */
     fun has(id: String): Boolean = id in flags || id in styles
+
+    /** Wygląd żagla jako 9 wierszy po 12 pól (wiersz 0 to góra) – do porównywania żagli ze sobą. */
+    fun grid(id: String): Array<IntArray> {
+        val bands = bands(id)
+        return Array(9) { row -> bands[9 - row].let { band -> IntArray(12) { col -> band[col * band.size / 12] } } }
+    }
+}
+
+/** Wzory dwukolorowego żagla z kreatora; [id] jest częścią id żagla w zapisie gry. */
+enum class SailPattern(val id: String) {
+    HALVES("halves"),
+    VERTICAL("vertical"),
+    BAND("band"),
+    STRIPES("stripes"),
+    DIAGONAL("diagonal"),
+    TRIANGLE("triangle"),
+    CROSS("cross"),
+    FRAME("frame"),
+    DOTS("dots"),
+    CHECKER("checker");
+
+    /** Czy pole (wiersz od góry 0..8, kolumna od lewej 0..11) ma drugi kolor. */
+    fun second(row: Int, col: Int): Boolean = when (this) {
+        HALVES -> row >= 5
+        VERTICAL -> col >= 6
+        BAND -> row in 3..5
+        STRIPES -> row % 2 == 1
+        // Środek pola za przekątną z prawego górnego do lewego dolnego rogu.
+        DIAGONAL -> (2 * col + 1) * 9 + (2 * row + 1) * 12 > 2 * 12 * 9
+        TRIANGLE -> col <= 4 - abs(row - 4)
+        CROSS -> col == 4 || row == 4
+        FRAME -> row == 0 || row == 8 || col == 0 || col == 11
+        DOTS -> row % 3 == 1 && col % 3 == 1
+        CHECKER -> (row / 3 + col / 3) % 2 == 1
+    }
+}
+
+/** Żagiel z kreatora: wzór i dwa kolory. Id w zapisie: „own-wzór-RRGGBB-RRGGBB”. */
+data class SailDesign(val pattern: SailPattern, val first: Int, val second: Int) {
+    val id: String get() = "$OWN${pattern.id}-${HullPaints.hex(first)}-${HullPaints.hex(second)}"
+
+    /** 9 wierszy po 12 pól, wiersz 0 to góra żagla. */
+    fun grid(): Array<IntArray> = Array(9) { row -> IntArray(12) { col -> if (pattern.second(row, col)) second else first } }
+
+    companion object {
+        private const val OWN = "own-"
+
+        fun parse(id: String): SailDesign? {
+            if (!id.startsWith(OWN)) return null
+            val parts = id.substring(OWN.length).split('-')
+            if (parts.size != 3) return null
+            val pattern = SailPattern.entries.firstOrNull { it.id == parts[0] } ?: return null
+            val a = HullPaints.parseHex(parts[1]) ?: return null
+            val b = HullPaints.parseHex(parts[2]) ?: return null
+            return SailDesign(pattern, a, b)
+        }
+    }
 }
 
 /**

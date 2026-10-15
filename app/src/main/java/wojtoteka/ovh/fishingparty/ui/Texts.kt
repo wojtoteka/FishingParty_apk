@@ -8,6 +8,7 @@ import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.ShopItem
+import wojtoteka.ovh.fishingparty.data.Workshop
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSpec
 import wojtoteka.ovh.fishingparty.level.LevelType
@@ -133,6 +134,7 @@ fun powerUpIconScale(p: PowerUp, base: Int): Int = when (p) {
 @Composable
 fun itemName(item: ShopItem): String {
     if (item.kind == ItemKind.POWERUP) return powerUpName(PowerUp.entries.first { it.id == item.id })
+    if (Workshop.isCreation(item)) return stringResource(if (item.kind == ItemKind.BOAT) R.string.boat_own else R.string.sail_own)
     return stringResource(
         when (item.key) {
             "boat:classic" -> R.string.boat_classic

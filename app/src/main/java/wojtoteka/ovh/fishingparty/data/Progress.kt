@@ -318,6 +318,10 @@ class Progress(val save: SaveData, private val time: GameTime) {
 
     fun owns(item: ShopItem): Boolean = item.key in save.owned
 
+    /** Kupione projekty z kreatora danego rodzaju, w kolejności zakupu. */
+    fun creations(kind: ItemKind): List<ShopItem> =
+        save.owned.filter { it.startsWith("${kind.name.lowercase()}:own-") }.mapNotNull { Workshop.find(it) }
+
     fun isEquipped(item: ShopItem): Boolean = when (item.kind) {
         ItemKind.BOAT -> save.boat == item.id
         ItemKind.SAIL -> save.sail == item.id

@@ -15,12 +15,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -39,6 +42,7 @@ import wojtoteka.ovh.fishingparty.data.Catalog
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.ShopItem
+import wojtoteka.ovh.fishingparty.data.Workshop
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.gfx.ShipPainter
@@ -94,6 +98,10 @@ fun ShopScreen(onBack: () -> Unit) {
     val progress = repo.progress
     var tab by remember { mutableStateOf(ShopTab.BOATS) }
     var preview by remember { mutableStateOf<ShopItem?>(null) }
+    // Kreator na dole kart ŁODZIE i ŻAGLE – stan trzymany tutaj, bo karta w siatce znika po przewinięciu.
+    var workshopOpen by remember { mutableStateOf(false) }
+    var boatColor by remember { mutableIntStateOf(Workshop.DEFAULT_BOAT) }
+    var sailDesign by remember { mutableStateOf(Workshop.DEFAULT_SAIL) }
     val equipped = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val look = when (preview?.kind) {
         ItemKind.BOAT -> equipped.copy(boat = preview!!.id)
@@ -102,8 +110,8 @@ fun ShopScreen(onBack: () -> Unit) {
         else -> equipped
     }
     val items = when (tab) {
-        ShopTab.BOATS -> Catalog.boats
-        ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
+        ShopTab.BOATS -> Catalog.boats + progress.creations(ItemKind.BOAT)
+        ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet() + progress.creations(ItemKind.SAIL)
         ShopTab.FLAGS -> Catalog.flags
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
@@ -132,6 +140,7 @@ fun ShopScreen(onBack: () -> Unit) {
                         onClick = {
                             tab = t
                             preview = null
+                            workshopOpen = false
                         },
                         style = if (t == tab) ButtonStyle.GREEN else ButtonStyle.SEA,
                         size = 2,
@@ -140,8 +149,23 @@ fun ShopScreen(onBack: () -> Unit) {
                 }
             }
             VSpace(4)
+            val grid = rememberLazyGridState()
+            // Po rozwinięciu kreatora lista przewija się do niego (jest na samym dole).
+            LaunchedEffect(workshopOpen) { if (workshopOpen) grid.animateScrollToItem(items.size) }
+            val buy = { item: ShopItem ->
+                if (progress.buy(item)) {
+                    services.audio.play(Sfx.COIN)
+                    repo.changed()
+                }
+            }
+            val equip = { item: ShopItem ->
+                progress.equip(item)
+                preview = null
+                repo.changed()
+            }
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
+                state = grid,
                 modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
                 contentPadding = PaddingValues(start = px(6), top = px(4), end = px(6), bottom = px(BOTTOM_GAP)),
                 horizontalArrangement = Arrangement.spacedBy(px(4)),
@@ -152,18 +176,47 @@ fun ShopScreen(onBack: () -> Unit) {
                         item = item,
                         selected = preview?.key == item.key,
                         onPreview = { if (item.kind != ItemKind.POWERUP) preview = item },
-                        onBuy = {
-                            if (progress.buy(item)) {
-                                services.audio.play(Sfx.COIN)
-                                repo.changed()
-                            }
-                        },
-                        onEquip = {
-                            progress.equip(item)
-                            preview = null
-                            repo.changed()
-                        },
+                        onBuy = { buy(item) },
+                        onEquip = { equip(item) },
                     )
+                }
+                if (tab == ShopTab.BOATS || tab == ShopTab.SAILS) {
+                    item(key = "workshop", span = { GridItemSpan(maxLineSpan) }) {
+                        val toggle = {
+                            workshopOpen = !workshopOpen
+                            preview = when {
+                                !workshopOpen -> null
+                                tab == ShopTab.BOATS -> Workshop.boatItem(boatColor)
+                                else -> Workshop.sailItem(sailDesign)
+                            }
+                        }
+                        if (tab == ShopTab.BOATS) {
+                            BoatWorkshop(
+                                open = workshopOpen,
+                                onToggle = toggle,
+                                color = boatColor,
+                                onColor = {
+                                    boatColor = it
+                                    preview = Workshop.boatItem(it)
+                                },
+                                onBuy = buy,
+                                onEquip = equip,
+                            )
+                        } else {
+                            SailWorkshop(
+                                open = workshopOpen,
+                                onToggle = toggle,
+                                design = sailDesign,
+                                onDesign = {
+                                    sailDesign = it
+                                    // Dwa takie same kolory to nie projekt – podgląd pokazuje wtedy ostatni poprawny.
+                                    Workshop.sailItem(it)?.let { item -> preview = item }
+                                },
+                                onBuy = buy,
+                                onEquip = equip,
+                            )
+                        }
+                    }
                 }
             }
         }
