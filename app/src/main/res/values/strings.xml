@@ -563,6 +563,10 @@
     <string name="ranking_top">TOP %d</string>
     <string name="ranking_not_ranked">not ranked</string>
     <string name="ranking_guest_info">Want to appear in the ranking too? Create an account!</string>
+    <string name="ranking_guest_preview_place">With an account: %1$d points – place #%2$d in the ranking!</string>
+    <string name="ranking_guest_preview_points">With an account: %d ranking points (outside the top 100 for now).</string>
+    <string name="ranking_guest_row">YOU (NO ACCOUNT)</string>
+    <string name="ranking_guest_row_info">Your place after creating an account</string>
     <string name="set_section_legal">DOCUMENTS</string>
     <string name="set_privacy">PRIVACY POLICY</string>
     <string name="set_terms">TERMS</string>

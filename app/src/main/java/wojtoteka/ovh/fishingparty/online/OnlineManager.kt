@@ -44,8 +44,15 @@ class AccountInfo(
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
 
-/** [myId] = null, gdy ranking ogląda gość bez konta. */
-class RankingData(val entries: List<RankingEntry>, val myId: Long?, val myRank: Int?, val myPoints: Long, val hidden: Boolean)
+/** [myId] = null, gdy ranking ogląda gość bez konta. [size] – ile miejsc ma ranking (top 100). */
+class RankingData(
+    val entries: List<RankingEntry>,
+    val myId: Long?,
+    val myRank: Int?,
+    val myPoints: Long,
+    val hidden: Boolean,
+    val size: Int = 100,
+)
 
 /** Wynik operacji na koncie. [code] to kod błędu serwera albo jeden z kodów klienta (offline, quick_wrong…). */
 sealed interface OnlineResult {
@@ -687,14 +694,15 @@ class OnlineManager(
                 RankingEntry(e.getInt("rank"), e.getLong("id"), e.getString("nick"), e.getLong("points"), e.optInt("maxLevel"))
             }
             val me = res.optJSONObject("me")
+            val size = res.optInt("size", 100)
             if (me == null) {
-                Result.success(RankingData(entries, null, null, 0, false))
+                Result.success(RankingData(entries, null, null, 0, false, size))
             } else {
                 val rank = if (me.isNull("rank")) null else me.optInt("rank")
                 account?.let {
                     account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword)
                 }
-                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden")))
+                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden"), size))
             }
         }
     } catch (e: Exception) {

@@ -571,6 +571,10 @@
     <string name="ranking_top">TOP %d</string>
     <string name="ranking_not_ranked">poza rankingiem</string>
     <string name="ranking_guest_info">Chcesz też być widoczny w rankingu? Załóż konto!</string>
+    <string name="ranking_guest_preview_place">Z kontem: %1$d pkt – %2$d. miejsce w rankingu!</string>
+    <string name="ranking_guest_preview_points">Z kontem: %d pkt rankingowych (na razie poza top 100).</string>
+    <string name="ranking_guest_row">TY (BEZ KONTA)</string>
+    <string name="ranking_guest_row_info">Twoje miejsce po założeniu konta</string>
     <string name="set_section_legal">DOKUMENTY</string>
     <string name="set_privacy">POLITYKA PRYWATNOŚCI</string>
     <string name="set_terms">REGULAMIN</string>

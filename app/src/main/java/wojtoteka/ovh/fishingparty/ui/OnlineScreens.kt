@@ -58,6 +58,8 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.online.OnlineManager
 import wojtoteka.ovh.fishingparty.online.OnlineResult
 import wojtoteka.ovh.fishingparty.online.RankingData
+import wojtoteka.ovh.fishingparty.online.RankingEntry
+import wojtoteka.ovh.fishingparty.online.RankingPreview
 import wojtoteka.ovh.fishingparty.online.SyncStatus
 import java.util.Date
 
@@ -451,7 +453,12 @@ private fun LocalPointsPanel() {
 
 @Composable
 private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loading: Boolean, onRefresh: () -> Unit, onAccount: () -> Unit) {
-    val account = LocalServices.current.online.account
+    val services = LocalServices.current
+    val account = services.online.account
+    services.repo.revision.intValue
+    // Gość: punkty liczone w grze i miejsce, które zająłby po założeniu konta.
+    val guestPoints = services.repo.progress.rankingPoints()
+    val guestPlace = if (account == null && data != null) RankingPreview.place(guestPoints, data.entries.map { it.points }, data.size) else null
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = px(6)), horizontalAlignment = Alignment.CenterHorizontally) {
             if (account == null) {
@@ -465,6 +472,10 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                             align = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        if (data != null) {
+                            VSpace(2)
+                            GuestRankText(guestPoints, guestPlace)
+                        }
                         VSpace(4)
                         PixelButton(stringResource(R.string.register_button), onClick = onAccount, style = ButtonStyle.GREEN, size = 2)
                     }
@@ -516,15 +527,27 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
             verticalArrangement = Arrangement.spacedBy(px(3)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            items(entries, key = { it.id }) { e ->
+            // Gość w top 100 widzi siebie na miejscu, które zająłby z kontem (wiersz „TY (BEZ KONTA)”).
+            // Gracze poniżej przesuwają się o miejsce w dół, a ostatni wypada poza top.
+            val rows: List<RankingEntry?> = if (guestPlace != null) {
+                entries.toMutableList<RankingEntry?>().apply { add((guestPlace - 1).coerceAtMost(size), null) }.take(data?.size ?: 100)
+            } else {
+                entries
+            }
+            items(rows, key = { it?.id ?: -1L }) { e ->
+                if (e == null) {
+                    GuestRankRow(guestPlace ?: 0, guestPoints)
+                    return@items
+                }
                 val mine = e.id == data?.myId
+                val rank = if (guestPlace != null && e.rank >= guestPlace) e.rank + 1 else e.rank
                 DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = mine) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30))) {
                             PixelText(
-                                "#${e.rank}",
+                                "#$rank",
                                 size = 2,
-                                color = when (e.rank) {
+                                color = when (rank) {
                                     1 -> Pal.Gold
                                     2 -> Pal.GreyLight
                                     3 -> Pal.WoodLight
@@ -547,6 +570,51 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                     }
                 }
             }
+        }
+    }
+}
+
+/** „Z kontem: X pkt – N. miejsce” albo same punkty, gdy wynik nie mieści się w top 100. */
+@Composable
+private fun GuestRankText(points: Long, place: Int?) {
+    Hint(
+        when {
+            place != null -> stringResource(R.string.ranking_guest_preview_place, points, place)
+            else -> stringResource(R.string.ranking_guest_preview_points, points)
+        },
+        Pal.Gold,
+    )
+}
+
+/** Wiersz gościa wstawiony do listy w miejscu, które zająłby po założeniu konta. */
+@Composable
+private fun GuestRankRow(place: Int, points: Long) {
+    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.widthIn(min = px(30))) { PixelText("#$place", size = 2, color = Pal.Sand) }
+            HSpace(3)
+            Column(Modifier.weight(1f)) {
+                PixelText(stringResource(R.string.ranking_guest_row), size = 2, color = Pal.Sand)
+                PixelText(stringResource(R.string.ranking_guest_row_info), size = 1, color = Pal.Foam)
+            }
+            PixelText(points.toString(), size = 2, color = Pal.Gold)
+        }
+    }
+}
+
+/** Podgląd na ekranie konta: gra pobiera top 100 (jak gość) i liczy, które miejsce zająłby gracz. */
+@Composable
+private fun GuestRankPreview() {
+    val services = LocalServices.current
+    services.repo.revision.intValue
+    var top by remember { mutableStateOf<RankingData?>(null) }
+    LaunchedEffect(Unit) { services.online.ranking().onSuccess { top = it } }
+    val points = services.repo.progress.rankingPoints()
+    if (points <= 0) return
+    val data = top ?: return
+    DarkCard(Modifier.fillMaxWidth(), highlight = true) {
+        Column(Modifier.fillMaxWidth()) {
+            GuestRankText(points, RankingPreview.place(points, data.entries.map { it.points }, data.size))
         }
     }
 }
@@ -606,6 +674,7 @@ private fun AccountChooser(onPick: (AccountMode) -> Unit) {
     PixelPanel(Modifier.fillMaxWidth()) {
         PixelText(stringResource(R.string.account_intro), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
+    GuestRankPreview()
     OptionCard(stringResource(R.string.account_email_option), stringResource(R.string.account_email_option_info), ButtonStyle.GREEN) { onPick(AccountMode.EMAIL_REGISTER) }
     OptionCard(stringResource(R.string.account_quick_option), stringResource(R.string.account_quick_option_info), ButtonStyle.SAND) { onPick(AccountMode.QUICK) }
     OptionCard(stringResource(R.string.account_nick_option), stringResource(R.string.account_nick_option_info), ButtonStyle.ORANGE) { onPick(AccountMode.NICK_ONLY) }
