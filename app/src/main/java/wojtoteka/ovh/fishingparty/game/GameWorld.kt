@@ -253,8 +253,10 @@ class GameWorld(
             if (movedTime > 1.2f) showControls = false
         }
 
-        var dx = cos(heading) * speed * dt + knockX * dt
-        var dy = sin(heading) * speed * dt + knockY * dt
+        val ownX = cos(heading) * speed * dt
+        val ownY = sin(heading) * speed * dt
+        var dx = ownX + knockX * dt
+        var dy = ownY + knockY * dt
         if (phase == Phase.PLAYING) {
             dx += spec.currentX * dt
             dy += spec.currentY * dt
@@ -270,21 +272,31 @@ class GameWorld(
                 shipX = nx; shipY = ny
             }
             !shipBlocked(nx, shipY) -> {
-                shipX = nx; bump(abs(dy) / dt)
+                shipX = nx; bump(abs(dy) / dt, intoWall = ownY * dy > 0f)
             }
             !shipBlocked(shipX, ny) -> {
-                shipY = ny; bump(abs(dx) / dt)
+                shipY = ny; bump(abs(dx) / dt, intoWall = ownX * dx > 0f)
             }
+            // Prąd wciska łódź w narożnik – sama łódź (bez prądu) może jeszcze z niego wypłynąć, choćby bokiem.
+            !shipBlocked(shipX + ownX, shipY + ownY) -> {
+                shipX += ownX; shipY += ownY
+            }
+            !shipBlocked(shipX + ownX, shipY) -> shipX += ownX
+            !shipBlocked(shipX, shipY + ownY) -> shipY += ownY
             else -> bump(speed)
         }
     }
 
-    private fun bump(impactSpeed: Float) {
+    /**
+     * Otarcie o brzeg. Łódź zwalnia tylko wtedy, gdy sama płynie w przeszkodę – gdy dociska ją
+     * prąd morski, a gracz odpływa od brzegu, musi móc się rozpędzić (inaczej utknęłaby przy ścianie).
+     */
+    private fun bump(impactSpeed: Float, intoWall: Boolean = true) {
         if (impactSpeed > 35f && bumpCooldown <= 0f) {
             listener.onSound(Sfx.BUMP)
             bumpCooldown = 0.5f
         }
-        speed *= 0.6f
+        if (intoWall) speed *= 0.6f
     }
 
     private fun solidForShip(c: Int, r: Int): Boolean {

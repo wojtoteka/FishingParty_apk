@@ -17,12 +17,14 @@ import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelLayout
+import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
 import kotlin.math.atan2
 import kotlin.math.floor
+import kotlin.math.sqrt
 
 /**
  * Bot przechodzi poziomy w prawdziwej symulacji (bez Androida): płynie do
@@ -166,7 +168,13 @@ class GameSimulationTest {
             tx = (next % grid.width) * TILE + TILE / 2f
             ty = (next / grid.width) * TILE + TILE / 2f
         }
-        world.setInput(true, atan2(ty - world.shipY, tx - world.shipX))
+        // Jak gracz: pod prąd morski celujemy z poprawką, żeby łódź płynęła prosto do celu.
+        val dx = tx - world.shipX
+        val dy = ty - world.shipY
+        val d = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+        val vx = dx / d * world.maxSpeed - world.spec.currentX
+        val vy = dy / d * world.maxSpeed - world.spec.currentY
+        world.setInput(true, atan2(vy, vx))
     }
 
     @Test
@@ -211,6 +219,19 @@ class GameSimulationTest {
         // Najpierw napis Wielkiego Finału, potem zwykłe polecenie łowienia.
         assertEquals(listOf(MessageKind.FINALE, MessageKind.GO), messages.take(2))
         assertTrue(MessageKind.STAGE in messages)
+    }
+
+    /** Silny prąd boczny nie może przykleić łodzi do brzegu (odpłynięcie od ściany pod prąd). */
+    @Test
+    fun strongCurrentDoesNotPinShipToShore() {
+        val levels = (LevelConstants.LEVEL_COUNT + 1..LevelConstants.LEVEL_COUNT + 400)
+            .filter { LevelGenerator.plan(it).spec.let { s -> s.type == LevelType.CURRENT && s.currentX != 0f } }
+            .take(8)
+        assertTrue(levels.size >= 4)
+        for (n in levels) {
+            val (result, world) = play(n)
+            assertTrue("poziom $n z prądem nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+        }
     }
 
     /** Wzmocnienia ułatwiają grę, ale nie mogą dać wyniku ponad limity anty-cheat (serwer liczy je bez wzmocnień). */
