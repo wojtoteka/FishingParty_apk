@@ -3,6 +3,7 @@ package wojtoteka.ovh.fishingparty.ui
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateFormat
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -39,11 +40,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -89,6 +97,9 @@ fun PixelTextField(
     // Stała wysokość wiersza – puste pole nie jest wyższe od wypełnionego (np. pola RGB w kreatorze nie skaczą).
     val measurer = rememberTextMeasurer()
     val lineHeight = remember(style, density) { with(density) { measurer.measure("0", style).size.height.toDp() } }
+    val focus = LocalFocusManager.current
+    val interaction = remember { MutableInteractionSource() }
+    val focused = keyFocused(interaction)
     Column(modifier) {
         PixelText(label, size = 1, color = Pal.Foam)
         VSpace(1)
@@ -106,9 +117,22 @@ fun PixelTextField(
                 capitalization = KeyboardCapitalization.None,
             ),
             keyboardActions = KeyboardActions(onDone = { onDone() }, onGo = { onDone() }),
+            interactionSource = interaction,
             modifier = Modifier
                 .fillMaxWidth()
-                .drawBehind { pixelBox(u, Pal.Outline.copy(alpha = 0.9f), Pal.Navy, Pal.Outline, shadow = 0f) }
+                // Pole ma jedną linię, więc strzałki w górę i w dół przechodzą z klawiatury do sąsiednich elementów.
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (e.key) {
+                        Key.DirectionUp -> focus.moveFocus(FocusDirection.Up)
+                        Key.DirectionDown -> focus.moveFocus(FocusDirection.Down)
+                        else -> false
+                    }
+                }
+                .drawBehind {
+                    if (focused) focusRing(u)
+                    pixelBox(u, Pal.Outline.copy(alpha = 0.9f), Pal.Navy, Pal.Outline, shadow = 0f)
+                }
                 .padding(horizontal = px(5), vertical = px(4))
                 .height(lineHeight),
         )
@@ -312,10 +336,12 @@ private fun NotConfiguredCard() {
 private fun OnlineColumn(content: @Composable ColumnScope.() -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewport = maxHeight
+        val scroll = rememberScrollState()
         Column(
             Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .keyScroll(scroll)
+                .verticalScroll(scroll)
                 .heightIn(min = viewport)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .imePadding()
@@ -527,9 +553,10 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
             VSpace(10)
             Hint(stringResource(R.string.ranking_empty), Pal.Foam)
         }
+        val list = rememberListState()
         LazyColumn(
-            Modifier.fillMaxSize(),
-            state = rememberListState(),
+            Modifier.fillMaxSize().keyScroll(list),
+            state = list,
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(3)),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -548,7 +575,7 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                 }
                 val mine = e.id == data?.myId
                 val rank = if (guestPlace != null && e.rank >= guestPlace) e.rank + 1 else e.rank
-                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = mine) {
+                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)).keyStop(), highlight = mine) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30))) {
                             PixelText(
@@ -596,7 +623,7 @@ private fun GuestRankText(points: Long, place: Int?) {
 /** Wiersz gościa wstawiony do listy w miejscu, które zająłby po założeniu konta. */
 @Composable
 private fun GuestRankRow(place: Int, points: Long) {
-    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
+    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)).keyStop(), highlight = true) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.widthIn(min = px(30))) { PixelText("#$place", size = 2, color = Pal.Sand) }
             HSpace(3)

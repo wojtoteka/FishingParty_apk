@@ -111,7 +111,8 @@ fun AppRoot() {
         screen = Screen.Menu
     }
 
-    Box(Modifier.fillMaxSize().background(Pal.SeaDark)) {
+    // Cała aplikacja to warstwa nawigacji klawiaturą; okienka (Overlay) dokładają swoje na wierzchu.
+    Box(Modifier.fillMaxSize().background(Pal.SeaDark).keyLayer()) {
         when (val s = screen) {
             Screen.Menu -> MenuScreen(
                 onPlay = { intro = it },

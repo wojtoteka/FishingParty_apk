@@ -21,6 +21,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
+import androidx.compose.ui.focus.FocusRequester
 
 @Composable
 fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, showCoins: Boolean = true) {
@@ -42,10 +46,13 @@ fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, sho
 @Composable
 fun Overlay(onDismiss: (() -> Unit)? = null, content: @Composable ColumnScope.() -> Unit) {
     BackHandler(enabled = onDismiss != null) { onDismiss?.invoke() }
+    val primary = remember { FocusRequester() }
     Box(
         Modifier
             .fillMaxSize()
             .background(Pal.Scrim)
+            // Tło tylko zatrzymuje dotyk – klawiatura po nim nie chodzi.
+            .focusProperties { canFocus = false }
             .noRippleClick { }
             .windowInsetsPadding(WindowInsets.safeDrawing),
         contentAlignment = Alignment.Center,
@@ -53,12 +60,14 @@ fun Overlay(onDismiss: (() -> Unit)? = null, content: @Composable ColumnScope.()
         // Za wysoki panel (niski tablet, duża czcionka) przewija się zamiast uciąć przyciski na dole.
         PixelPanel(
             Modifier
+                .keyLayer(trap = true, autoFocus = true, initial = primary)
                 .padding(px(10))
                 .widthIn(max = px(320))
                 .fillMaxWidth(),
             scrollable = true,
-            content = content,
-        )
+        ) {
+            CompositionLocalProvider(LocalPrimaryFocus provides primary) { content() }
+        }
     }
 }
 

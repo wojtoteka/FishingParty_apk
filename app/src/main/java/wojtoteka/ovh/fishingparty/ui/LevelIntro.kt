@@ -101,7 +101,7 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
             onClick = { onPlay(selected.toSet()) },
             style = ButtonStyle.GREEN,
             size = 5,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.keyPrimary().fillMaxWidth(),
         )
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -223,9 +224,11 @@ fun GameScreen(
     }
 
     val view = LocalView.current
+    // Strzałki sterują łodzią tylko w trakcie jazdy – w pauzie i na ekranie wyniku chodzą po przyciskach.
+    val steering = outcome == null && !paused && !welcome
+    SideEffect { KeyboardSteer.enabled = steering }
     DisposableEffect(Unit) {
         view.keepScreenOn = true
-        KeyboardSteer.enabled = true
         onDispose {
             view.keepScreenOn = false
             KeyboardSteer.enabled = false
@@ -446,7 +449,7 @@ private fun WinPanel(level: Int, title: String, challenge: Boolean, result: RunR
                     onClick = { onExit(GameExit.Next(level + 1)) },
                     style = ButtonStyle.GREEN,
                     size = 4,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.keyPrimary().fillMaxWidth(),
                 )
                 VSpace(4)
             }
@@ -600,7 +603,7 @@ private fun PausePanel(
             )
         }
         VSpace(8)
-        PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
         ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge)
     }
@@ -632,7 +635,7 @@ private fun TutorialWelcome(onStart: () -> Unit, onSkip: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
         VSpace(8)
-        PixelButton(stringResource(R.string.tutorial_start), onClick = onStart, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.tutorial_start), onClick = onStart, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
         PixelButton(stringResource(R.string.tutorial_skip), onClick = onSkip, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     }

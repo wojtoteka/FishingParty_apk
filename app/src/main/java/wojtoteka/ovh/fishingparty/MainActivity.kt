@@ -9,6 +9,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
@@ -18,6 +19,7 @@ import wojtoteka.ovh.fishingparty.notify.ReminderLog
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
 import wojtoteka.ovh.fishingparty.ui.ProvideUi
+import wojtoteka.ovh.fishingparty.ui.KeyNav
 
 class MainActivity : ComponentActivity() {
     private val app get() = application as FishingPartyApp
@@ -69,9 +71,21 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) hideSystemBars() else KeyboardSteer.release()
     }
 
-    // Klawiatura steruje łodzią zanim Compose użyje strzałek do przenoszenia fokusu między przyciskami.
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        KeyboardSteer.onKey(event) || super.dispatchKeyEvent(event)
+    // Klawiatura steruje łodzią zanim Compose użyje strzałek do przenoszenia fokusu między przyciskami,
+    // a poza grą pierwsza strzałka wybiera przycisk na wierzchu (okienko, a nie ekran pod nim).
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Esc działa jak „wstecz” (zamyka okienko, wraca do menu, pauzuje grę) – nie każda klawiatura robi to sama.
+        // Przy wpisywaniu (pole RGB, logowanie) Esc najpierw chowa klawiaturę ekranową.
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+                val ime = ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+                if (ime) WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.ime())
+                else onBackPressedDispatcher.onBackPressed()
+            }
+            return true
+        }
+        return KeyboardSteer.onKey(event) || KeyNav.onKey(event) || super.dispatchKeyEvent(event)
+    }
 
     /** Ekran nie gaśnie w trakcie gry (można wyłączyć w ustawieniach). */
     fun applyKeepScreenOn() {

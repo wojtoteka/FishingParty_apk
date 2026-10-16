@@ -108,16 +108,18 @@ fun AchievementsScreen(onBack: () -> Unit) {
             color = Pal.Foam,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+        val list = rememberListState()
         LazyColumn(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
-            state = rememberListState(),
+            Modifier.fillMaxSize().keyScroll(list).windowInsetsPadding(WindowInsets.navigationBars),
+            state = list,
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(4)),
         ) {
             items(sorted, key = { it.id }) { a ->
                 val unlocked = isUnlocked(a)
                 val claimed = progress.isClaimed(a)
-                DarkCard(Modifier.fillMaxWidth(), highlight = unlocked && !claimed) {
+                // Karta bez przycisku też jest przystankiem strzałek – inaczej z klawiatury lista by się nie przewijała.
+                DarkCard(Modifier.fillMaxWidth().then(if (unlocked && !claimed) Modifier else Modifier.keyStop()), highlight = unlocked && !claimed) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30)), contentAlignment = Alignment.Center) {
                             SpriteImage(a.icon, 2, alpha = if (unlocked) 1f else 0.45f)
@@ -180,10 +182,12 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
     var confirmReset by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         ScreenFrame(stringResource(R.string.settings_title), onBack) {
+            val scroll = rememberScrollState()
             Column(
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .keyScroll(scroll)
+                    .verticalScroll(scroll)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(start = px(10), top = px(6), end = px(10), bottom = px(BOTTOM_GAP)),
                 horizontalAlignment = Alignment.CenterHorizontally,

@@ -244,7 +244,7 @@ private fun ChallengeIntro(challenge: Challenge, now: Long, onPlay: (Challenge, 
         onClick = { onPlay(challenge, selected.toSet()) },
         style = challengeStyle(challenge.kind),
         size = 5,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.keyPrimary().fillMaxWidth(),
     )
 }
 

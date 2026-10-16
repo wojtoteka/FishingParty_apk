@@ -48,6 +48,8 @@ import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import kotlin.math.PI
 import kotlin.math.floor
 import kotlin.math.sin
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.focus.onFocusChanged
 
 /** Jeden pędzel na wszystkie podglądy – wszystko rysuje się w wątku interfejsu, a karta w liście nie tworzy własnych farb. */
 private val previewPainter by lazy { ShipPainter() }
@@ -178,7 +180,7 @@ fun ShopScreen(onBack: () -> Unit) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 state = grid,
-                modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
+                modifier = Modifier.fillMaxSize().keyScroll(grid).windowInsetsPadding(WindowInsets.navigationBars),
                 contentPadding = PaddingValues(start = px(6), top = px(4), end = px(6), bottom = px(BOTTOM_GAP)),
                 horizontalArrangement = Arrangement.spacedBy(px(4)),
                 verticalArrangement = Arrangement.spacedBy(px(4)),
@@ -258,7 +260,18 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
     val progress = repo.progress
     val owned = progress.owns(item)
     val equipped = progress.isEquipped(item)
-    DarkCard(Modifier.fillMaxWidth().noRippleClick(onPreview), highlight = selected || equipped) {
+    // Z klawiatury strzałki chodzą po przyciskach kart, a wybrany przycisk od razu pokazuje podgląd.
+    // Gdy przycisk jest nieaktywny (w użyciu, za mało monet), wybiera się całą kartę.
+    val previewOnFocus = Modifier.onFocusChanged { if (it.isFocused) onPreview() }
+    val buttonActive = when {
+        item.kind != ItemKind.POWERUP && equipped -> false
+        item.kind != ItemKind.POWERUP && owned -> true
+        else -> progress.coins >= item.price
+    }
+    DarkCard(
+        Modifier.fillMaxWidth().then(previewOnFocus).focusProperties { canFocus = !buttonActive }.noRippleClick(onPreview),
+        highlight = selected || equipped,
+    ) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.height(px(54)).fillMaxWidth(), contentAlignment = Alignment.Center) {
                 when (item.kind) {
@@ -285,14 +298,14 @@ private fun ShopCard(item: ShopItem, selected: Boolean, onPreview: () -> Unit, o
                     text = "", onClick = {}, enabled = false, modifier = Modifier.fillMaxWidth(),
                 ) { ButtonLabel(stringResource(R.string.shop_equipped)) }
                 item.kind != ItemKind.POWERUP && owned -> PixelButton(
-                    text = "", onClick = onEquip, style = ButtonStyle.SEA, modifier = Modifier.fillMaxWidth(),
+                    text = "", onClick = onEquip, style = ButtonStyle.SEA, modifier = previewOnFocus.fillMaxWidth(),
                 ) { ButtonLabel(stringResource(R.string.shop_equip)) }
                 else -> PixelButton(
                     text = "",
                     onClick = onBuy,
                     style = ButtonStyle.GREEN,
                     enabled = progress.coins >= item.price,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = previewOnFocus.fillMaxWidth(),
                 ) {
                     SpriteImage("fishscore_gold", 1)
                     HSpace(2)

@@ -7,6 +7,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -43,8 +44,10 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
@@ -60,6 +63,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import wojtoteka.ovh.fishingparty.FishingPartyApp
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.audio.AudioEngine
@@ -313,6 +317,31 @@ fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline
  */
 const val BOTTOM_GAP = 24
 
+/**
+ * Złota ramka wokół elementu wybranego z klawiatury (strzałki, Tab). Rysowana na zewnątrz elementu,
+ * z odstępem i uciętymi narożnikami jak [pixelBox].
+ */
+fun DrawScope.focusRing(u: Float) {
+    fun ring(gap: Float, width: Float, color: Color) {
+        val w = size.width + 2 * gap
+        val h = size.height + 2 * gap
+        drawRect(color, Offset(-gap + u, -gap), Size(w - 2 * u, width))
+        drawRect(color, Offset(-gap + u, size.height + gap - width), Size(w - 2 * u, width))
+        drawRect(color, Offset(-gap, -gap + u), Size(width, h - 2 * u))
+        drawRect(color, Offset(size.width + gap - width, -gap + u), Size(width, h - 2 * u))
+    }
+    // Złoto z ciemnym obrysem po obu stronach – widać je na piasku, wodzie i złotych przyciskach.
+    ring(4 * u, 4 * u, Pal.Outline)
+    ring(3 * u, 2 * u, Pal.Gold)
+}
+
+/** Czy element ma fokus z klawiatury – po dotknięciu ekranu ramka znika, nawet jeśli fokus został. */
+@Composable
+fun keyFocused(interaction: MutableInteractionSource): Boolean {
+    val focused by interaction.collectIsFocusedAsState()
+    return focused && LocalInputModeManager.current.inputMode == InputMode.Keyboard
+}
+
 /** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
 const val MIN_BUTTON = 32
 
@@ -332,10 +361,16 @@ fun PixelButton(
     val u = LocalUnit.current.toFloat()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val focused = keyFocused(interaction)
     val s = if (enabled) style else ButtonStyle.GREY
     Box(
         modifier = modifier
-            .drawBehind { pixelBox(u, s.base, s.light, s.dark, shadow = if (pressed) 1f else 3f) }
+            // Wybrany przycisk rysuje się nad sąsiadami, żeby nie zasłaniały mu ramki.
+            .zIndex(if (focused) 1f else 0f)
+            .drawBehind {
+                if (focused) focusRing(u)
+                pixelBox(u, s.base, s.light, s.dark, shadow = if (pressed) 1f else 3f)
+            }
             .clickable(interactionSource = interaction, indication = null, enabled = enabled) {
                 if (sound) services.audio.play(Sfx.CLICK)
                 onClick()
@@ -364,6 +399,7 @@ fun PixelButton(
 fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val u = LocalUnit.current.toFloat()
     val sand = rememberSprite("tiles/sunny_bay/sandfull")
+    val scroll = rememberScrollState()
     Column(
         modifier = modifier
             .drawBehind {
@@ -377,7 +413,7 @@ fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, conte
                 drawContext.canvas.restore()
             }
             // Ramka stoi w miejscu, przewija się tylko zawartość.
-            .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .then(if (scrollable) Modifier.keyScroll(scroll).verticalScroll(scroll) else Modifier)
             .padding(px(8)),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
@@ -457,7 +493,12 @@ fun PixelBar(fraction: Float, modifier: Modifier = Modifier, color: Color = Pal.
 @Composable
 fun Modifier.noRippleClick(onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
-    return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+    val focused = keyFocused(interaction)
+    val u = LocalUnit.current.toFloat()
+    return this
+        .zIndex(if (focused) 1f else 0f)
+        .drawBehind { if (focused) focusRing(u) }
+        .clickable(interactionSource = interaction, indication = null, onClick = onClick)
 }
 
 /**

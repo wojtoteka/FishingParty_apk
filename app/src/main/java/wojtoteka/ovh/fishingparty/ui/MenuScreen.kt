@@ -45,6 +45,8 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
@@ -59,6 +61,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
     val repo = LocalServices.current.repo
     repo.revision.intValue
     val progress = repo.progress
+    val playFocus = remember { FocusRequester() }
     val current = progress.highestUnlocked()
     val world = Worlds.paletteOf(current)
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
@@ -88,12 +91,15 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
         SeaBackdrop(world, Modifier.fillMaxSize(), ship = look, shipY = shipY)
         // Menu wypełnia ekran, a gdy nawet z najmniejszym tytułem się nie mieści (niski tablet,
         // duża czcionka systemowa), przewija się – przyciski nigdy nie są ściskane ani ucinane.
-        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+        // Z klawiatury pierwsza strzałka wybiera „Graj”.
+        BoxWithConstraints(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing).keyLayer(initial = playFocus)) {
         val viewport = maxHeight
+        val scroll = rememberScrollState()
         Column(
             Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .keyScroll(scroll)
+                .verticalScroll(scroll)
                 .heightIn(min = viewport)
                 .padding(horizontal = px(10), vertical = px(6)),
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -155,7 +161,7 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     text = "",
                     onClick = { onPlay(current) },
                     style = ButtonStyle.GREEN,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.focusRequester(playFocus).fillMaxWidth(),
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         PixelText(stringResource(R.string.play), size = 6)
