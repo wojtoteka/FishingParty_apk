@@ -66,6 +66,9 @@ class Enemy(
     var seenX = 0f
     var seenY = 0f
 
+    /** Przerwa po ataku: pływa spokojnie jak ryba i nie poluje, dopóki nie minie. */
+    var calm = 0f
+
     /** Namierzyła łódź (oczy świecą na czerwono, nad głową wykrzyknik). */
     val locked: Boolean get() = hunt == Hunt.AIM || hunt == Hunt.DASH
 }
@@ -81,11 +84,8 @@ enum class Hunt {
     /** Błyskawiczny skok w miejsce, gdzie widziała łódź. */
     DASH,
 
-    /** Chwila oddechu po skoku. */
-    REST,
-
-    /** Zgubiła łódź z oczu – płynie sprawdzić miejsce, gdzie widziała ją ostatnio. */
-    SEARCH,
+    /** Po skoku (trafionym czy nie) odpływa od łodzi, a potem ma przerwę ([Enemy.calm]). */
+    FLEE,
 }
 
 class Popup(var x: Float, var y: Float, val value: Int, val golden: Boolean) {

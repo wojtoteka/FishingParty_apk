@@ -579,8 +579,7 @@ class GameWorld(
                 Hunt.PATROL -> STALKER_PATROL
                 Hunt.AIM -> 0f
                 Hunt.DASH -> STALKER_DASH
-                Hunt.REST -> STALKER_REST
-                Hunt.SEARCH -> STALKER_SEARCH
+                Hunt.FLEE -> STALKER_FLEE
             }
         }
         return base * spec.enemySpeed * if (loadout.frost) FROST_SLOWDOWN else 1f
@@ -661,9 +660,11 @@ class GameWorld(
      * Widmokuda patroluje jak rekin, ale patrzy przed siebie: gdy zobaczy łódź (w zasięgu wzroku,
      * w polu widzenia i bez skały, wyspy ani brzegu na linii), staje, świeci oczami i po chwili
      * skacze w miejsce, gdzie łódź była. Przez przeszkody nie widzi – za skałą można się schować.
+     * Po skoku, trafionym czy nie, odpływa od łodzi i przez chwilę pływa spokojnie, nie polując.
      */
     private fun updateStalker(e: Enemy, stage: StageLayout, dt: Float) {
-        val sees = phase == Phase.PLAYING && e.stage == stageIndex && sees(e)
+        if (e.calm > 0f) e.calm -= dt
+        val sees = phase == Phase.PLAYING && e.stage == stageIndex && e.calm <= 0f && sees(e)
         if (sees) {
             e.seenX = shipX
             e.seenY = shipY
@@ -692,25 +693,14 @@ class GameWorld(
                 }
             }
             Hunt.DASH -> {
-                if (!swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage) || e.huntTimer <= 0f) rest(e, STALKER_REST_TIME)
+                if (!swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage) || e.huntTimer <= 0f) flee(e)
             }
-            Hunt.REST -> {
-                swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage)
+            Hunt.FLEE -> {
+                fleeStep(e, enemySpeed(e) * dt, stage)
                 if (e.huntTimer <= 0f) {
-                    if (sees) aim(e) else {
-                        e.hunt = Hunt.SEARCH
-                        e.huntTimer = STALKER_SEARCH_TIME
-                    }
-                }
-            }
-            Hunt.SEARCH -> {
-                if (sees) return aim(e)
-                faceSeen(e)
-                val near = hypot(e.seenX - e.x, e.seenY - e.y) < 8f
-                if (near || e.huntTimer <= 0f || !swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage)) {
                     e.hunt = Hunt.PATROL
-                    e.dirX = if (e.vx >= 0f) 1 else -1
-                    e.dirY = 0
+                    e.dirX = if (abs(e.vx) >= abs(e.vy)) (if (e.vx >= 0f) 1 else -1) else 0
+                    e.dirY = if (e.dirX == 0) (if (e.vy >= 0f) 1 else -1) else 0
                 }
             }
         }
@@ -728,9 +718,34 @@ class GameWorld(
         }
     }
 
-    private fun rest(e: Enemy, time: Float) {
-        e.hunt = Hunt.REST
-        e.huntTimer = time
+    /** Koniec ataku: odpływa od łodzi, a po ucieczce ma przerwę, zanim znów zacznie polować. */
+    private fun flee(e: Enemy) {
+        e.hunt = Hunt.FLEE
+        e.huntTimer = STALKER_FLEE_TIME
+        e.calm = STALKER_FLEE_TIME + STALKER_CALM_TIME
+    }
+
+    /** Krok ucieczki: prosto od łodzi, a gdy tam brzeg – wzdłuż niego, w bok albo choćby gdziekolwiek. */
+    private fun fleeStep(e: Enemy, distance: Float, stage: StageLayout) {
+        var ax = e.x - shipX
+        var ay = e.y - shipY
+        val d = hypot(ax, ay)
+        if (d < 0.5f) {
+            ax = e.vx; ay = e.vy
+        } else {
+            ax /= d; ay /= d
+        }
+        val sx = if (ax >= 0f) 1f else -1f
+        val sy = if (ay >= 0f) 1f else -1f
+        val tries = arrayOf(ax to ay, sx to 0f, 0f to sy, -ay to ax, ay to -ax, -sx to 0f, 0f to -sy)
+        for ((tx, ty) in tries) {
+            if (swim(e, tx, ty, distance, stage)) {
+                val len = hypot(tx, ty)
+                e.vx = tx / len
+                e.vy = ty / len
+                return
+            }
+        }
     }
 
     private fun faceSeen(e: Enemy) {
@@ -781,8 +796,8 @@ class GameWorld(
     }
 
     private fun hitShip(e: Enemy) {
-        // Po trafieniu widmokuda odpływa na chwilę – nie poluje na łódź w czasie nietykalności.
-        if (e.kind == EnemyKind.STALKER) rest(e, STALKER_AFTER_HIT)
+        // Po trafieniu widmokuda odpływa i ma przerwę – nie poluje na łódź w czasie nietykalności.
+        if (e.kind == EnemyKind.STALKER) flee(e)
         val dx = shipX - e.x
         val dy = shipY - e.y
         val d = max(1f, sqrt(dx * dx + dy * dy))
@@ -927,16 +942,14 @@ class GameWorld(
         private const val CAUGHT_ANIM = 0.33f
         private const val TURN_CHANCE = 0.3f
         const val MESSAGE_TIME = 2f
-        // Widmokuda: prędkości (× tempo potworów poziomu), czasy faz polowania i wzrok.
+        // Widmokuda: prędkości (× tempo potworów poziomu), czasy faz polowania, przerwa po ataku i wzrok.
         private const val STALKER_PATROL = 22f
         private const val STALKER_DASH = 105f
-        private const val STALKER_REST = 8f
-        private const val STALKER_SEARCH = 44f
+        private const val STALKER_FLEE = 46f
         private const val STALKER_AIM_TIME = 0.55f
         private const val STALKER_DASH_MAX = 1f
-        private const val STALKER_REST_TIME = 0.8f
-        private const val STALKER_AFTER_HIT = 1.6f
-        private const val STALKER_SEARCH_TIME = 2.5f
+        const val STALKER_FLEE_TIME = 1.4f
+        const val STALKER_CALM_TIME = 3.5f
         private const val STALKER_LOOK = 8f
         const val STALKER_SIGHT = 120f
         private const val STALKER_SENSE = 28f

@@ -217,4 +217,34 @@ class StalkerTest {
         val dodging = play(dodge = true)
         assertTrue("unik: $dodging trafień, bez ruchu: $standing", dodging < standing)
     }
+
+    @Test
+    fun fleesAndRestsAfterEveryAttack() {
+        val world = arena(wall = false)
+        val e = world.enemies.single()
+        var attacks = 0
+        var prev = e.hunt
+        var fleeStart = -1f
+        var startDist = 0f
+        repeat(60 * 40) {
+            world.advance(1f / 60f)
+            val dist = kotlin.math.hypot(e.x - world.shipX, e.y - world.shipY)
+            if (e.hunt == Hunt.FLEE && prev == Hunt.DASH) {
+                attacks++
+                fleeStart = world.elapsed
+                startDist = dist
+            }
+            // Po ucieczce jest dalej od łodzi niż po skoku.
+            if (prev == Hunt.FLEE && e.hunt == Hunt.PATROL) {
+                assertTrue("nie odpłynęła: $startDist → $dist", dist > startDist + 20f)
+            }
+            // Przerwa: zanim minie, nie namierza łodzi, choć ta stoi na otwartej wodzie.
+            if (e.hunt == Hunt.AIM && prev != Hunt.AIM && fleeStart >= 0f) {
+                val pause = world.elapsed - fleeStart
+                assertTrue("za krótka przerwa: $pause s", pause >= GameWorld.STALKER_FLEE_TIME + GameWorld.STALKER_CALM_TIME - 0.05f)
+            }
+            prev = e.hunt
+        }
+        assertTrue("nie zaatakowała", attacks >= 1)
+    }
 }

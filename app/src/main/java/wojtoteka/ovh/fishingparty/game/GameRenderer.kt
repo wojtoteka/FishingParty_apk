@@ -264,7 +264,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
      */
     private fun drawStalker(canvas: Canvas, e: Enemy, t: Float, second: Boolean) {
         val right = e.faceRight
-        val hunting = e.hunt == Hunt.AIM || e.hunt == Hunt.DASH || e.hunt == Hunt.SEARCH
+        val hunting = e.hunt == Hunt.AIM || e.hunt == Hunt.DASH
         val tilt = if (!hunting) 0f
         else Math.toDegrees(atan2(e.vy.toDouble(), abs(e.vx).toDouble().coerceAtLeast(0.001))).toFloat().coerceIn(-STALKER_TILT, STALKER_TILT)
         val frame = (if (e.locked) "stalkerlock" else "stalker") + if (second || e.hunt == Hunt.DASH) "2" else "1"
