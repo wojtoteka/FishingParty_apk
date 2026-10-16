@@ -109,7 +109,10 @@ class OnlineManager(
     var lastSyncAt by mutableLongStateOf(0L)
         private set
 
-    /** Zapis na koncie zmienił inny telefon, a ten też ma niewysłane zmiany – gracz wybiera. */
+    /**
+     * Zapis na koncie zmienił inny telefon, ten też ma niewysłane zmiany, a nie da się ich połączyć
+     * (telefon nie zna ostatniego wspólnego zapisu, np. po aktualizacji ze starszej wersji) – gracz wybiera.
+     */
     var conflict by mutableStateOf(false)
         private set
 
@@ -352,6 +355,7 @@ class OnlineManager(
     private fun dropSession() {
         snapshotJob?.cancel()
         store.clearSession()
+        repo.rememberSynced(null)
         account = null
         conflict = false
         restoreChoice = false
@@ -388,6 +392,7 @@ class OnlineManager(
         store.knownRevision = 0
         store.importPending = false
         store.dirty = true
+        repo.rememberSynced(null)
         applyProfile(profile)
         val snapshot = res.optJSONObject("snapshot")
         val remote = snapshot?.optBoolean("exists") == true
@@ -439,12 +444,33 @@ class OnlineManager(
         val res = call("GET", "/sync/snapshot")
         val bytes = Base64.decode(res.getString("data"), Base64.NO_WRAP)
         repo.restoreSnapshot(bytes)
+        repo.rememberSynced(bytes)
         store.knownRevision = res.getInt("revision")
         store.lastSentRunAt = latestRecordAt()
         store.lastSentChallengeAt = latestChallengeAt()
         store.dirty = false
         store.save()
         onRestored()
+    }
+
+    /**
+     * Drugi telefon zapisał na koncie nowszy postęp, a ten ma swój niewysłany: łączymy oba (nic nie przepada)
+     * i wysyłamy wynik. Gdy telefon nie zna ostatniego wspólnego zapisu (stara wersja gry), wybiera gracz.
+     * Przejazdy i poziomy dnia/tygodnia tego telefonu, które czekają na wysłanie, nadal czekają.
+     */
+    private suspend fun mergeRemote() {
+        val res = call("GET", "/sync/snapshot")
+        val bytes = Base64.decode(res.getString("data"), Base64.NO_WRAP)
+        if (!repo.mergeSnapshot(bytes)) {
+            conflict = true
+            return
+        }
+        repo.rememberSynced(bytes)
+        store.knownRevision = res.getInt("revision")
+        store.dirty = true
+        store.save()
+        onRestored()
+        pushSnapshot(force = false)
     }
 
     // ------------------------------------------------------------------ synchronizacja
@@ -493,15 +519,19 @@ class OnlineManager(
         syncLock.withLock {
             status = SyncStatus.SYNCING
             try {
+                // W trakcie gry zapisu nie podmieniamy – połączymy go po powrocie do menu.
+                var pushOwn = snapshot
                 if (checkRemote) {
                     val state = call("GET", "/sync/state")
                     val remoteRevision = state.optInt("revision")
                     val remoteDevice = state.optString("deviceId")
                     if (state.optBoolean("exists") && remoteRevision != store.knownRevision && remoteDevice != store.deviceId) {
-                        if (!store.dirty && canAutoPull()) {
-                            pullSnapshot()
-                        } else if (store.dirty) {
-                            conflict = true
+                        when {
+                            !canAutoPull() -> pushOwn = false
+                            store.dirty -> mergeRemote()
+                            else -> pullSnapshot()
+                        }
+                        if (conflict) {
                             status = SyncStatus.IDLE
                             return
                         }
@@ -509,12 +539,25 @@ class OnlineManager(
                 }
                 pushRuns()
                 pushChallenges()
-                if (snapshot) pushSnapshot(force = false)
+                if (pushOwn) {
+                    try {
+                        pushSnapshot(force = false)
+                    } catch (e: ApiException) {
+                        // Drugi telefon zdążył zapisać swój postęp – łączymy (albo czekamy z tym do końca gry).
+                        if (e.code != "snapshot_conflict") throw e
+                        if (canAutoPull()) mergeRemote()
+                    }
+                    if (conflict) {
+                        status = SyncStatus.IDLE
+                        return
+                    }
+                }
                 status = SyncStatus.OK
                 lastSyncAt = System.currentTimeMillis()
             } catch (e: ApiException) {
                 when (e.code) {
-                    "snapshot_conflict" -> conflict = true
+                    // Drugi telefon zapisał coś w trakcie łączenia – następna synchronizacja połączy jeszcze raz.
+                    "snapshot_conflict" -> Unit
                     "not_logged_in" -> {
                         dropSession()
                         notice = "session_expired"
@@ -641,11 +684,14 @@ class OnlineManager(
 
     private suspend fun pushSnapshot(force: Boolean) {
         if (!store.dirty && !force) return
-        val data = Base64.encodeToString(repo.exportSnapshot(), Base64.NO_WRAP)
+        val bytes = repo.exportSnapshot()
+        val data = Base64.encodeToString(bytes, Base64.NO_WRAP)
         val body = JSONObject().put("baseRevision", store.knownRevision).put("deviceId", store.deviceId).put("data", data)
         val res = call("PUT", if (force) "/sync/snapshot?force=1" else "/sync/snapshot", body)
+        repo.rememberSynced(bytes)
         store.knownRevision = res.getInt("revision")
-        store.dirty = false
+        // Zmiana w trakcie wysyłania (np. koniec poziomu) poleci następnym razem.
+        store.dirty = !repo.exportSnapshot().contentEquals(bytes)
         store.save()
     }
 

@@ -75,6 +75,13 @@ fun AppRoot() {
     // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
     val currentScreen by rememberUpdatedState(screen)
     LaunchedEffect(Unit) { services.online.canAutoPull = { currentScreen !is Screen.Game } }
+    // Po wyjściu z rozgrywki łączymy postęp, który drugi telefon zapisał na koncie w jej trakcie.
+    var wasPlaying by remember { mutableStateOf(false) }
+    val playing = screen is Screen.Game
+    LaunchedEffect(playing) {
+        if (wasPlaying && !playing) services.online.syncNow()
+        wasPlaying = playing
+    }
 
     fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null) {
         lastSelection = selection
