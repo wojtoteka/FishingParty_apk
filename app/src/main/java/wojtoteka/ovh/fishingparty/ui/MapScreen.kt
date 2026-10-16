@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.isActive
@@ -45,6 +46,20 @@ import kotlin.math.floor
 import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.math.sin
+import android.graphics.Paint
+import androidx.compose.animation.core.animate
+import androidx.compose.foundation.focusable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
+import kotlinx.coroutines.launch
 
 @Composable
 fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
@@ -75,7 +90,15 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
     val starOff = remember { Sprites.sprite("fishscore_grey") }
     val arrow = remember { Sprites.sprite("arrowup") }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    // Klawiatura: strzałki wybierają wyspę (złota ramka), Enter otwiera jej poziom.
+    val mapFocus = remember { FocusRequester() }
+    val interaction = remember { MutableInteractionSource() }
+    val keyboard = keyFocused(interaction)
+    var cursor by remember(current) { mutableIntStateOf(current) }
+    val scope = rememberCoroutineScope()
+    val frame = remember { Paint().apply { style = Paint.Style.FILL } }
+
+    BoxWithConstraints(Modifier.fillMaxSize().keyLayer(initial = mapFocus)) {
         val widthPx = constraints.maxWidth
         val heightPx = constraints.maxHeight
         val s = GameRenderer.scaleFor(widthPx, heightPx).toFloat()
@@ -90,9 +113,35 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
         }
         val camX = (WIDTH * TILE - viewW) / 2f
 
+        fun select(level: Int) {
+            cursor = level.coerceIn(1, current)
+            // Wybrana wyspa zostaje w środkowej części ekranu – mapa przewija się płynnie za nią.
+            val y = map.nodeY(cursor) - offset
+            if (y < viewH * 0.3f || y > viewH * 0.7f) {
+                val target = (map.nodeY(cursor) - viewH * 0.55f).coerceIn(0f, maxOffset)
+                scope.launch { animate(offset, target) { v, _ -> offset = v } }
+            }
+        }
+
         Canvas(
             Modifier
                 .fillMaxSize()
+                .focusRequester(mapFocus)
+                .onKeyEvent { event ->
+                    if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
+                    when (event.key) {
+                        Key.DirectionUp, Key.DirectionRight -> if (cursor < current) select(cursor + 1) else return@onKeyEvent false
+                        Key.DirectionDown, Key.DirectionLeft -> if (cursor > 1) select(cursor - 1) else return@onKeyEvent false
+                        Key.PageUp -> select(cursor + 10)
+                        Key.PageDown -> select(cursor - 10)
+                        Key.MoveHome -> select(1)
+                        Key.MoveEnd -> select(current)
+                        Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter -> onSelect(cursor)
+                        else -> return@onKeyEvent false
+                    }
+                    true
+                }
+                .focusable(interactionSource = interaction)
                 .scrollable(scrollState, Orientation.Vertical)
                 .pointerInput(current, map) {
                     detectTapGestures { pos ->
@@ -154,6 +203,7 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
                 painter.draw(canvas, floor(boatX * s) / s, ny + sin(t * 2f), heading, true, t, look)
                 val arrowY = ny - map.halfHeight(current) - 10f
                 if (t % 0.8f < 0.5f) painter.sprite(canvas, arrow, nx, arrowY + sin(t * 4f) * 1.5f, 0f, alpha = 200)
+                if (keyboard) drawCursor(canvas, frame, map.nodeX(cursor), map.nodeY(cursor), map.halfWidth(cursor) + 4f, map.halfHeight(cursor) + 4f)
                 canvas.restore()
 
                 // Numery poziomów i nazwy światów – w pikselach ekranu, żeby font był ostry.
@@ -187,6 +237,7 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
         }
 
         TopBar(stringResource(R.string.map_title), onBack, Modifier.align(Alignment.TopCenter))
+        LaunchedEffect(Unit) { runCatching { mapFocus.requestFocus() } }
 
         Column(
             Modifier
@@ -196,11 +247,28 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             PixelButton(
-                stringResource(R.string.play_level, current),
-                onClick = { onSelect(current) },
+                stringResource(R.string.play_level, if (keyboard) cursor else current),
+                onClick = { onSelect(if (keyboard) cursor else current) },
                 style = ButtonStyle.GREEN,
                 size = 4,
             )
         }
     }
+}
+
+/** Złota ramka wybranej z klawiatury wyspy (w pikselach świata, z ciemnym obrysem jak przyciski). */
+private fun drawCursor(canvas: android.graphics.Canvas, paint: Paint, cx: Float, cy: Float, hw: Float, hh: Float) {
+    fun ring(grow: Float, color: Int) {
+        paint.color = color
+        val l = cx - hw - grow
+        val r = cx + hw + grow
+        val t = cy - hh - grow
+        val b = cy + hh + grow
+        canvas.drawRect(l + 1f, t, r - 1f, t + 1f, paint)
+        canvas.drawRect(l + 1f, b - 1f, r - 1f, b, paint)
+        canvas.drawRect(l, t + 1f, l + 1f, b - 1f, paint)
+        canvas.drawRect(r - 1f, t + 1f, r, b - 1f, paint)
+    }
+    ring(1f, Pal.Outline.toArgb())
+    ring(0f, Pal.Gold.toArgb())
 }

@@ -26,11 +26,17 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.input.pointer.PointerInputScope
+import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.InputMode
+import androidx.compose.ui.platform.LocalInputModeManager
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.ShopItem
@@ -162,15 +168,26 @@ private fun WorkshopFrame(
     onToggle: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    // Z klawiatury fokus idzie za przyciskiem: po rozwinięciu na „X”, po zwinięciu z powrotem na „Chcesz…”.
+    val toggleFocus = remember { FocusRequester() }
+    var toggled by remember { mutableStateOf(false) }
+    val input = LocalInputModeManager.current
+    LaunchedEffect(open) {
+        if (toggled && input.inputMode == InputMode.Keyboard) runCatching { toggleFocus.requestFocus() }
+    }
+    val toggle = {
+        toggled = true
+        onToggle()
+    }
     if (!open) {
-        PixelButton(openLabel, onClick = onToggle, style = ButtonStyle.ORANGE, size = 3, modifier = Modifier.fillMaxWidth())
+        PixelButton(openLabel, onClick = toggle, style = ButtonStyle.ORANGE, size = 3, modifier = Modifier.focusRequester(toggleFocus).fillMaxWidth())
         return
     }
     DarkCard(Modifier.fillMaxWidth(), highlight = true) {
         Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
             Box(Modifier.fillMaxWidth()) {
                 PixelText(title, size = 3, color = Pal.Gold, modifier = Modifier.align(Alignment.CenterStart))
-                PixelButton("X", onClick = onToggle, style = ButtonStyle.RED, size = 2, modifier = Modifier.align(Alignment.CenterEnd))
+                PixelButton("X", onClick = toggle, style = ButtonStyle.RED, size = 2, modifier = Modifier.align(Alignment.CenterEnd).focusRequester(toggleFocus))
             }
             VSpace(4)
             content()
@@ -200,6 +217,20 @@ private fun ColorPicker(pick: Hsv, onPick: (Hsv) -> Unit) {
                 drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black), startY = u, endY = size.height - u), Offset(u, u), inner)
                 marker(Offset(u + pick.s * inner.width, u + (1 - pick.v) * inner.height), u)
             }
+            // Klawiatura: w lewo/prawo nasycenie, w górę/dół jasność.
+            .keyAdjust { key ->
+                val p = current
+                val next = when (key) {
+                    Key.DirectionLeft -> p.copy(s = (p.s - KEY_STEP).coerceAtLeast(0f))
+                    Key.DirectionRight -> p.copy(s = (p.s + KEY_STEP).coerceAtMost(1f))
+                    Key.DirectionUp -> p.copy(v = (p.v + KEY_STEP).coerceAtMost(1f))
+                    Key.DirectionDown -> p.copy(v = (p.v - KEY_STEP).coerceAtLeast(0f))
+                    else -> return@keyAdjust false
+                }
+                if (next == p) return@keyAdjust false
+                update(next)
+                true
+            }
             .pointerInput(Unit) {
                 track { pos ->
                     val s = ((pos.x - u) / (size.width - 2 * u)).coerceIn(0f, 1f)
@@ -220,6 +251,17 @@ private fun ColorPicker(pick: Hsv, onPick: (Hsv) -> Unit) {
                 val x = u + pick.h * (size.width - 2 * u)
                 drawRect(Pal.Outline, Offset(x - 2 * u, 0f), Size(4 * u, size.height))
                 drawRect(Color.White, Offset(x - u, u), Size(2 * u, size.height - 2 * u))
+            }
+            .keyAdjust { key ->
+                val h = current.h
+                val next = when (key) {
+                    Key.DirectionLeft -> (h - HUE_KEY_STEP).coerceAtLeast(0f)
+                    Key.DirectionRight -> (h + HUE_KEY_STEP).coerceAtMost(0.999f)
+                    else -> return@keyAdjust false
+                }
+                if (next == h) return@keyAdjust false
+                update(current.copy(h = next))
+                true
             }
             .pointerInput(Unit) {
                 track { pos ->
@@ -473,3 +515,7 @@ private fun WorkshopBuy(
 /** Wysokość pola palety i paska barw w pikselach interfejsu. */
 private const val PICKER_H = 90
 private const val HUE_H = 14
+
+/** Krok strzałki w kreatorze: nasycenie/jasność o 1/20, barwa o 1/36 koła. */
+private const val KEY_STEP = 0.05f
+private const val HUE_KEY_STEP = 1f / 36f
