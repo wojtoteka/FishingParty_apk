@@ -45,7 +45,7 @@
     <string name="enemy_dark_shark">DARK SHARK</string>
     <string name="enemy_dark_shark_desc">The fastest shark, almost always hunting your boat.</string>
     <string name="enemy_stalker">GHOSTCUDA</string>
-    <string name="enemy_stalker_desc">The deadliest monster! It sees your boat when nothing is in between: its eye and back spines turn red and a moment later it lunges in a flash. After an attack it swims off and rests for a while. Dodge sideways and hide behind rocks and islands – it cannot see through them.</string>
+    <string name="enemy_stalker_desc">The deadliest monster! It sees your boat when nothing is in between: its eye and back spines turn red and a moment later it lunges in a flash. After an attack it swims off and rests for a while. Dodge sideways and hide behind rocks and islands – it cannot see through them – or slide onto the sand by the shore.</string>
     <string name="hud_tutorial">DRAG YOUR FINGER TO SAIL</string>
     <string name="type_classic">FISHING</string>
     <string name="type_classic_desc">Catch fish, open the gates and reach the finish.</string>

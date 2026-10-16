@@ -55,6 +55,13 @@ class GameWorld(
     private var knockX = 0f
     private var knockY = 0f
     private var bumpCooldown = 0f
+
+    /**
+     * Łódź wpłynęła na piasek przy brzegu. Stoi tam prawie w miejscu (może się obrócić i wypłynąć),
+     * ale potwory jej nie dosięgną, a widmokuda jej nie widzi – awaryjna kryjówka.
+     */
+    var beached = false
+        private set
     val maxSpeed = if (loadout.turbo) SHIP_SPEED * 1.2f else SHIP_SPEED
     private val catchRadius = if (loadout.net) NET_CATCH_RADIUS else CATCH_RADIUS
 
@@ -240,6 +247,8 @@ class GameWorld(
 
     private fun updateShip(dt: Float, controlled: Boolean) {
         val ticks = dt * 60f
+        val depth = beachDepth(shipX, shipY)
+        beached = depth > 0f
         if (thrust) {
             var diff = targetHeading - heading
             while (diff > PI) diff -= (2 * PI).toFloat()
@@ -252,6 +261,13 @@ class GameWorld(
         } else {
             speed += (0f - speed) * (1f - 0.95f.pow(ticks))
         }
+        if (beached) {
+            // Na piasek wpływa coraz wolniej, a po nim prawie się nie rusza – wypłynąć może trochę szybciej.
+            val out = beachDepth(shipX + cos(heading) * 2f, shipY + sin(heading) * 2f) < depth
+            val cap = if (out) BEACH_EXIT_SPEED
+            else BEACH_ENTRY_SPEED + (BEACH_CRAWL_SPEED - BEACH_ENTRY_SPEED) * min(1f, depth / BEACH_REACH)
+            if (speed > cap) speed += (cap - speed) * (1f - 0.8f.pow(ticks))
+        }
         if (controlled && showControls) {
             if (speed > 30f) movedTime += dt
             if (movedTime > 1.2f) showControls = false
@@ -261,9 +277,13 @@ class GameWorld(
         val ownY = sin(heading) * speed * dt
         var dx = ownX + knockX * dt
         var dy = ownY + knockY * dt
-        if (phase == Phase.PLAYING) {
-            dx += spec.currentX * dt
-            dy += spec.currentY * dt
+        // Prąd nie wpycha łodzi na piasek (na plażę wpływa się tylko samemu), a łodzi na piasku już nie znosi.
+        if (phase == Phase.PLAYING && !beached) {
+            val cx = spec.currentX * dt
+            val cy = spec.currentY * dt
+            val own = beachDepth(shipX + dx, shipY + dy)
+            if (beachDepth(shipX + dx + cx, shipY + dy) <= own) dx += cx
+            if (beachDepth(shipX + dx, shipY + dy + cy) <= own) dy += cy
         }
         knockX *= 0.9f.pow(ticks)
         knockY *= 0.9f.pow(ticks)
@@ -314,13 +334,15 @@ class GameWorld(
         }
     }
 
+    /** Piasek nie zatrzymuje łodzi od razu – może na niego wpłynąć na [BEACH_REACH] od wody. */
     private fun shipBlocked(x: Float, y: Float): Boolean {
+        if (beachDepth(x, y) > BEACH_REACH) return true
         val c0 = floor((x - SHIP_RADIUS) / TILE).toInt()
         val c1 = floor((x + SHIP_RADIUS) / TILE).toInt()
         val r0 = floor((y - SHIP_RADIUS) / TILE).toInt()
         val r1 = floor((y + SHIP_RADIUS) / TILE).toInt()
         for (r in r0..r1) for (c in c0..c1) {
-            if (!solidForShip(c, r)) continue
+            if (!solidForShip(c, r) || grid[c, r] == Tile.SAND) continue
             val nearestX = x.coerceIn(c * TILE.toFloat(), (c + 1) * TILE.toFloat())
             val nearestY = y.coerceIn(r * TILE.toFloat(), (r + 1) * TILE.toFloat())
             val ddx = x - nearestX
@@ -328,6 +350,21 @@ class GameWorld(
             if (ddx * ddx + ddy * ddy < SHIP_RADIUS * SHIP_RADIUS) return true
         }
         return false
+    }
+
+    /** Jak głęboko na piasku jest punkt: odległość do najbliższej wody, 0 – punkt jest na wodzie. */
+    private fun beachDepth(x: Float, y: Float): Float {
+        val c = floor(x / TILE).toInt()
+        val r = floor(y / TILE).toInt()
+        if (grid[c, r] != Tile.SAND) return 0f
+        var best = Float.MAX_VALUE
+        for (rr in r - 1..r + 1) for (cc in c - 1..c + 1) {
+            if (solidForShip(cc, rr)) continue
+            val ddx = x - x.coerceIn(cc * TILE.toFloat(), (cc + 1) * TILE.toFloat())
+            val ddy = y - y.coerceIn(rr * TILE.toFloat(), (rr + 1) * TILE.toFloat())
+            best = min(best, sqrt(ddx * ddx + ddy * ddy))
+        }
+        return best
     }
 
     // ================================================================ ryby
@@ -614,7 +651,8 @@ class GameWorld(
                     if (e.dash > 0f) e.dash -= dt
                 }
             }
-            if (phase != Phase.PLAYING || invulnerable > 0f) continue
+            // Łodzi na piasku potwory nie dosięgną.
+            if (phase != Phase.PLAYING || invulnerable > 0f || beached) continue
             val dx = e.x - shipX
             val dy = (e.y - shipY) * 1.5f
             val r = hitRadius(e.kind)
@@ -636,7 +674,7 @@ class GameWorld(
                     EnemyKind.RED_OCTOPUS -> 0.6f
                     else -> 0.5f
                 }
-                if (rng.nextFloat() < hunt && e.stage == stageIndex) {
+                if (rng.nextFloat() < hunt && e.stage == stageIndex && !beached) {
                     if (abs(e.x - shipX) > abs(e.y - shipY)) {
                         e.dirX = if (e.x < shipX) 1 else -1; e.dirY = 0
                     } else {
@@ -772,6 +810,7 @@ class GameWorld(
 
     /** Czy widmokuda widzi łódź: zasięg wzroku, pole widzenia (z bliska wyczuje też z tyłu) i czysta linia. */
     private fun sees(e: Enemy): Boolean {
+        if (beached) return false
         val dx = shipX - e.x
         val dy = shipY - e.y
         val d = hypot(dx, dy)
@@ -923,6 +962,11 @@ class GameWorld(
         private const val MAX_STEPS = 12
         const val SHIP_SPEED = 72f
         const val SHIP_RADIUS = 5f
+        /** Jak daleko od wody może wpłynąć na piasek środek łodzi (kafelek ma 16). */
+        const val BEACH_REACH = 7f
+        private const val BEACH_ENTRY_SPEED = 34f
+        private const val BEACH_CRAWL_SPEED = 4f
+        private const val BEACH_EXIT_SPEED = 26f
         private const val TURN_RATE = 0.09f
         private const val FISH_SPEED = 12f
         private const val BLUE_SPEED = 20f
