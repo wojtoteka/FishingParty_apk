@@ -129,25 +129,25 @@ fun ChallengeDialog(kind: ChallengeKind, onPlay: (Challenge, Set<PowerUp>) -> Un
     Overlay(onDismiss = onClose) {
         Box(Modifier.fillMaxWidth()) {
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
-            Column(Modifier.align(Alignment.TopCenter), horizontalAlignment = Alignment.CenterHorizontally) {
-                // Odstęp po bokach, żeby tytuł („POZIOM TYGODNIA”) i opis nie wchodziły na przycisk zamknięcia.
-                PixelText(
-                    challengeTitle(kind),
-                    size = 3,
-                    color = challengeAccent(kind),
-                    align = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = px(18)),
-                )
-                PixelText(
-                    stringResource(if (kind == ChallengeKind.DAILY) R.string.challenge_daily_info else R.string.challenge_weekly_info),
-                    size = 1,
-                    color = Pal.Outline,
-                    outline = null,
-                    align = TextAlign.Center,
-                    modifier = Modifier.padding(horizontal = px(18)),
-                )
-            }
+            // Odstęp po bokach, żeby tytuł („POZIOM TYGODNIA”) nie wchodził na przycisk zamknięcia.
+            PixelText(
+                challengeTitle(kind),
+                size = 3,
+                color = challengeAccent(kind),
+                align = TextAlign.Center,
+                modifier = Modifier.align(Alignment.Center).padding(horizontal = px(18)),
+            )
         }
+        // Opis jest poniżej całego nagłówka, bo przycisk X jest wyższy od tytułu i zasłaniałby pierwszy wiersz.
+        VSpace(2)
+        PixelText(
+            stringResource(if (kind == ChallengeKind.DAILY) R.string.challenge_daily_info else R.string.challenge_weekly_info),
+            size = 1,
+            color = Pal.Outline,
+            outline = null,
+            align = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
         VSpace(6)
         when {
             challenge == null -> ChallengeLoading(loading, error, onRetry = refresh)
