@@ -18,8 +18,8 @@ import wojtoteka.ovh.fishingparty.notify.ChallengeReminder
 import wojtoteka.ovh.fishingparty.notify.ReminderLog
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
-import wojtoteka.ovh.fishingparty.ui.ProvideUi
 import wojtoteka.ovh.fishingparty.ui.KeyNav
+import wojtoteka.ovh.fishingparty.ui.ProvideUi
 
 class MainActivity : ComponentActivity() {
     private val app get() = application as FishingPartyApp

@@ -1,6 +1,8 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import androidx.compose.animation.core.animate
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.rememberScrollableState
@@ -16,18 +18,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.game.GameRenderer
 import wojtoteka.ovh.fishingparty.gfx.PixelText as CanvasText
@@ -41,25 +53,13 @@ import wojtoteka.ovh.fishingparty.level.LevelConstants.WIDTH
 import wojtoteka.ovh.fishingparty.level.WorldMap
 import wojtoteka.ovh.fishingparty.level.Worlds
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.floor
 import kotlin.math.max
+import kotlin.math.pow
 import kotlin.math.roundToInt
 import kotlin.math.sin
-import android.graphics.Paint
-import androidx.compose.animation.core.animate
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
-import kotlinx.coroutines.launch
 
 @Composable
 fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
@@ -90,13 +90,11 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
     val starOff = remember { Sprites.sprite("fishscore_grey") }
     val arrow = remember { Sprites.sprite("arrowup") }
 
-    // Klawiatura: strzałki wybierają wyspę (złota ramka), Enter otwiera jej poziom.
+    // Klawiatura: przytrzymana strzałka w górę/dół płynnie przewija mapę (jak strona w przeglądarce),
+    // Page Up/Down – o ekran, Enter otwiera bieżący poziom.
     val mapFocus = remember { FocusRequester() }
-    val interaction = remember { MutableInteractionSource() }
-    val keyboard = keyFocused(interaction)
-    var cursor by remember(current) { mutableIntStateOf(current) }
+    var held by remember { mutableIntStateOf(0) }
     val scope = rememberCoroutineScope()
-    val frame = remember { Paint().apply { style = Paint.Style.FILL } }
 
     BoxWithConstraints(Modifier.fillMaxSize().keyLayer(initial = mapFocus)) {
         val widthPx = constraints.maxWidth
@@ -113,35 +111,49 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
         }
         val camX = (WIDTH * TILE - viewW) / 2f
 
-        fun select(level: Int) {
-            cursor = level.coerceIn(1, current)
-            // Wybrana wyspa zostaje w środkowej części ekranu – mapa przewija się płynnie za nią.
-            val y = map.nodeY(cursor) - offset
-            if (y < viewH * 0.3f || y > viewH * 0.7f) {
-                val target = (map.nodeY(cursor) - viewH * 0.55f).coerceIn(0f, maxOffset)
-                scope.launch { animate(offset, target) { v, _ -> offset = v } }
+        // Prędkość rośnie i maleje łagodnie – mapa rusza i hamuje płynnie, a nie skokami.
+        LaunchedEffect(map, maxOffset) {
+            var velocity = 0f
+            var last = 0L
+            while (isActive) withFrameNanos { now ->
+                val dt = if (last == 0L) 0f else ((now - last) / 1e9f).coerceAtMost(0.05f)
+                last = now
+                velocity += (held * KEY_SCROLL_SPEED - velocity) * (1f - KEY_SCROLL_EASE.pow(dt))
+                if (abs(velocity) > 0.5f) offset = (offset + velocity * dt).coerceIn(0f, maxOffset)
             }
+        }
+        fun page(by: Float) {
+            val target = (offset + by).coerceIn(0f, maxOffset)
+            scope.launch { animate(offset, target) { v, _ -> offset = v } }
         }
 
         Canvas(
             Modifier
                 .fillMaxSize()
                 .focusRequester(mapFocus)
+                .onFocusChanged { if (!it.isFocused) held = 0 }
                 .onKeyEvent { event ->
+                    val dir = when (event.key) {
+                        Key.DirectionUp -> -1
+                        Key.DirectionDown -> 1
+                        else -> 0
+                    }
+                    if (dir != 0) {
+                        if (event.type == KeyEventType.KeyDown) held = dir
+                        else if (event.type == KeyEventType.KeyUp && held == dir) held = 0
+                        return@onKeyEvent true
+                    }
                     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                     when (event.key) {
-                        Key.DirectionUp, Key.DirectionRight -> if (cursor < current) select(cursor + 1) else return@onKeyEvent false
-                        Key.DirectionDown, Key.DirectionLeft -> if (cursor > 1) select(cursor - 1) else return@onKeyEvent false
-                        Key.PageUp -> select(cursor + 10)
-                        Key.PageDown -> select(cursor - 10)
-                        Key.MoveHome -> select(1)
-                        Key.MoveEnd -> select(current)
-                        Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter -> onSelect(cursor)
+                        Key.PageUp -> page(-viewH * 0.8f)
+                        Key.PageDown -> page(viewH * 0.8f)
+                        Key.MoveHome, Key.MoveEnd -> page(map.nodeY(current) - viewH * 0.55f - offset)
+                        Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter -> onSelect(current)
                         else -> return@onKeyEvent false
                     }
                     true
                 }
-                .focusable(interactionSource = interaction)
+                .focusable()
                 .scrollable(scrollState, Orientation.Vertical)
                 .pointerInput(current, map) {
                     detectTapGestures { pos ->
@@ -203,7 +215,6 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
                 painter.draw(canvas, floor(boatX * s) / s, ny + sin(t * 2f), heading, true, t, look)
                 val arrowY = ny - map.halfHeight(current) - 10f
                 if (t % 0.8f < 0.5f) painter.sprite(canvas, arrow, nx, arrowY + sin(t * 4f) * 1.5f, 0f, alpha = 200)
-                if (keyboard) drawCursor(canvas, frame, map.nodeX(cursor), map.nodeY(cursor), map.halfWidth(cursor) + 4f, map.halfHeight(cursor) + 4f)
                 canvas.restore()
 
                 // Numery poziomów i nazwy światów – w pikselach ekranu, żeby font był ostry.
@@ -247,8 +258,8 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             PixelButton(
-                stringResource(R.string.play_level, if (keyboard) cursor else current),
-                onClick = { onSelect(if (keyboard) cursor else current) },
+                stringResource(R.string.play_level, current),
+                onClick = { onSelect(current) },
                 style = ButtonStyle.GREEN,
                 size = 4,
             )
@@ -256,19 +267,6 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
     }
 }
 
-/** Złota ramka wybranej z klawiatury wyspy (w pikselach świata, z ciemnym obrysem jak przyciski). */
-private fun drawCursor(canvas: android.graphics.Canvas, paint: Paint, cx: Float, cy: Float, hw: Float, hh: Float) {
-    fun ring(grow: Float, color: Int) {
-        paint.color = color
-        val l = cx - hw - grow
-        val r = cx + hw + grow
-        val t = cy - hh - grow
-        val b = cy + hh + grow
-        canvas.drawRect(l + 1f, t, r - 1f, t + 1f, paint)
-        canvas.drawRect(l + 1f, b - 1f, r - 1f, b, paint)
-        canvas.drawRect(l, t + 1f, l + 1f, b - 1f, paint)
-        canvas.drawRect(r - 1f, t + 1f, r, b - 1f, paint)
-    }
-    ring(1f, Pal.Outline.toArgb())
-    ring(0f, Pal.Gold.toArgb())
-}
+/** Przewijanie mapy przytrzymaną strzałką: prędkość w jednostkach świata na sekundę i płynność ruszania/hamowania. */
+private const val KEY_SCROLL_SPEED = 260f
+private const val KEY_SCROLL_EASE = 0.0005f
