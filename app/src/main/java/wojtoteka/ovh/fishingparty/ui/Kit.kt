@@ -22,8 +22,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
@@ -59,6 +57,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
@@ -153,13 +152,57 @@ fun px(units: Float): Dp {
 
 /** Rozmiar fontu: 1 = mały, 2 = zwykły, 3 = duży, 4+ = nagłówki. Zawsze całkowite piksele – litery są ostre. */
 @Composable
-fun fontPixels(size: Int): Int {
-    val u = LocalUnit.current
-    return when (size) {
-        1 -> u
-        2 -> (u * 4f / 3f).roundToInt()
-        else -> u * (size - 1)
+fun fontPixels(size: Int): Int = fontPixels(size, LocalUnit.current)
+
+fun fontPixels(size: Int, u: Int): Int = when (size) {
+    1 -> u
+    2 -> (u * 4f / 3f).roundToInt()
+    else -> u * (size - 1)
+}
+
+/** Styl napisu [PixelText] (fp – piksele fontu z [fontPixels]); ten sam w kartach rysowanych ręcznie. */
+fun pixelTextStyle(fp: Int, color: Color, align: TextAlign, density: Density): TextStyle = with(density) {
+    TextStyle(
+        fontFamily = BitCell,
+        fontSize = (16 * fp).toSp(),
+        lineHeight = (11 * fp).toSp(),
+        color = color,
+        textAlign = align,
+    )
+}
+
+/**
+ * Mierzy napis jak [PixelText]. [maxWidth] obejmuje obrys (po pikselu fontu z każdej strony),
+ * a pełny rozmiar z obrysem to rozmiar wyniku powiększony o 2·fp.
+ */
+fun TextMeasurer.measurePixelText(
+    text: String,
+    fp: Int,
+    color: Color,
+    density: Density,
+    maxWidth: Int,
+    align: TextAlign = TextAlign.Start,
+    maxLines: Int = Int.MAX_VALUE,
+    outline: Boolean = true,
+): TextLayoutResult {
+    val o = if (outline) fp else 0
+    return measure(
+        AnnotatedString(text),
+        pixelTextStyle(fp, color, align, density),
+        constraints = Constraints(maxWidth = max(0, maxWidth - 2 * o)),
+        maxLines = maxLines,
+    )
+}
+
+/** Rysuje zmierzony napis z obrysem tak jak [PixelText]; (x, y) to lewy górny róg razem z obrysem. */
+fun DrawScope.drawPixelText(r: TextLayoutResult, x: Float, y: Float, fp: Int, outline: Color? = Pal.Outline) {
+    val o = if (outline != null) fp.toFloat() else 0f
+    if (outline != null) {
+        for ((dx, dy) in OUTLINE_OFFSETS) {
+            drawText(r, color = outline, topLeft = Offset(x + o + dx * fp, y + o + dy * fp))
+        }
     }
+    drawText(r, topLeft = Offset(x + o, y + o))
 }
 
 /**
@@ -186,29 +229,12 @@ fun PixelText(
     val fp = fontPixels(size)
     val density = LocalDensity.current
     val measurer = LocalTextMeasurer.current ?: rememberTextMeasurer(cacheSize = 4)
-    val style = remember(fp, color, align, density) {
-        with(density) {
-            TextStyle(
-                fontFamily = BitCell,
-                fontSize = (16 * fp).toSp(),
-                lineHeight = (11 * fp).toSp(),
-                color = color,
-                textAlign = align,
-            )
-        }
-    }
+    val style = remember(fp, color, align, density) { pixelTextStyle(fp, color, align, density) }
     val holder = remember { TextHolder() }
     Layout(
         modifier = modifier.drawBehind {
             val r = holder.result ?: return@drawBehind
-            val o = if (outline != null) fp.toFloat() else 0f
-            val x = holder.offsetX.toFloat()
-            if (outline != null) {
-                for ((dx, dy) in OUTLINE_OFFSETS) {
-                    drawText(r, color = outline, topLeft = Offset(x + o + dx * fp, o + dy * fp))
-                }
-            }
-            drawText(r, topLeft = Offset(x + o, o))
+            drawPixelText(r, holder.offsetX.toFloat(), 0f, fp, outline)
         },
     ) { _, constraints ->
         val o = if (outline != null) fp else 0
@@ -301,9 +327,16 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */
-fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline: Color = Pal.Outline, shadow: Float = 2f) {
-    val w = size.width
-    val h = size.height
+fun DrawScope.pixelBox(
+    u: Float,
+    base: Color,
+    light: Color,
+    dark: Color,
+    outline: Color = Pal.Outline,
+    shadow: Float = 2f,
+    w: Float = size.width,
+    h: Float = size.height,
+) {
     drawRect(outline, Offset(u, 0f), Size(w - 2 * u, h))
     drawRect(outline, Offset(0f, u), Size(w, h - 2 * u))
     drawRect(base, Offset(u, u), Size(w - 2 * u, h - 2 * u))
@@ -321,14 +354,14 @@ const val BOTTOM_GAP = 24
  * Złota ramka wokół elementu wybranego z klawiatury (strzałki, Tab). Rysowana na zewnątrz elementu,
  * z odstępem i uciętymi narożnikami jak [pixelBox].
  */
-fun DrawScope.focusRing(u: Float) {
-    fun ring(gap: Float, width: Float, color: Color) {
-        val w = size.width + 2 * gap
-        val h = size.height + 2 * gap
-        drawRect(color, Offset(-gap + u, -gap), Size(w - 2 * u, width))
-        drawRect(color, Offset(-gap + u, size.height + gap - width), Size(w - 2 * u, width))
-        drawRect(color, Offset(-gap, -gap + u), Size(width, h - 2 * u))
-        drawRect(color, Offset(size.width + gap - width, -gap + u), Size(width, h - 2 * u))
+fun DrawScope.focusRing(u: Float, width: Float = size.width, height: Float = size.height) {
+    fun ring(gap: Float, line: Float, color: Color) {
+        val w = width + 2 * gap
+        val h = height + 2 * gap
+        drawRect(color, Offset(-gap + u, -gap), Size(w - 2 * u, line))
+        drawRect(color, Offset(-gap + u, height + gap - line), Size(w - 2 * u, line))
+        drawRect(color, Offset(-gap, -gap + u), Size(line, h - 2 * u))
+        drawRect(color, Offset(width + gap - line, -gap + u), Size(line, h - 2 * u))
     }
     // Złoto z ciemnym obrysem po obu stronach – widać je na piasku, wodzie i złotych przyciskach.
     ring(4 * u, 4 * u, Pal.Outline)
@@ -502,17 +535,13 @@ fun Modifier.noRippleClick(onClick: () -> Unit): Modifier {
 }
 
 /**
- * Listy (sklep, odznaki, ranking) przygotowują karty z wyprzedzeniem – mniej więcej ekran do przodu
+ * Listy (odznaki, ranking) przygotowują karty z wyprzedzeniem – mniej więcej ekran do przodu
  * i pół ekranu wstecz – w wolnym czasie między klatkami. Przy szybkim przewijaniu karta jest już
  * gotowa, zamiast powstawać w tej samej klatce, w której ma się pokazać.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun rememberListState(): LazyListState = rememberLazyListState(LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-fun rememberGridState(): LazyGridState = rememberLazyGridState(LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
 
 @Composable
 fun VSpace(units: Int) = Box(Modifier.size(width = 1.dp, height = px(units)))
