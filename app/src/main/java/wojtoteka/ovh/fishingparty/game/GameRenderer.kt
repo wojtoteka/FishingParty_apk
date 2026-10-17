@@ -104,6 +104,20 @@ class TouchStick {
     }
 }
 
+/** Tekst zbudowany z liczby, przeliczany tylko gdy liczba się zmieni (a nie w każdej klatce). */
+private class IntText(private val build: (Int) -> String) {
+    private var key = Int.MIN_VALUE
+    private var text = ""
+
+    fun get(value: Int): String {
+        if (value != key || text.isEmpty()) {
+            key = value
+            text = build(value)
+        }
+        return text
+    }
+}
+
 class GameRenderer(private val strings: HudStrings, private val look: ShipLook) {
     private val tiles = TileRenderer()
     private val ship = ShipPainter()
@@ -118,6 +132,49 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     private var themeSpec: LevelSpec? = null
     private var currentTiles = Sprites.tiles(Worlds.theme(0))
 
+    // Sprite'y i teksty trzymane między klatkami – rysowanie nie alokuje ani nie szuka w mapie po nazwie.
+    private val fishFrames = Array(FishKind.entries.size) { i ->
+        val base = when (FishKind.entries[i]) {
+            FishKind.COMMON -> "fish"
+            FishKind.BLUE -> "fishblue"
+            FishKind.GOLDEN -> "fishgold"
+        }
+        arrayOf(Sprites.sprite(base + "1"), Sprites.sprite(base + "2"))
+    }
+    private val enemyFrames = Array(EnemyKind.entries.size) { i ->
+        fun pair(base: String, a: String = "1", b: String = "2") = arrayOf(Sprites.sprite(base + a), Sprites.sprite(base + b))
+        when (EnemyKind.entries[i]) {
+            EnemyKind.SHARK -> pair("shark")
+            EnemyKind.DARK_SHARK -> pair("sharkdark")
+            EnemyKind.PIRANHA -> pair("piranha")
+            EnemyKind.RED_PIRANHA -> pair("piranhared")
+            EnemyKind.PIRANHA_VERTICAL -> pair("piranhaback", "0", "1")
+            EnemyKind.OCTOPUS -> pair("octopus")
+            EnemyKind.RED_OCTOPUS -> pair("octopusred")
+            EnemyKind.STALKER -> pair("stalker")
+        }
+    }
+    private val stalkerLock = arrayOf(Sprites.sprite("stalkerlock1"), Sprites.sprite("stalkerlock2"))
+    private val piranhaFront = arrayOf(Sprites.sprite("piranhafront0"), Sprites.sprite("piranhafront1"))
+    private val caughtSprite = Sprites.sprite("fish")
+    private val arrowUp = Sprites.sprite("arrowup")
+    private val lifeIcon = Sprites.boat(look.boat, "ship")
+    private val shieldIcon = Sprites.boat("navy", "ship")
+    private val scoreIcon = Sprites.sprite("fishscore")
+    private val quotaIcon = Sprites.sprite("fish1")
+
+    private val levelText = IntText { it.toString() }
+    private val scoreText = IntText { it.toString() }
+    private val timeText = IntText { "%d:%02d".format(it / 60, it % 60) }
+    private val stageText = IntText { "${(it shr 16) + 1}/${it and 0xFFFF}" }
+    private val quotaText = IntText { "${it shr 16}/${it and 0xFFFF}" }
+    private val comboText = IntText { "x$it" }
+    private val popupText = HashMap<Int, String>()
+
+    private lateinit var drawn: GameWorld
+    private val rowTilesOf: (Int) -> TileSet = { r -> tilesAt(r) }
+    private val doorOpenAt: (Int) -> Boolean = { row -> drawn.stageOfGateRow(row).let { it >= 0 && drawn.isDoorOpen(it) } }
+
     /** Paleta każdego wiersza – w Wielkim Finale każdy etap leży w innym świecie (null = jedna paleta). */
     private var rowWorlds: IntArray? = null
     private var rowTiles: Array<TileSet>? = null
@@ -127,6 +184,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         private set
 
     fun draw(canvas: Canvas, world: GameWorld, width: Int, height: Int, topInset: Float, stick: TouchStick) {
+        drawn = world
         if (themeSpec !== world.spec) {
             themeSpec = world.spec
             currentTiles = Sprites.tiles(Worlds.theme(world.spec.world))
@@ -150,8 +208,8 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
 
         tiles.draw(
             canvas, world.grid, camX, camY, viewW, viewH, t,
-            tilesForRow = { r -> tilesAt(r) },
-            doorOpen = { row -> world.stageOfGateRow(row).let { it >= 0 && world.isDoorOpen(it) } },
+            tilesForRow = rowTilesOf,
+            doorOpen = doorOpenAt,
         )
         drawCrabs(canvas, world, t)
         drawGateArrow(canvas, world, t, camY)
@@ -163,7 +221,6 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             ship.draw(canvas, world.shipX, world.shipY, world.heading, world.speed > 6f, t, look)
         }
         if (!stick.joystick && stick.active && stick.engaged) drawCourse(canvas, world, stick.angle, t)
-        val caughtSprite = Sprites.sprite("fish")
         for (c in world.caught) ship.sprite(canvas, caughtSprite, c.x, c.y, 0f)
         canvas.restore()
 
@@ -212,20 +269,15 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         val stage = world.currentStage
         val x = (stage.doorCols.first + stage.doorCols.last + 1) * TILE / 2f
         val y = max(stage.gateRow * TILE - 12f, camY + 46f)
-        ship.sprite(canvas, Sprites.sprite("arrowup"), x, y, 0f, alpha = 150)
+        ship.sprite(canvas, arrowUp, x, y, 0f, alpha = 150)
     }
 
     private fun drawFish(canvas: Canvas, world: GameWorld, t: Float) {
         for (f in world.fish) {
             if (f.kind == FishKind.GOLDEN && f.life < 2.5f && (t % 0.2f) < 0.08f) continue
             val second = (t + f.phase) % 0.4f >= 0.2f
-            val name = when (f.kind) {
-                FishKind.COMMON -> if (second) "fish2" else "fish1"
-                FishKind.BLUE -> if (second) "fishblue2" else "fishblue1"
-                FishKind.GOLDEN -> if (second) "fishgold2" else "fishgold1"
-            }
             // Sprite ryby patrzy w lewo – odwracamy, gdy płynie w prawo (jak w oryginale).
-            ship.sprite(canvas, Sprites.sprite(name), f.x, f.y, 0f, flipX = f.facing > 0)
+            ship.sprite(canvas, fishFrames[f.kind.ordinal][if (second) 1 else 0], f.x, f.y, 0f, flipX = f.facing > 0)
         }
     }
 
@@ -234,23 +286,16 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             if (e.harmless && (t % 0.2f) < 0.1f) continue
             val second = (t + e.phase) % 0.4f >= 0.2f
             val horizontalSign = if (e.dirX != 0) e.dirX else -e.dirY
+            val frame = if (second) 1 else 0
+            val sprite = enemyFrames[e.kind.ordinal][frame]
             when (e.kind) {
-                EnemyKind.SHARK, EnemyKind.DARK_SHARK -> {
-                    val base = if (e.kind == EnemyKind.SHARK) "shark" else "sharkdark"
-                    ship.sprite(canvas, Sprites.sprite(base + if (second) "2" else "1"), e.x, e.y - 4f, 0f, flipX = horizontalSign < 0)
-                }
-                EnemyKind.PIRANHA, EnemyKind.RED_PIRANHA -> {
-                    val base = if (e.kind == EnemyKind.PIRANHA) "piranha" else "piranhared"
-                    ship.sprite(canvas, Sprites.sprite(base + if (second) "2" else "1"), e.x, e.y, 0f, flipX = e.dirX < 0)
-                }
-                EnemyKind.PIRANHA_VERTICAL -> {
-                    val name = (if (e.dirY < 0) "piranhaback" else "piranhafront") + if (second) "1" else "0"
-                    ship.sprite(canvas, Sprites.sprite(name), e.x, e.y, 0f)
-                }
+                EnemyKind.SHARK, EnemyKind.DARK_SHARK -> ship.sprite(canvas, sprite, e.x, e.y - 4f, 0f, flipX = horizontalSign < 0)
+                EnemyKind.PIRANHA, EnemyKind.RED_PIRANHA -> ship.sprite(canvas, sprite, e.x, e.y, 0f, flipX = e.dirX < 0)
+                EnemyKind.PIRANHA_VERTICAL ->
+                    ship.sprite(canvas, if (e.dirY < 0) sprite else piranhaFront[frame], e.x, e.y, 0f)
                 EnemyKind.OCTOPUS, EnemyKind.RED_OCTOPUS -> {
-                    val base = if (e.kind == EnemyKind.OCTOPUS) "octopus" else "octopusred"
                     val flip = if (e.dirX != 0) -e.dirX else e.dirY
-                    ship.sprite(canvas, Sprites.sprite(base + if (second) "2" else "1"), e.x, e.y, 0f, flipX = flip < 0)
+                    ship.sprite(canvas, sprite, e.x, e.y, 0f, flipX = flip < 0)
                 }
                 EnemyKind.STALKER -> drawStalker(canvas, e, t, second)
             }
@@ -267,8 +312,9 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         val hunting = e.hunt == Hunt.AIM || e.hunt == Hunt.DASH
         val tilt = if (!hunting) 0f
         else Math.toDegrees(atan2(e.vy.toDouble(), abs(e.vx).toDouble().coerceAtLeast(0.001))).toFloat().coerceIn(-STALKER_TILT, STALKER_TILT)
-        val frame = (if (e.locked) "stalkerlock" else "stalker") + if (second || e.hunt == Hunt.DASH) "2" else "1"
-        ship.sprite(canvas, Sprites.sprite(frame), e.x, e.y, if (right) tilt else -tilt, flipX = !right)
+        val frame = if (second || e.hunt == Hunt.DASH) 1 else 0
+        val sprite = if (e.locked) stalkerLock[frame] else enemyFrames[EnemyKind.STALKER.ordinal][frame]
+        ship.sprite(canvas, sprite, e.x, e.y, if (right) tilt else -tilt, flipX = !right)
         if (e.locked && (e.hunt == Hunt.DASH || t % 0.16f < 0.1f)) {
             fill.color = ALERT
             fill.alpha = 255
@@ -283,7 +329,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         for (pop in world.popups) {
             val alpha = if (pop.age > 0.8f) ((1.1f - pop.age) / 0.3f * 255).toInt().coerceIn(0, 255) else 255
             text.draw(
-                canvas, "+${pop.value}", (pop.x - camX) * s, (pop.y - camY) * s - 7 * p, p,
+                canvas, popupText.getOrPut(pop.value) { "+${pop.value}" }, (pop.x - camX) * s, (pop.y - camY) * s - 7 * p, p,
                 if (pop.golden) PixelText.GOLD else PixelText.WHITE, align = 0, alpha = alpha,
             )
         }
@@ -352,7 +398,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
 
         if (stick.active && stick.engaged) {
             // Strzałka na krawędzi bazy pokazuje kierunek płynięcia.
-            val arrow = Sprites.sprite("arrowup")
+            val arrow = arrowUp
             val k = max(2f, (s * 0.5f).roundToInt().toFloat())
             paint.alpha = 170
             canvas.save()
@@ -429,23 +475,22 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         } else {
             val lvWidth = text.width("Lv", p2) + 2 * p1
             text.draw(canvas, "Lv", margin, top + 7 * p3 - 7 * p2, p2, PixelText.LEVEL_BLUE, outline = PixelText.WHITE)
-            text.draw(canvas, world.spec.number.toString(), margin + lvWidth, top, p3, PixelText.WHITE)
+            text.draw(canvas, levelText.get(world.spec.number), margin + lvWidth, top, p3, PixelText.WHITE)
         }
 
         val lifeTop = top + 7 * p3 + 4 * p1
-        val lifeIcon = Sprites.boat(look.boat, "ship")
         val lifeStep = lifeIcon.width * p1 + p1
         for (i in 0 until world.maxLives) {
             icon(canvas, lifeIcon, margin + i * lifeStep, lifeTop, p1, if (i < world.lives) 255 else 70)
         }
-        if (world.shield) icon(canvas, Sprites.boat("navy", "ship"), margin + world.maxLives * lifeStep, lifeTop, p1)
+        if (world.shield) icon(canvas, shieldIcon, margin + world.maxLives * lifeStep, lifeTop, p1)
 
         val stageTop = lifeTop + lifeIcon.height * p1 + 3 * p1
         val door = tilesAt(world.currentStage.gateRow).doors[0]
         val doorK = max(1f, floor(p1 * 0.67f))
         icon(canvas, door, margin, stageTop, doorK)
         text.draw(
-            canvas, "${world.stageIndex + 1}/${world.stages.size}", margin + door.width * doorK + 2 * p1,
+            canvas, stageText.get((world.stageIndex shl 16) or world.stages.size), margin + door.width * doorK + 2 * p1,
             stageTop + (door.height * doorK - 7 * p2) / 2f, p2, PixelText.WHITE,
         )
 
@@ -460,36 +505,30 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
 
         // Prawa strona (miejsce na przycisk pauzy zostaje): wynik i licznik ryb etapu.
         val right = width - margin - 40 * p1
-        val scoreIcon = Sprites.sprite("fishscore")
         icon(canvas, scoreIcon, right - scoreIcon.width * p1 * 1.5f, top, p1 * 1.5f)
         val scoreRight = right - scoreIcon.width * p1 * 1.5f - 2 * p1
-        text.draw(canvas, world.score.toString(), scoreRight, top, p3, PixelText.WHITE, align = 1)
+        text.draw(canvas, scoreText.get(world.score), scoreRight, top, p3, PixelText.WHITE, align = 1)
 
         val quotaTop = top + 7 * p3 + 4 * p1
         val stage = world.currentStage
         val done = world.isDoorOpen(world.stageIndex)
         val caught = if (done) stage.quota else world.caughtInCurrentStage
-        val qIcon = Sprites.sprite("fish1")
+        val qIcon = quotaIcon
         icon(canvas, qIcon, right - qIcon.width * p2, quotaTop - p1, p2)
-        text.draw(canvas, "$caught/${stage.quota}", right - qIcon.width * p2 - 2 * p1, quotaTop, p2, if (done) PixelText.GOLD else PixelText.WHITE, align = 1)
+        text.draw(canvas, quotaText.get((caught shl 16) or stage.quota), right - qIcon.width * p2 - 2 * p1, quotaTop, p2, if (done) PixelText.GOLD else PixelText.WHITE, align = 1)
         if (world.combo >= 2 && world.comboTimer > 0f) {
-            text.draw(canvas, "x${world.combo}", scoreRight, quotaTop + 7 * p2 + 4 * p1, p2, PixelText.GOLD, align = 1)
+            text.draw(canvas, comboText.get(world.combo), scoreRight, quotaTop + 7 * p2 + 4 * p1, p2, PixelText.GOLD, align = 1)
         }
 
         // Środek: w wyścigu z czasem odliczanie, w pozostałych – czas gry (blednie po przekroczeniu wzorca).
         val limit = world.timeLimit
         if (limit > 0) {
             val left = max(0f, limit - world.elapsed)
-            text.draw(canvas, formatTime(left), width / 2f, top, p3, if (left < 10f) PixelText.RED else PixelText.WHITE, align = 0)
+            text.draw(canvas, timeText.get(left.toInt()), width / 2f, top, p3, if (left < 10f) PixelText.RED else PixelText.WHITE, align = 0)
         } else {
             val color = if (world.elapsed <= world.spec.parSeconds) PixelText.WHITE else PixelText.PALE
-            text.draw(canvas, formatTime(world.elapsed), width / 2f, top, p2, color, align = 0)
+            text.draw(canvas, timeText.get(world.elapsed.toInt()), width / 2f, top, p2, color, align = 0)
         }
-    }
-
-    private fun formatTime(seconds: Float): String {
-        val total = seconds.toInt()
-        return "%d:%02d".format(total / 60, total % 60)
     }
 
     private fun drawMessage(canvas: Canvas, world: GameWorld, width: Int, height: Int, s: Float) {
