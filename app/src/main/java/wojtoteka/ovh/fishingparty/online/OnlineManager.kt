@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
+import android.os.SystemClock
 import android.util.Base64
 import android.util.Log
 import androidx.compose.runtime.getValue
@@ -25,9 +26,12 @@ import wojtoteka.ovh.fishingparty.BuildConfig
 import wojtoteka.ovh.fishingparty.core.GuardedLong
 import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.data.ScoreRecord
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 
-/** Profil gracza z serwera. */
+/** Profil gracza z serwera. [hasPassword] = false – konto „tylko nick”. */
 class AccountInfo(
     val nick: String,
     val email: String?,
@@ -35,12 +39,20 @@ class AccountInfo(
     val rank: Int?,
     val hidden: Boolean,
     val maxLevel: Int,
+    val hasPassword: Boolean = true,
 )
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
 
-/** [myId] = null, gdy ranking ogląda gość bez konta. */
-class RankingData(val entries: List<RankingEntry>, val myId: Long?, val myRank: Int?, val myPoints: Long, val hidden: Boolean)
+/** [myId] = null, gdy ranking ogląda gość bez konta. [size] – ile miejsc ma ranking (top 100). */
+class RankingData(
+    val entries: List<RankingEntry>,
+    val myId: Long?,
+    val myRank: Int?,
+    val myPoints: Long,
+    val hidden: Boolean,
+    val size: Int = 100,
+)
 
 /** Wynik operacji na koncie. [code] to kod błędu serwera albo jeden z kodów klienta (offline, quick_wrong…). */
 sealed interface OnlineResult {
@@ -97,7 +109,10 @@ class OnlineManager(
     var lastSyncAt by mutableLongStateOf(0L)
         private set
 
-    /** Zapis na koncie zmienił inny telefon, a ten też ma niewysłane zmiany – gracz wybiera. */
+    /**
+     * Zapis na koncie zmienił inny telefon, ten też ma niewysłane zmiany, a nie da się ich połączyć
+     * (telefon nie zna ostatniego wspólnego zapisu, np. po aktualizacji ze starszej wersji) – gracz wybiera.
+     */
     var conflict by mutableStateOf(false)
         private set
 
@@ -115,7 +130,7 @@ class OnlineManager(
 
     init {
         if (store.loggedIn) {
-            account = AccountInfo(store.nick, store.email, 0, null, false, 0)
+            account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
         }
         repo.onChanged = ::onLocalChange
         val cm = appContext.getSystemService(ConnectivityManager::class.java)
@@ -253,6 +268,23 @@ class OnlineManager(
         }
     }
 
+    /**
+     * Konto „tylko nick” – bez hasła i e-maila. Nick należy do gracza, dopóki jest zalogowany na tym
+     * telefonie; po wylogowaniu przepada (wynik zostaje w rankingu). Hasło można dodać później ([setPassword]).
+     */
+    suspend fun joinNick(nick: String): OnlineResult = guarded {
+        afterAuth(
+            call("POST", "/auth/nick", deviceBody("nick" to nick, "acceptPolicy" to true, "policyVersion" to POLICY_VERSION), auth = false),
+            fresh = true,
+        )
+    }
+
+    /** Konto „tylko nick” dostaje hasło – od teraz da się na nie zalogować nickiem i hasłem, a potem dodać e-mail. */
+    suspend fun setPassword(password: String): OnlineResult = guarded {
+        applyProfile(call("POST", "/account/set-password", JSONObject().put("password", password)).getJSONObject("account"))
+        OnlineResult.Ok
+    }
+
     suspend fun registerEmail(nick: String, email: String, password: String): OnlineResult = guarded {
         val res = call(
             "POST", "/auth/register",
@@ -297,8 +329,9 @@ class OnlineManager(
         OnlineResult.Ok
     }
 
-    suspend fun deleteAccount(password: String): OnlineResult = guarded {
-        call("POST", "/account/delete", JSONObject().put("password", password))
+    /** [password] = null – konto „tylko nick” (bez hasła wystarczy sesja). */
+    suspend fun deleteAccount(password: String?): OnlineResult = guarded {
+        call("POST", "/account/delete", JSONObject().apply { if (password != null) put("password", password) })
         dropSession()
         OnlineResult.Ok
     }
@@ -322,6 +355,7 @@ class OnlineManager(
     private fun dropSession() {
         snapshotJob?.cancel()
         store.clearSession()
+        repo.rememberSynced(null)
         account = null
         conflict = false
         restoreChoice = false
@@ -336,16 +370,20 @@ class OnlineManager(
             rank = if (p.isNull("rank")) null else p.optInt("rank"),
             hidden = p.optBoolean("hidden"),
             maxLevel = p.optInt("maxLevel"),
+            hasPassword = p.optBoolean("hasPassword", true),
         )
         account = info
-        if (store.nick != info.nick || store.email != info.email) {
+        if (store.nick != info.nick || store.email != info.email || store.hasPassword != info.hasPassword) {
             store.nick = info.nick
             store.email = info.email
+            store.hasPassword = info.hasPassword
             store.save()
         }
     }
 
     private fun latestRecordAt(): Long = repo.save.records.maxOfOrNull { it.at } ?: 0L
+
+    private fun latestChallengeAt(): Long = repo.save.challengeResults.maxOfOrNull { it.at } ?: 0L
 
     private suspend fun afterAuth(res: JSONObject, fresh: Boolean): OnlineResult {
         val profile = res.getJSONObject("account")
@@ -354,6 +392,7 @@ class OnlineManager(
         store.knownRevision = 0
         store.importPending = false
         store.dirty = true
+        repo.rememberSynced(null)
         applyProfile(profile)
         val snapshot = res.optJSONObject("snapshot")
         val remote = snapshot?.optBoolean("exists") == true
@@ -362,15 +401,21 @@ class OnlineManager(
                 // Nowe konto: dotychczasowe rekordy jadą jednorazowym importem, kolejne przejazdy na bieżąco.
                 store.importPending = repo.progress.completedLevels() > 0
                 store.lastSentRunAt = latestRecordAt()
+                // Poziomy dnia/tygodnia rozegrane jako gość lecą zwykłą drogą (serwer przyjmie te z bieżących okresów).
+                store.lastSentChallengeAt = 0L
             }
             remote && repo.progress.completedLevels() == 0 -> {
                 pullSnapshot()
             }
             remote -> {
                 store.lastSentRunAt = latestRecordAt()
+                store.lastSentChallengeAt = latestChallengeAt()
                 restoreChoice = true
             }
-            else -> store.lastSentRunAt = 0L
+            else -> {
+                store.lastSentRunAt = 0L
+                store.lastSentChallengeAt = 0L
+            }
         }
         store.save()
         if (!restoreChoice) scope.launch { sync() }
@@ -399,11 +444,33 @@ class OnlineManager(
         val res = call("GET", "/sync/snapshot")
         val bytes = Base64.decode(res.getString("data"), Base64.NO_WRAP)
         repo.restoreSnapshot(bytes)
+        repo.rememberSynced(bytes)
         store.knownRevision = res.getInt("revision")
         store.lastSentRunAt = latestRecordAt()
+        store.lastSentChallengeAt = latestChallengeAt()
         store.dirty = false
         store.save()
         onRestored()
+    }
+
+    /**
+     * Drugi telefon zapisał na koncie nowszy postęp, a ten ma swój niewysłany: łączymy oba (nic nie przepada)
+     * i wysyłamy wynik. Gdy telefon nie zna ostatniego wspólnego zapisu (stara wersja gry), wybiera gracz.
+     * Przejazdy i poziomy dnia/tygodnia tego telefonu, które czekają na wysłanie, nadal czekają.
+     */
+    private suspend fun mergeRemote() {
+        val res = call("GET", "/sync/snapshot")
+        val bytes = Base64.decode(res.getString("data"), Base64.NO_WRAP)
+        if (!repo.mergeSnapshot(bytes)) {
+            conflict = true
+            return
+        }
+        repo.rememberSynced(bytes)
+        store.knownRevision = res.getInt("revision")
+        store.dirty = true
+        store.save()
+        onRestored()
+        pushSnapshot(force = false)
     }
 
     // ------------------------------------------------------------------ synchronizacja
@@ -415,7 +482,9 @@ class OnlineManager(
             store.save()
         }
         // Ukończony poziom leci od razu, pełny zapis chwilę po ostatniej zmianie.
-        if (repo.save.records.any { it.at > store.lastSentRunAt }) scope.launch { sync(snapshot = false) }
+        if (repo.save.records.any { it.at > store.lastSentRunAt } || repo.save.challengeResults.any { it.at > store.lastSentChallengeAt }) {
+            scope.launch { sync(snapshot = false) }
+        }
         snapshotJob?.cancel()
         snapshotJob = scope.launch {
             delay(SNAPSHOT_DEBOUNCE_MS)
@@ -450,27 +519,45 @@ class OnlineManager(
         syncLock.withLock {
             status = SyncStatus.SYNCING
             try {
+                // W trakcie gry zapisu nie podmieniamy – połączymy go po powrocie do menu.
+                var pushOwn = snapshot
                 if (checkRemote) {
                     val state = call("GET", "/sync/state")
                     val remoteRevision = state.optInt("revision")
                     val remoteDevice = state.optString("deviceId")
                     if (state.optBoolean("exists") && remoteRevision != store.knownRevision && remoteDevice != store.deviceId) {
-                        if (!store.dirty && canAutoPull()) {
-                            pullSnapshot()
-                        } else if (store.dirty) {
-                            conflict = true
+                        when {
+                            !canAutoPull() -> pushOwn = false
+                            store.dirty -> mergeRemote()
+                            else -> pullSnapshot()
+                        }
+                        if (conflict) {
                             status = SyncStatus.IDLE
                             return
                         }
                     }
                 }
                 pushRuns()
-                if (snapshot) pushSnapshot(force = false)
+                pushChallenges()
+                if (pushOwn) {
+                    try {
+                        pushSnapshot(force = false)
+                    } catch (e: ApiException) {
+                        // Drugi telefon zdążył zapisać swój postęp – łączymy (albo czekamy z tym do końca gry).
+                        if (e.code != "snapshot_conflict") throw e
+                        if (canAutoPull()) mergeRemote()
+                    }
+                    if (conflict) {
+                        status = SyncStatus.IDLE
+                        return
+                    }
+                }
                 status = SyncStatus.OK
                 lastSyncAt = System.currentTimeMillis()
             } catch (e: ApiException) {
                 when (e.code) {
-                    "snapshot_conflict" -> conflict = true
+                    // Drugi telefon zapisał coś w trakcie łączenia – następna synchronizacja połączy jeszcze raz.
+                    "snapshot_conflict" -> Unit
                     "not_logged_in" -> {
                         dropSession()
                         notice = "session_expired"
@@ -489,6 +576,7 @@ class OnlineManager(
 
     private suspend fun pushAll() {
         pushRuns()
+        pushChallenges()
         pushSnapshot(force = false)
     }
 
@@ -551,14 +639,90 @@ class OnlineManager(
         }
     }
 
+    /**
+     * Zaliczone poziomy dnia/tygodnia (po kolei). Serwer przyjmuje jeden wynik na okres; odrzucony
+     * (np. wysłany po zamknięciu okresu) nie wraca do kolejki. Serwer bez tej funkcji albo brak
+     * sieci – zostają w kolejce na następną synchronizację, reszta synchronizacji idzie dalej.
+     */
+    private suspend fun pushChallenges() {
+        val pending = repo.save.challengeResults.filter { it.at > store.lastSentChallengeAt }.sortedBy { it.at }
+        for (r in pending) {
+            val body = JSONObject()
+                .put("kind", r.kind.id)
+                .put("period", r.period)
+                .put(
+                    "run",
+                    JSONObject()
+                        .put("score", r.score)
+                        .put("timeMs", r.timeMillis)
+                        .put("common", r.common)
+                        .put("blue", r.blue)
+                        .put("golden", r.golden)
+                        .put("hits", r.hits)
+                        .put("maxCombo", r.maxCombo)
+                        .put("stages", r.stages)
+                        .put("at", r.at),
+                )
+                .put("integrity", integrity())
+            try {
+                val res = call("POST", "/challenges/run", body)
+                applyProfile(res.getJSONObject("account"))
+            } catch (e: OfflineException) {
+                return
+            } catch (e: ApiException) {
+                when {
+                    e.status == 401 || e.status == 403 || e.status == 426 -> throw e
+                    e.status == 404 || e.status == 429 || e.status >= 500 -> return
+                    // Nieprawidłowe dane – ponowna wysyłka nic nie zmieni.
+                    else -> Log.w("FishingParty", "Poziom ${r.kind.id} #${r.period} odrzucony: ${e.code}")
+                }
+            }
+            store.lastSentChallengeAt = r.at
+            store.save()
+        }
+    }
+
     private suspend fun pushSnapshot(force: Boolean) {
         if (!store.dirty && !force) return
-        val data = Base64.encodeToString(repo.exportSnapshot(), Base64.NO_WRAP)
+        val bytes = repo.exportSnapshot()
+        val data = Base64.encodeToString(bytes, Base64.NO_WRAP)
         val body = JSONObject().put("baseRevision", store.knownRevision).put("deviceId", store.deviceId).put("data", data)
         val res = call("PUT", if (force) "/sync/snapshot?force=1" else "/sync/snapshot", body)
+        repo.rememberSynced(bytes)
         store.knownRevision = res.getInt("revision")
-        store.dirty = false
+        // Zmiana w trakcie wysyłania (np. koniec poziomu) poleci następnym razem.
+        store.dirty = !repo.exportSnapshot().contentEquals(bytes)
         store.save()
+    }
+
+    // ------------------------------------------------------------------ poziom dnia i tygodnia
+
+    private val challengeLock = Mutex()
+    private var challengesFetchedAt = 0L
+
+    /**
+     * Pobiera seedy poziomu dnia i tygodnia (zapamiętywane w zapisie – działają potem bez internetu
+     * do końca okresu). Równoczesne wywołania czekają na jedno pobranie.
+     */
+    suspend fun refreshChallenges(): OnlineResult = challengeLock.withLock {
+        val fresh = SystemClock.elapsedRealtime() - challengesFetchedAt < CHALLENGE_REFRESH_MS
+        if (fresh && ChallengeKind.entries.all { repo.progress.currentChallenge(it) != null }) return@withLock OnlineResult.Ok
+        guarded {
+            val json = withContext(Dispatchers.IO) { api.challenges() } ?: return@guarded OnlineResult.Failed("server_unreachable")
+            val list = ChallengeKind.entries.mapNotNull { kind -> json.optJSONObject(kind.id)?.let { parseChallenge(kind, it) } }
+            if (list.isEmpty()) return@guarded OnlineResult.Failed("bad_response")
+            challengesFetchedAt = SystemClock.elapsedRealtime()
+            if (repo.progress.cacheChallenges(list)) repo.changed()
+            OnlineResult.Ok
+        }
+    }
+
+    private fun parseChallenge(kind: ChallengeKind, o: JSONObject): Challenge? {
+        val seed = o.optString("seed").toLongOrNull() ?: return null
+        val startsAt = o.optLong("startsAt")
+        val endsAt = o.optLong("endsAt")
+        if (!o.has("period") || endsAt <= startsAt) return null
+        return Challenge(kind, o.getInt("period"), LevelSeed(seed), startsAt, endsAt)
     }
 
     // ------------------------------------------------------------------ ranking
@@ -576,14 +740,15 @@ class OnlineManager(
                 RankingEntry(e.getInt("rank"), e.getLong("id"), e.getString("nick"), e.getLong("points"), e.optInt("maxLevel"))
             }
             val me = res.optJSONObject("me")
+            val size = res.optInt("size", 100)
             if (me == null) {
-                Result.success(RankingData(entries, null, null, 0, false))
+                Result.success(RankingData(entries, null, null, 0, false, size))
             } else {
                 val rank = if (me.isNull("rank")) null else me.optInt("rank")
                 account?.let {
-                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel)
+                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword)
                 }
-                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden")))
+                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden"), size))
             }
         }
     } catch (e: Exception) {
@@ -603,5 +768,6 @@ class OnlineManager(
         const val TERMS_URL = "https://wojtoteka.ovh/regulamin-fishingparty"
         private const val SNAPSHOT_DEBOUNCE_MS = 4_000L
         private const val MAX_RUNS_PER_REQUEST = 50
+        private const val CHALLENGE_REFRESH_MS = 5_000L
     }
 }

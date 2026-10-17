@@ -75,10 +75,24 @@ enum class EnemyKind(
     RED_PIRANHA(1.5f, 76),
     RED_OCTOPUS(2f, 126),
     DARK_SHARK(3f, 176),
+
+    /**
+     * Widmokuda – najgroźniejszy potwór (od wersji 2.3). Nie trafia do losowania z budżetu:
+     * dokłada ją [Stalkers] już po policzeniu planu, w miejsce kilku słabszych potworów.
+     */
+    STALKER(4f, Stalkers.FIRST_LEVEL),
     ;
 
     /** Koszt w dziesiątych częściach – poziomy z seeda liczą budżet na liczbach całkowitych. */
     val costTenths: Int get() = Math.round(cost * 10f)
+
+    companion object {
+        /**
+         * Potwory losowane z budżetu – w tej kolejności, bo kolejność listy jest częścią formatu
+         * poziomów (serwer rankingu powtarza to losowanie u siebie).
+         */
+        val rolled: List<EnemyKind> = entries.filter { it != STALKER }
+    }
 }
 
 enum class FishKind(val points: Int, val coins: Int) {

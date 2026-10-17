@@ -158,6 +158,7 @@ object StreakReminder {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
         manager.notify(NOTIFICATION_ID, notification)
+        ReminderLog.notified(context)
     }
 
     /** Tytuł i treść – kilka wariantów, zmieniających się z dnia na dzień, żeby nie nudziły. */
@@ -190,6 +191,7 @@ class StreakBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             StreakReminder.schedule(context)
+            ChallengeReminder.schedule(context)
         }
     }
 }

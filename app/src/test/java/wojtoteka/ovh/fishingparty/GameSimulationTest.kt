@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import wojtoteka.ovh.fishingparty.core.Rng
 import wojtoteka.ovh.fishingparty.game.GameListener
 import wojtoteka.ovh.fishingparty.game.GameWorld
 import wojtoteka.ovh.fishingparty.game.Loadout
@@ -13,16 +14,21 @@ import wojtoteka.ovh.fishingparty.game.Phase
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import wojtoteka.ovh.fishingparty.game.TutorialStep
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
+import wojtoteka.ovh.fishingparty.level.Challenges
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelLayout
+import wojtoteka.ovh.fishingparty.level.LevelSeed
+import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
 import kotlin.math.atan2
 import kotlin.math.floor
+import kotlin.math.sqrt
 
 /**
  * Bot przechodzi poziomy w prawdziwej symulacji (bez Androida): płynie do
@@ -55,10 +61,15 @@ class GameSimulationTest {
 
     private fun play(number: Int): Pair<RunResult?, GameWorld> = play(LevelGenerator.generate(number), tutorial = false)
 
-    private fun play(source: LevelLayout, tutorial: Boolean, onFrame: (GameWorld) -> Unit = {}): Pair<RunResult?, GameWorld> {
+    private fun play(
+        source: LevelLayout,
+        tutorial: Boolean,
+        loadout: Loadout = Loadout(),
+        onFrame: (GameWorld) -> Unit = {},
+    ): Pair<RunResult?, GameWorld> {
         val layout = withoutEnemies(source)
         val recorder = Recorder()
-        val world = GameWorld(layout, Loadout(), tutorial = tutorial, listener = recorder)
+        val world = GameWorld(layout, loadout, tutorial = tutorial, listener = recorder)
         world.setViewport(180f, 390f)
         val frame = 1f / 60f
         var t = 0f
@@ -161,7 +172,13 @@ class GameSimulationTest {
             tx = (next % grid.width) * TILE + TILE / 2f
             ty = (next / grid.width) * TILE + TILE / 2f
         }
-        world.setInput(true, atan2(ty - world.shipY, tx - world.shipX))
+        // Jak gracz: pod prąd morski celujemy z poprawką, żeby łódź płynęła prosto do celu.
+        val dx = tx - world.shipX
+        val dy = ty - world.shipY
+        val d = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
+        val vx = dx / d * world.maxSpeed - world.spec.currentX
+        val vy = dy / d * world.maxSpeed - world.spec.currentY
+        world.setInput(true, atan2(vy, vx))
     }
 
     @Test
@@ -196,7 +213,7 @@ class GameSimulationTest {
     fun botCompletesGrandFinale() {
         val n = LevelConstants.LEVEL_COUNT
         val messages = ArrayList<MessageKind>()
-        val (result, world) = play(LevelGenerator.generate(n), tutorial = false) { w ->
+        val (result, world) = play(LevelGenerator.generate(n), tutorial = false) { w: GameWorld ->
             w.message?.kind?.let { if (messages.lastOrNull() != it) messages += it }
         }
         assertTrue("finał nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
@@ -206,6 +223,45 @@ class GameSimulationTest {
         // Najpierw napis Wielkiego Finału, potem zwykłe polecenie łowienia.
         assertEquals(listOf(MessageKind.FINALE, MessageKind.GO), messages.take(2))
         assertTrue(MessageKind.STAGE in messages)
+    }
+
+    /** Silny prąd boczny nie może przykleić łodzi do brzegu (odpłynięcie od ściany pod prąd). */
+    @Test
+    fun strongCurrentDoesNotPinShipToShore() {
+        val levels = (LevelConstants.LEVEL_COUNT + 1..LevelConstants.LEVEL_COUNT + 400)
+            .filter { LevelGenerator.plan(it).spec.let { s -> s.type == LevelType.CURRENT && s.currentX != 0f } }
+            .take(8)
+        assertTrue(levels.size >= 4)
+        for (n in levels) {
+            val (result, world) = play(n)
+            assertTrue("poziom $n z prądem nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+        }
+    }
+
+    @Test
+    fun botCompletesDailyAndWeeklyLevels() {
+        for (kind in ChallengeKind.entries) {
+            for (i in 0 until 12) {
+                val plan = Challenges.plan(kind, LevelSeed(Rng.mix(0xC4A1L, i.toLong())))
+                val (result, world) = play(LevelGenerator.generate(plan), tutorial = false)
+                assertTrue(
+                    "$kind #$i ${plan.spec.type} nieukończony (etap ${world.stageIndex}/${world.stages.size}, ${world.loseReason}, ${world.elapsed}s/${world.timeLimit})",
+                    result?.completed == true,
+                )
+                assertTrue("$kind #$i: wynik niewiarygodny", ScoreValidator.isPlausible(plan, result!!))
+            }
+        }
+    }
+
+    /** Wzmocnienia ułatwiają grę, ale nie mogą dać wyniku ponad limity anty-cheat (serwer liczy je bez wzmocnień). */
+    @Test
+    fun allPowerUpsKeepScoresPlausible() {
+        val all = Loadout(magnet = true, shield = true, turbo = true, extraLife = true, net = true, frost = true, lure = true, rhythm = true)
+        for (n in listOf(3, 12, 40, 120, 333, 640, 999, 1001, 1500)) {
+            val (result, world) = play(LevelGenerator.generate(n), tutorial = false, loadout = all)
+            assertTrue("poziom $n nieukończony z wzmocnieniami (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            assertTrue("poziom $n: wynik z wzmocnieniami ponad limit", ScoreValidator.isPlausible(LevelGenerator.plan(n), result!!))
+        }
     }
 
     @Test

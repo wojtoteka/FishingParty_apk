@@ -10,6 +10,7 @@ import wojtoteka.ovh.fishingparty.level.LevelLayout
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Scoring
+import wojtoteka.ovh.fishingparty.level.Stalkers
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
 import kotlin.math.PI
@@ -54,7 +55,18 @@ class GameWorld(
     private var knockX = 0f
     private var knockY = 0f
     private var bumpCooldown = 0f
+
+    /**
+     * Łódź wpłynęła na piasek przy brzegu. Stoi tam prawie w miejscu (może się obrócić i wypłynąć),
+     * ale potwory jej nie dosięgną, a widmokuda jej nie widzi – awaryjna kryjówka.
+     */
+    var beached = false
+        private set
     val maxSpeed = if (loadout.turbo) SHIP_SPEED * 1.2f else SHIP_SPEED
+    private val catchRadius = if (loadout.net) NET_CATCH_RADIUS else CATCH_RADIUS
+
+    /** Czas na złowienie kolejnej ryby, żeby combo trwało (Rytm go wydłuża). */
+    val comboWindow = if (loadout.rhythm) Scoring.COMBO_WINDOW_SECONDS * RHYTHM_FACTOR else Scoring.COMBO_WINDOW_SECONDS
 
     var lives = if (loadout.extraLife) 4 else 3
         private set
@@ -125,6 +137,9 @@ class GameWorld(
     private var movedTime = 0f
     var showGateArrow = false
         private set
+
+    /** Czy któraś widmokuda już namierzyła łódź w tym przejeździe. */
+    private var stalkerSpotted = false
 
     // ---------------------------------------------------------------- kamera
     var camX = 0f
@@ -232,6 +247,8 @@ class GameWorld(
 
     private fun updateShip(dt: Float, controlled: Boolean) {
         val ticks = dt * 60f
+        val depth = beachDepth(shipX, shipY)
+        beached = depth > 0f
         if (thrust) {
             var diff = targetHeading - heading
             while (diff > PI) diff -= (2 * PI).toFloat()
@@ -244,16 +261,29 @@ class GameWorld(
         } else {
             speed += (0f - speed) * (1f - 0.95f.pow(ticks))
         }
+        if (beached) {
+            // Na piasek wpływa coraz wolniej, a po nim prawie się nie rusza – wypłynąć może trochę szybciej.
+            val out = beachDepth(shipX + cos(heading) * 2f, shipY + sin(heading) * 2f) < depth
+            val cap = if (out) BEACH_EXIT_SPEED
+            else BEACH_ENTRY_SPEED + (BEACH_CRAWL_SPEED - BEACH_ENTRY_SPEED) * min(1f, depth / BEACH_REACH)
+            if (speed > cap) speed += (cap - speed) * (1f - 0.8f.pow(ticks))
+        }
         if (controlled && showControls) {
             if (speed > 30f) movedTime += dt
             if (movedTime > 1.2f) showControls = false
         }
 
-        var dx = cos(heading) * speed * dt + knockX * dt
-        var dy = sin(heading) * speed * dt + knockY * dt
-        if (phase == Phase.PLAYING) {
-            dx += spec.currentX * dt
-            dy += spec.currentY * dt
+        val ownX = cos(heading) * speed * dt
+        val ownY = sin(heading) * speed * dt
+        var dx = ownX + knockX * dt
+        var dy = ownY + knockY * dt
+        // Prąd nie wpycha łodzi na piasek (na plażę wpływa się tylko samemu), a łodzi na piasku już nie znosi.
+        if (phase == Phase.PLAYING && !beached) {
+            val cx = spec.currentX * dt
+            val cy = spec.currentY * dt
+            val own = beachDepth(shipX + dx, shipY + dy)
+            if (beachDepth(shipX + dx + cx, shipY + dy) <= own) dx += cx
+            if (beachDepth(shipX + dx, shipY + dy + cy) <= own) dy += cy
         }
         knockX *= 0.9f.pow(ticks)
         knockY *= 0.9f.pow(ticks)
@@ -266,21 +296,31 @@ class GameWorld(
                 shipX = nx; shipY = ny
             }
             !shipBlocked(nx, shipY) -> {
-                shipX = nx; bump(abs(dy) / dt)
+                shipX = nx; bump(abs(dy) / dt, intoWall = ownY * dy > 0f)
             }
             !shipBlocked(shipX, ny) -> {
-                shipY = ny; bump(abs(dx) / dt)
+                shipY = ny; bump(abs(dx) / dt, intoWall = ownX * dx > 0f)
             }
+            // Prąd wciska łódź w narożnik – sama łódź (bez prądu) może jeszcze z niego wypłynąć, choćby bokiem.
+            !shipBlocked(shipX + ownX, shipY + ownY) -> {
+                shipX += ownX; shipY += ownY
+            }
+            !shipBlocked(shipX + ownX, shipY) -> shipX += ownX
+            !shipBlocked(shipX, shipY + ownY) -> shipY += ownY
             else -> bump(speed)
         }
     }
 
-    private fun bump(impactSpeed: Float) {
+    /**
+     * Otarcie o brzeg. Łódź zwalnia tylko wtedy, gdy sama płynie w przeszkodę – gdy dociska ją
+     * prąd morski, a gracz odpływa od brzegu, musi móc się rozpędzić (inaczej utknęłaby przy ścianie).
+     */
+    private fun bump(impactSpeed: Float, intoWall: Boolean = true) {
         if (impactSpeed > 35f && bumpCooldown <= 0f) {
             listener.onSound(Sfx.BUMP)
             bumpCooldown = 0.5f
         }
-        speed *= 0.6f
+        if (intoWall) speed *= 0.6f
     }
 
     private fun solidForShip(c: Int, r: Int): Boolean {
@@ -294,13 +334,15 @@ class GameWorld(
         }
     }
 
+    /** Piasek nie zatrzymuje łodzi od razu – może na niego wpłynąć na [BEACH_REACH] od wody. */
     private fun shipBlocked(x: Float, y: Float): Boolean {
+        if (beachDepth(x, y) > BEACH_REACH) return true
         val c0 = floor((x - SHIP_RADIUS) / TILE).toInt()
         val c1 = floor((x + SHIP_RADIUS) / TILE).toInt()
         val r0 = floor((y - SHIP_RADIUS) / TILE).toInt()
         val r1 = floor((y + SHIP_RADIUS) / TILE).toInt()
         for (r in r0..r1) for (c in c0..c1) {
-            if (!solidForShip(c, r)) continue
+            if (!solidForShip(c, r) || grid[c, r] == Tile.SAND) continue
             val nearestX = x.coerceIn(c * TILE.toFloat(), (c + 1) * TILE.toFloat())
             val nearestY = y.coerceIn(r * TILE.toFloat(), (r + 1) * TILE.toFloat())
             val ddx = x - nearestX
@@ -308,6 +350,21 @@ class GameWorld(
             if (ddx * ddx + ddy * ddy < SHIP_RADIUS * SHIP_RADIUS) return true
         }
         return false
+    }
+
+    /** Jak głęboko na piasku jest punkt: odległość do najbliższej wody, 0 – punkt jest na wodzie. */
+    private fun beachDepth(x: Float, y: Float): Float {
+        val c = floor(x / TILE).toInt()
+        val r = floor(y / TILE).toInt()
+        if (grid[c, r] != Tile.SAND) return 0f
+        var best = Float.MAX_VALUE
+        for (rr in r - 1..r + 1) for (cc in c - 1..c + 1) {
+            if (solidForShip(cc, rr)) continue
+            val ddx = x - x.coerceIn(cc * TILE.toFloat(), (cc + 1) * TILE.toFloat())
+            val ddy = y - y.coerceIn(rr * TILE.toFloat(), (rr + 1) * TILE.toFloat())
+            best = min(best, sqrt(ddx * ddx + ddy * ddy))
+        }
+        return best
     }
 
     // ================================================================ ryby
@@ -347,7 +404,11 @@ class GameWorld(
                     else -> DIR_Y[dir]
                 },
                 phase = rng.nextFloat() * 0.4f,
-            ).also { it.fadeIn = fadeIn }
+            ).also {
+                it.fadeIn = fadeIn
+                it.vx = it.dirX.toFloat()
+                it.vy = it.dirY.toFloat()
+            }
         }
     }
 
@@ -390,7 +451,7 @@ class GameWorld(
                         }
                         var vx: Float
                         var vy: Float
-                        if (dist < GOLDEN_FLEE_RADIUS) {
+                        if (dist < (if (loadout.lure) LURE_FLEE_RADIUS else GOLDEN_FLEE_RADIUS)) {
                             vx = dx / max(dist, 1f) * GOLDEN_FLEE_SPEED
                             vy = dy / max(dist, 1f) * GOLDEN_FLEE_SPEED
                             f.facing = if (vx >= 0) 1 else -1
@@ -404,7 +465,7 @@ class GameWorld(
                 }
             }
 
-            if (phase == Phase.PLAYING && dist < CATCH_RADIUS) {
+            if (phase == Phase.PLAYING && dist < catchRadius) {
                 it.remove()
                 catchFish(f)
             }
@@ -414,11 +475,11 @@ class GameWorld(
     private fun sign(v: Float) = if (v > 0f) 1f else if (v < 0f) -1f else 0f
 
     private fun catchFish(f: Fish) {
-        combo = if (elapsed - lastCatch <= Scoring.COMBO_WINDOW_SECONDS && combo > 0) {
+        combo = if (elapsed - lastCatch <= comboWindow && combo > 0) {
             min(LevelConstants.MAX_COMBO, combo + 1)
         } else 1
         lastCatch = elapsed
-        comboTimer = Scoring.COMBO_WINDOW_SECONDS
+        comboTimer = comboWindow
         maxCombo = max(maxCombo, combo)
         val points = Scoring.fishPoints(f.kind, combo)
         scoreValue.add(points.toLong())
@@ -463,7 +524,8 @@ class GameWorld(
         for (i in stage.golden.indices) {
             if (goldenSpawned[k][i]) continue
             val g = stage.golden[i]
-            if (elapsed - stageEnter[k] < g.delaySeconds) continue
+            val delay = if (loadout.lure) g.delaySeconds * LURE_DELAY_FACTOR else g.delaySeconds
+            if (elapsed - stageEnter[k] < delay) continue
             goldenSpawned[k][i] = true
             var gx = g.col * TILE + TILE / 2f
             var gy = g.row * TILE + TILE / 2f
@@ -479,7 +541,9 @@ class GameWorld(
                     }
                 }
             }
-            pendingFish += Fish(gx, gy, FishKind.GOLDEN, k, rng.sign(), 1, rng.nextFloat()).also { it.life = GOLDEN_LIFE }
+            pendingFish += Fish(gx, gy, FishKind.GOLDEN, k, rng.sign(), 1, rng.nextFloat()).also {
+                it.life = if (loadout.lure) GOLDEN_LIFE * LURE_LIFE_FACTOR else GOLDEN_LIFE
+            }
         }
     }
 
@@ -548,8 +612,14 @@ class GameWorld(
             EnemyKind.DARK_SHARK -> 44f
             EnemyKind.OCTOPUS -> if (e.dash > 0f) 60f else 12f
             EnemyKind.RED_OCTOPUS -> if (e.dash > 0f) 72f else 14f
+            EnemyKind.STALKER -> when (e.hunt) {
+                Hunt.PATROL -> STALKER_PATROL
+                Hunt.AIM -> 0f
+                Hunt.DASH -> STALKER_DASH
+                Hunt.FLEE -> STALKER_FLEE
+            }
         }
-        return base * spec.enemySpeed
+        return base * spec.enemySpeed * if (loadout.frost) FROST_SLOWDOWN else 1f
     }
 
     private fun hitRadius(kind: EnemyKind): Float = when (kind) {
@@ -557,6 +627,7 @@ class GameWorld(
         EnemyKind.OCTOPUS, EnemyKind.RED_OCTOPUS -> 11f
         EnemyKind.PIRANHA, EnemyKind.RED_PIRANHA -> 9f
         EnemyKind.PIRANHA_VERTICAL -> 7f
+        EnemyKind.STALKER -> 10f
     }
 
     private fun updateEnemies(dt: Float) {
@@ -566,17 +637,22 @@ class GameWorld(
                 continue
             }
             val stage = stages[e.stage]
-            val look = if (e.kind == EnemyKind.SHARK || e.kind == EnemyKind.DARK_SHARK) 12f else 8f
-            val ahead = waterFor(e.x + e.dirX * look, e.y + e.dirY * look, stage)
-            if (!ahead || rng.nextFloat() < TURN_CHANCE * dt) {
-                turnEnemy(e)
+            if (e.kind == EnemyKind.STALKER) {
+                updateStalker(e, stage, dt)
             } else {
-                val v = enemySpeed(e)
-                e.x += e.dirX * v * dt
-                e.y += e.dirY * v * dt
-                if (e.dash > 0f) e.dash -= dt
+                val look = if (e.kind == EnemyKind.SHARK || e.kind == EnemyKind.DARK_SHARK) 12f else 8f
+                val ahead = waterFor(e.x + e.dirX * look, e.y + e.dirY * look, stage)
+                if (!ahead || rng.nextFloat() < TURN_CHANCE * dt) {
+                    turnEnemy(e)
+                } else {
+                    val v = enemySpeed(e)
+                    e.x += e.dirX * v * dt
+                    e.y += e.dirY * v * dt
+                    if (e.dash > 0f) e.dash -= dt
+                }
             }
-            if (phase != Phase.PLAYING || invulnerable > 0f) continue
+            // Łodzi na piasku potwory nie dosięgną.
+            if (phase != Phase.PLAYING || invulnerable > 0f || beached) continue
             val dx = e.x - shipX
             val dy = (e.y - shipY) * 1.5f
             val r = hitRadius(e.kind)
@@ -598,7 +674,7 @@ class GameWorld(
                     EnemyKind.RED_OCTOPUS -> 0.6f
                     else -> 0.5f
                 }
-                if (rng.nextFloat() < hunt && e.stage == stageIndex) {
+                if (rng.nextFloat() < hunt && e.stage == stageIndex && !beached) {
                     if (abs(e.x - shipX) > abs(e.y - shipY)) {
                         e.dirX = if (e.x < shipX) 1 else -1; e.dirY = 0
                     } else {
@@ -616,7 +692,151 @@ class GameWorld(
         }
     }
 
+    // ================================================================ widmokuda
+
+    /**
+     * Widmokuda patroluje jak rekin, ale patrzy przed siebie: gdy zobaczy łódź (w zasięgu wzroku,
+     * w polu widzenia i bez skały, wyspy ani brzegu na linii), staje, świeci oczami i po chwili
+     * skacze w miejsce, gdzie łódź była. Przez przeszkody nie widzi – za skałą można się schować.
+     * Po skoku, trafionym czy nie, odpływa od łodzi i przez chwilę pływa spokojnie, nie polując.
+     */
+    private fun updateStalker(e: Enemy, stage: StageLayout, dt: Float) {
+        if (e.calm > 0f) e.calm -= dt
+        val sees = phase == Phase.PLAYING && e.stage == stageIndex && e.calm <= 0f && sees(e)
+        if (sees) {
+            e.seenX = shipX
+            e.seenY = shipY
+        }
+        e.huntTimer -= dt
+        if (abs(e.vx) > 0.2f) e.faceRight = e.vx > 0f
+        when (e.hunt) {
+            Hunt.PATROL -> {
+                if (sees) return aim(e)
+                // Skręca losowo albo gdy dalej jest brzeg – ten sam test co przy ruchu, więc nie utknie przy ścianie.
+                if (rng.nextFloat() < TURN_CHANCE * dt || !swim(e, e.dirX.toFloat(), e.dirY.toFloat(), enemySpeed(e) * dt, stage)) {
+                    val d = rng.nextInt(4)
+                    e.dirX = DIR_X[d]
+                    e.dirY = DIR_Y[d]
+                }
+                e.vx = e.dirX.toFloat()
+                e.vy = e.dirY.toFloat()
+            }
+            Hunt.AIM -> {
+                faceSeen(e)
+                if (e.huntTimer <= 0f) {
+                    val d = max(1f, hypot(e.seenX - e.x, e.seenY - e.y))
+                    e.hunt = Hunt.DASH
+                    // Skacze trochę dalej niż łódź – kto stoi w miejscu, zostanie trafiony.
+                    e.huntTimer = min(d / (STALKER_DASH * spec.enemySpeed) + 0.2f, STALKER_DASH_MAX)
+                }
+            }
+            Hunt.DASH -> {
+                if (!swim(e, e.vx, e.vy, enemySpeed(e) * dt, stage) || e.huntTimer <= 0f) flee(e)
+            }
+            Hunt.FLEE -> {
+                fleeStep(e, enemySpeed(e) * dt, stage)
+                if (e.huntTimer <= 0f) {
+                    e.hunt = Hunt.PATROL
+                    e.dirX = if (abs(e.vx) >= abs(e.vy)) (if (e.vx >= 0f) 1 else -1) else 0
+                    e.dirY = if (e.dirX == 0) (if (e.vy >= 0f) 1 else -1) else 0
+                }
+            }
+        }
+    }
+
+    private fun aim(e: Enemy) {
+        e.hunt = Hunt.AIM
+        e.huntTimer = STALKER_AIM_TIME
+        faceSeen(e)
+        if (!stalkerSpotted) {
+            stalkerSpotted = true
+            listener.onVibrate(25)
+            // Na poziomach, które przedstawiają widmokudę, pierwszy raz pokazujemy też napis.
+            if (Stalkers.isIntro(spec.number)) message = GameMessage(MessageKind.SPOTTED, 0, 0)
+        }
+    }
+
+    /** Koniec ataku: odpływa od łodzi, a po ucieczce ma przerwę, zanim znów zacznie polować. */
+    private fun flee(e: Enemy) {
+        e.hunt = Hunt.FLEE
+        e.huntTimer = STALKER_FLEE_TIME
+        e.calm = STALKER_FLEE_TIME + STALKER_CALM_TIME
+    }
+
+    /** Krok ucieczki: prosto od łodzi, a gdy tam brzeg – wzdłuż niego, w bok albo choćby gdziekolwiek. */
+    private fun fleeStep(e: Enemy, distance: Float, stage: StageLayout) {
+        var ax = e.x - shipX
+        var ay = e.y - shipY
+        val d = hypot(ax, ay)
+        if (d < 0.5f) {
+            ax = e.vx; ay = e.vy
+        } else {
+            ax /= d; ay /= d
+        }
+        val sx = if (ax >= 0f) 1f else -1f
+        val sy = if (ay >= 0f) 1f else -1f
+        val tries = arrayOf(ax to ay, sx to 0f, 0f to sy, -ay to ax, ay to -ax, -sx to 0f, 0f to -sy)
+        for ((tx, ty) in tries) {
+            if (swim(e, tx, ty, distance, stage)) {
+                val len = hypot(tx, ty)
+                e.vx = tx / len
+                e.vy = ty / len
+                return
+            }
+        }
+    }
+
+    private fun faceSeen(e: Enemy) {
+        val dx = e.seenX - e.x
+        val dy = e.seenY - e.y
+        val d = hypot(dx, dy)
+        if (d > 0.5f) {
+            e.vx = dx / d
+            e.vy = dy / d
+        }
+    }
+
+    /** Ruch o [distance] w kierunku (dx, dy); false – dalej jest już brzeg albo skała. */
+    private fun swim(e: Enemy, dx: Float, dy: Float, distance: Float, stage: StageLayout): Boolean {
+        val len = hypot(dx, dy)
+        if (len < 0.01f) return true
+        val ux = dx / len
+        val uy = dy / len
+        if (!waterFor(e.x + ux * (STALKER_LOOK + distance), e.y + uy * (STALKER_LOOK + distance), stage)) return false
+        e.x += ux * distance
+        e.y += uy * distance
+        return true
+    }
+
+    /** Czy widmokuda widzi łódź: zasięg wzroku, pole widzenia (z bliska wyczuje też z tyłu) i czysta linia. */
+    private fun sees(e: Enemy): Boolean {
+        if (beached) return false
+        val dx = shipX - e.x
+        val dy = shipY - e.y
+        val d = hypot(dx, dy)
+        if (d > STALKER_SIGHT) return false
+        if (d > STALKER_SENSE) {
+            val f = hypot(e.vx, e.vy)
+            if (f > 0.01f && (dx * e.vx + dy * e.vy) / (d * f) < STALKER_FOV_COS) return false
+        }
+        return clearLine(e.x, e.y, shipX, shipY)
+    }
+
+    /** Linia wzroku: co 4 jednostki sprawdzamy, czy po drodze jest tylko woda (skała, wyspa, brzeg i brama zasłaniają). */
+    fun clearLine(x0: Float, y0: Float, x1: Float, y1: Float): Boolean {
+        val steps = (hypot(x1 - x0, y1 - y0) / 4f).toInt() + 1
+        for (i in 1 until steps) {
+            val t = i / steps.toFloat()
+            val c = floor((x0 + (x1 - x0) * t) / TILE).toInt()
+            val r = floor((y0 + (y1 - y0) * t) / TILE).toInt()
+            if (grid[c, r] != Tile.SEA) return false
+        }
+        return true
+    }
+
     private fun hitShip(e: Enemy) {
+        // Po trafieniu widmokuda odpływa i ma przerwę – nie poluje na łódź w czasie nietykalności.
+        if (e.kind == EnemyKind.STALKER) flee(e)
         val dx = shipX - e.x
         val dy = shipY - e.y
         val d = max(1f, sqrt(dx * dx + dy * dy))
@@ -742,6 +962,11 @@ class GameWorld(
         private const val MAX_STEPS = 12
         const val SHIP_SPEED = 72f
         const val SHIP_RADIUS = 5f
+        /** Jak daleko od wody może wpłynąć na piasek środek łodzi (kafelek ma 16). */
+        const val BEACH_REACH = 7f
+        private const val BEACH_ENTRY_SPEED = 34f
+        private const val BEACH_CRAWL_SPEED = 4f
+        private const val BEACH_EXIT_SPEED = 26f
         private const val TURN_RATE = 0.09f
         private const val FISH_SPEED = 12f
         private const val BLUE_SPEED = 20f
@@ -750,11 +975,31 @@ class GameWorld(
         private const val GOLDEN_FLEE_RADIUS = 56f
         private const val GOLDEN_LIFE = 10f
         private const val CATCH_RADIUS = 13f
+        private const val NET_CATCH_RADIUS = 20f
+        private const val FROST_SLOWDOWN = 0.65f
+        private const val LURE_DELAY_FACTOR = 0.5f
+        private const val LURE_LIFE_FACTOR = 1.6f
+        private const val LURE_FLEE_RADIUS = 30f
+        private const val RHYTHM_FACTOR = 1.6f
         private const val MAGNET_RADIUS = 44f
         private const val MAGNET_SPEED = 55f
         private const val CAUGHT_ANIM = 0.33f
         private const val TURN_CHANCE = 0.3f
         const val MESSAGE_TIME = 2f
+        // Widmokuda: prędkości (× tempo potworów poziomu), czasy faz polowania, przerwa po ataku i wzrok.
+        private const val STALKER_PATROL = 22f
+        private const val STALKER_DASH = 105f
+        private const val STALKER_FLEE = 46f
+        private const val STALKER_AIM_TIME = 0.55f
+        private const val STALKER_DASH_MAX = 1f
+        const val STALKER_FLEE_TIME = 1.4f
+        const val STALKER_CALM_TIME = 3.5f
+        private const val STALKER_LOOK = 8f
+        const val STALKER_SIGHT = 120f
+        private const val STALKER_SENSE = 28f
+
+        /** Pole widzenia ±70° od kierunku pływania. */
+        private val STALKER_FOV_COS = cos(Math.toRadians(70.0)).toFloat()
         private val DIR_X = intArrayOf(1, 0, -1, 0)
         private val DIR_Y = intArrayOf(0, 1, 0, -1)
     }

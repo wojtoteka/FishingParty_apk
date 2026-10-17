@@ -102,6 +102,9 @@ class GameRepository(context: Context) {
     private val appContext = context.applicationContext
     private val file = File(appContext.filesDir, "progress.fps")
     private val backup = File(appContext.filesDir, "progress.bak")
+
+    /** Zapis, który telefon ostatnio wymienił z kontem – punkt odniesienia przy łączeniu postępu z dwóch telefonów. */
+    private val synced = File(appContext.noBackupFilesDir, "synced.fps")
     internal val crypto = SaveCrypto(KeystoreKeys(appContext))
     private val io = Executors.newSingleThreadExecutor()
     private val main = Handler(Looper.getMainLooper())
@@ -167,6 +170,41 @@ class GameRepository(context: Context) {
             restored.controlsChosen = true
             restored.joystickLeft = save.joystickLeft
         }
+        replace(restored)
+    }
+
+    /**
+     * Łączy postęp tego telefonu z nowszym zapisem z konta (z drugiego telefonu) – patrz [SaveMerge].
+     * @return false, gdy telefon nie zna ostatniego wspólnego zapisu (wtedy gracz wybiera, który zostaje)
+     * @throws Exception gdy dane z konta są uszkodzone – wtedy lokalny zapis zostaje bez zmian
+     */
+    fun mergeSnapshot(bytes: ByteArray): Boolean {
+        val base = syncedSnapshot() ?: return false
+        replace(SaveMerge.merge(base, save, SaveCodec.decode(bytes)))
+        return true
+    }
+
+    /** Zapamiętuje zapis wymieniony właśnie z kontem (null – zapomina, np. po wylogowaniu). */
+    fun rememberSynced(bytes: ByteArray?) {
+        io.execute {
+            try {
+                if (bytes == null) synced.delete() else synced.writeBytes(crypto.seal(bytes))
+            } catch (e: Exception) {
+                Log.w("FishingParty", "Nie można zapamiętać zapisu z konta", e)
+            }
+        }
+    }
+
+    private fun syncedSnapshot(): SaveData? = io.submit<SaveData?> {
+        try {
+            if (synced.exists()) SaveCodec.decode(crypto.open(synced.readBytes())) else null
+        } catch (e: Exception) {
+            Log.w("FishingParty", "Nie można odczytać zapisu z konta", e)
+            null
+        }
+    }.get()
+
+    private fun replace(restored: SaveData) {
         save = restored
         progress = progressOf(restored)
         progress.touchClock()
