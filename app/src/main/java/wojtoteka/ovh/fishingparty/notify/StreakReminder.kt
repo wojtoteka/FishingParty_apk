@@ -177,7 +177,8 @@ object StreakReminder {
             }
             ReminderKind.SECOND -> context.getString(R.string.notif_second_title) to context.getString(R.string.notif_second_text, daysText)
             ReminderKind.LAST -> context.getString(R.string.notif_last_title) to context.getString(R.string.notif_last_text, daysText)
-            ReminderKind.REPAIR -> context.getString(R.string.notif_repair_title) to context.getString(R.string.notif_repair_text, daysText)
+            ReminderKind.REPAIR -> context.getString(R.string.notif_repair_title) to
+                context.getString(R.string.notif_repair_text, daysText, context.getString(R.string.streak_repair))
         }
     }
 }
