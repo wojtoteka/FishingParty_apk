@@ -23,8 +23,10 @@ import wojtoteka.ovh.fishingparty.level.ThirdGoal
 import wojtoteka.ovh.fishingparty.level.Tile
 import wojtoteka.ovh.fishingparty.level.TileGrid
 import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.hypot
 
-/** Łódź może wpłynąć kawałek na piasek przy brzegu – tam stoi prawie w miejscu, ale potwory jej nie dosięgną. */
+/** Łódź może wpłynąć rozpędem kawałek na piasek przy brzegu – tam nie ma napędu, ale potwory jej nie dosięgną. */
 class BeachTest {
 
     private class Quiet : GameListener {
@@ -75,17 +77,58 @@ class BeachTest {
         world.sail(PI.toFloat(), 3f)
         assertTrue("łódź nie wpłynęła na piasek (${world.shipX})", world.beached)
         assertTrue("za głęboko: ${shore - world.shipX}", shore - world.shipX <= GameWorld.BEACH_REACH + 0.01f)
-        assertTrue(world.speed < 10f)
+        assertTrue(world.speed < 1f)
 
-        // Wzdłuż plaży prawie się nie rusza.
+        // Wzdłuż plaży się nie rusza – bez napędu na piasku zostaje w miejscu.
         val y = world.shipY
-        world.sail((-PI / 2).toFloat(), 2f)
-        assertTrue("płynie po piasku: ${y - world.shipY}", y - world.shipY < 16f)
+        world.sail((-PI / 2).toFloat(), 5f)
+        assertTrue("płynie po piasku: ${y - world.shipY}", abs(y - world.shipY) < 1f)
+        assertTrue(world.beached)
 
         // Ale obróci się i wypłynie.
         world.sail(0f, 2f)
         assertFalse(world.beached)
         assertTrue(world.shipX > shore + 20f)
+    }
+
+    @Test
+    fun boatCannotSailAcrossTheSand() {
+        // Z piasku nie da się płynąć w żadną stronę, która nie prowadzi do wody – ani wzdłuż brzegu, ani w głąb.
+        for (degrees in 0 until 360 step 5) {
+            val world = beach()
+            world.sail(PI.toFloat(), 1.5f)
+            assertTrue(world.beached)
+            var onSand = 0f
+            val angle = (degrees * PI / 180).toFloat()
+            repeat(60 * 20) {
+                val x = world.shipX
+                val y = world.shipY
+                val wasBeached = world.beached
+                world.setInput(true, angle)
+                world.advance(1f / 60f)
+                if (wasBeached) onSand += hypot(world.shipX - x, world.shipY - y)
+            }
+            assertTrue("kurs $degrees°: po piasku ${onSand} jedn.", onSand < 25f)
+        }
+    }
+
+    @Test
+    fun shallowApproachDoesNotLetTheBoatCrawlAlongTheShore() {
+        // Łódź płynąca z wody pod małym kątem do brzegu wpływa rozpędem, ale potem stoi.
+        for (degrees in listOf(95, 100, 110, 120, 135, 150, 170)) {
+            val world = beach()
+            val angle = (degrees * PI / 180).toFloat()
+            var onSand = 0f
+            repeat(60 * 20) {
+                val x = world.shipX
+                val y = world.shipY
+                val wasBeached = world.beached
+                world.setInput(true, angle)
+                world.advance(1f / 60f)
+                if (wasBeached) onSand += hypot(world.shipX - x, world.shipY - y)
+            }
+            assertTrue("kurs $degrees°: po piasku ${onSand} jedn.", onSand < 25f)
+        }
     }
 
     @Test

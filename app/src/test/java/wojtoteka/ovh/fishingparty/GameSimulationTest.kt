@@ -110,6 +110,24 @@ class GameSimulationTest {
         val stage = world.currentStage
         val sc = floor(world.shipX / TILE).toInt()
         val sr = floor(world.shipY / TILE).toInt()
+        if (world.beached) {
+            // Na piasku łódź nie ma napędu – jak gracz, najpierw kierujemy dziób do najbliższej wody.
+            var nearest = Float.MAX_VALUE
+            var tx = world.shipX
+            var ty = world.shipY
+            for (r in sr - 1..sr + 1) for (c in sc - 1..sc + 1) {
+                if (!grid.inside(c, r) || grid[c, r] != Tile.SEA) continue
+                val ddx = world.shipX - world.shipX.coerceIn(c * TILE.toFloat(), (c + 1) * TILE.toFloat())
+                val ddy = world.shipY - world.shipY.coerceIn(r * TILE.toFloat(), (r + 1) * TILE.toFloat())
+                if (ddx * ddx + ddy * ddy < nearest) {
+                    nearest = ddx * ddx + ddy * ddy
+                    tx = c * TILE + TILE / 2f
+                    ty = r * TILE + TILE / 2f
+                }
+            }
+            world.setInput(true, atan2(ty - world.shipY, tx - world.shipX))
+            return
+        }
         val targets = HashSet<Int>()
         if (!world.isDoorOpen(world.stageIndex)) {
             world.fish.filter { it.stage == world.stageIndex }.forEach {

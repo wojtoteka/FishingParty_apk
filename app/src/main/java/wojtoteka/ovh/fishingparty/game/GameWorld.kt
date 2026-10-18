@@ -247,8 +247,7 @@ class GameWorld(
 
     private fun updateShip(dt: Float, controlled: Boolean) {
         val ticks = dt * 60f
-        val depth = beachDepth(shipX, shipY)
-        beached = depth > 0f
+        beached = beachDepth(shipX, shipY) > 0f
         if (thrust) {
             var diff = targetHeading - heading
             while (diff > PI) diff -= (2 * PI).toFloat()
@@ -256,17 +255,15 @@ class GameWorld(
             heading += diff * (1f - (1f - TURN_RATE).pow(ticks))
             while (heading > PI) heading -= (2 * PI).toFloat()
             while (heading < -PI) heading += (2 * PI).toFloat()
+        }
+        // Na piasku łódź nie ma napędu – wpływa na niego tylko rozpędem i szybko go traci. Napęd wraca, gdy dziób
+        // celuje w wodę: można się obrócić i wypłynąć, ale nie da się płynąć po piasku.
+        if (thrust && !(beached && sandAhead())) {
             val accel = if (speed < maxSpeed * 0.66f) 0.05f else 0.02f
             speed += (maxSpeed - speed) * (1f - (1f - accel).pow(ticks))
+            if (beached && speed > BEACH_EXIT_SPEED) speed += (BEACH_EXIT_SPEED - speed) * (1f - 0.8f.pow(ticks))
         } else {
-            speed += (0f - speed) * (1f - 0.95f.pow(ticks))
-        }
-        if (beached) {
-            // Na piasek wpływa coraz wolniej, a po nim prawie się nie rusza – wypłynąć może trochę szybciej.
-            val out = beachDepth(shipX + cos(heading) * 2f, shipY + sin(heading) * 2f) < depth
-            val cap = if (out) BEACH_EXIT_SPEED
-            else BEACH_ENTRY_SPEED + (BEACH_CRAWL_SPEED - BEACH_ENTRY_SPEED) * min(1f, depth / BEACH_REACH)
-            if (speed > cap) speed += (cap - speed) * (1f - 0.8f.pow(ticks))
+            speed += (0f - speed) * (1f - (if (beached) BEACH_DRAG else 0.95f).pow(ticks))
         }
         if (controlled && showControls) {
             if (speed > 30f) movedTime += dt
@@ -351,6 +348,9 @@ class GameWorld(
         }
         return false
     }
+
+    /** Czy punkt kawałek przed dziobem to piasek – wtedy łódź stojąca na piasku nie dostaje napędu. */
+    private fun sandAhead() = beachDepth(shipX + cos(heading) * BEACH_LOOK, shipY + sin(heading) * BEACH_LOOK) > 0f
 
     /** Jak głęboko na piasku jest punkt: odległość do najbliższej wody, 0 – punkt jest na wodzie. */
     private fun beachDepth(x: Float, y: Float): Float {
@@ -964,8 +964,10 @@ class GameWorld(
         const val SHIP_RADIUS = 5f
         /** Jak daleko od wody może wpłynąć na piasek środek łodzi (kafelek ma 16). */
         const val BEACH_REACH = 7f
-        private const val BEACH_ENTRY_SPEED = 34f
-        private const val BEACH_CRAWL_SPEED = 4f
+        /** Jak daleko przed dziobem sprawdzamy, czy jest tam piasek (kafelek ma 16). */
+        private const val BEACH_LOOK = 14f
+        /** Jak szybko łódź bez napędu traci prędkość na piasku (mnożnik na klatkę 60 Hz) – woda hamuje ją wolniej. */
+        private const val BEACH_DRAG = 0.8f
         private const val BEACH_EXIT_SPEED = 26f
         private const val TURN_RATE = 0.09f
         private const val FISH_SPEED = 12f
