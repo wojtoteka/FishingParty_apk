@@ -93,9 +93,12 @@ fun AppRoot() {
         screen = Screen.Game(level, loadout, attempts, challenge = challenge)
     }
 
-    // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna.
-    LaunchedEffect(screen, showRepair, chooseControls) {
-        if (screen != Screen.Menu || showRepair || chooseControls || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
+    // Ogłoszenie z panelu serwera (pierwsze z niezamkniętych) – poza rozgrywką i po wyborze sterowania.
+    val announcement = services.online.announcements.firstOrNull()
+
+    // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna (obie po ogłoszeniach).
+    LaunchedEffect(screen, showRepair, chooseControls, announcement) {
+        if (screen != Screen.Menu || showRepair || chooseControls || announcement != null || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
         if (!repairOffered && repo.progress.streakRepair() != null) {
             repairOffered = true
             delay(600)
@@ -170,6 +173,9 @@ fun AppRoot() {
             ChallengeDialog(kind, onPlay = { challenge, selection -> start(Challenges.LEVEL_NUMBER, selection, challenge) }, onClose = { challengeDialog = null })
         }
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
+        if (announcement != null && screen !is Screen.Game && !chooseControls) {
+            AnnouncementDialog(announcement, onClose = { services.online.dismissAnnouncement(announcement) })
+        }
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {
                 PixelText(stringResource(R.string.save_tampered), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())

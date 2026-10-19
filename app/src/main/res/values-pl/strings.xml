@@ -743,4 +743,8 @@
     <string name="set_joystick_side">STRONA JOYSTICKA</string>
     <string name="set_left">LEWA</string>
     <string name="set_right">PRAWA</string>
+
+    <!-- Start gry: ogłoszenia z panelu (GET /launch) -->
+    <string name="content_language">pl</string>
+    <string name="announcement_label">OGŁOSZENIE</string>
 </resources>
