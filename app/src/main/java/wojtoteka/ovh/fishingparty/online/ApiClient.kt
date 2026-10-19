@@ -90,6 +90,18 @@ class ApiClient(
         return res.json
     }
 
+    /**
+     * Start aplikacji (`GET /launch`, bez podpisu – działa też gościom i przy złej dacie w telefonie): czy ta wersja
+     * nie jest zablokowana w panelu i bieżące ogłoszenia dla gościa albo zalogowanego ([account]).
+     * Odpowiedź niesie też czas serwera. null = serwer bez tej funkcji.
+     */
+    fun launch(account: Boolean): JSONObject? {
+        if (baseUrl.isEmpty()) return null
+        val res = getPublic("/launch?app=$appVersion" + if (account) "&account=1" else "") ?: return null
+        clock?.onServerTime(res.json.optLong("now"), res.sentAt, res.receivedAt)
+        return res.json
+    }
+
     private class Timed(val json: JSONObject, val sentAt: Long, val receivedAt: Long)
 
     /** GET bez podpisu; null, gdy serwer nie zna ścieżki albo odpowiedział czymś innym niż JSON. */

@@ -9,8 +9,10 @@ import android.util.Base64
 import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.core.content.edit
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -128,6 +130,20 @@ class OnlineManager(
 
     val configured: Boolean get() = api.configured
 
+    /**
+     * Ta wersja gry jest zablokowana w panelu serwera – sprawdzane przy każdym wejściu do gry z internetem
+     * (`GET /launch`), a podpisane żądania dostają `426 update_required`. Nie jest zapisywana w telefonie,
+     * więc bez internetu gra działa normalnie.
+     */
+    var versionBlock by mutableStateOf<VersionBlock?>(null)
+        private set
+
+    /** Ogłoszenia z panelu, których gracz jeszcze nie zamknął – UI pokazuje pierwsze z nich. */
+    val announcements = mutableStateListOf<Announcement>()
+    private val launchPrefs = appContext.getSharedPreferences(LAUNCH_PREFS, Context.MODE_PRIVATE)
+    private var launchJob: Job? = null
+    private var launchCheckedAt = 0L
+
     init {
         if (store.loggedIn) {
             account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
@@ -139,6 +155,8 @@ class OnlineManager(
                 override fun onAvailable(network: Network) {
                     scope.launch {
                         syncClockNow()
+                        // Gra uruchomiona bez internetu sprawdza wersję i ogłoszenia, gdy tylko złapie sieć.
+                        checkLaunch()
                         if (store.loggedIn) sync()
                     }
                 }
@@ -147,6 +165,7 @@ class OnlineManager(
             Log.w("FishingParty", "Brak nasłuchu sieci", e)
         }
         syncClock()
+        checkLaunch()
     }
 
     /**
@@ -175,7 +194,7 @@ class OnlineManager(
     }
 
     /** [device] = false: bez atestacji telefonu (tylko podgląd rankingu przez gościa). */
-    private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true, device: Boolean = true): JSONObject =
+    private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true, device: Boolean = true): JSONObject = try {
         withContext(Dispatchers.IO) {
             if (!device) return@withContext api.call(method, path, body, null)
             val generation = ensureDevice()
@@ -188,6 +207,11 @@ class OnlineManager(
                 api.call(method, path, body, if (auth) store.token else null)
             }
         }
+    } catch (e: ApiException) {
+        // Wersja zablokowana w trakcie gry (albo starsza niż minimalna) – od razu komunikat zamiast gry.
+        if (e.status == 426 && e.code == "update_required") versionBlock = LaunchInfo.blockOf(e.body)
+        throw e
+    }
 
     /**
      * Rejestruje klucz telefonu na serwerze (atestacja), jeśli jeszcze tego nie zrobiono.
@@ -492,9 +516,10 @@ class OnlineManager(
         }
     }
 
-    /** Aplikacja wróciła na ekran: sprawdzamy, czy inny telefon czegoś nie zapisał. */
+    /** Aplikacja wróciła na ekran: wersja i ogłoszenia, potem czy inny telefon czegoś nie zapisał. */
     fun onForeground() {
         syncClock()
+        checkLaunch()
         if (store.loggedIn) scope.launch { sync(checkRemote = true) }
     }
 
@@ -725,6 +750,51 @@ class OnlineManager(
         return Challenge(kind, o.getInt("period"), LevelSeed(seed), startsAt, endsAt)
     }
 
+    // ------------------------------------------------------------------ start gry: blokada wersji i ogłoszenia
+
+    /**
+     * Przy wejściu do gry (także bez konta) pyta serwer, czy ta wersja nie jest zablokowana, i pobiera ogłoszenia
+     * dla gościa albo zalogowanego. Najwyżej raz na minutę (start aplikacji to też powrót na ekran).
+     */
+    fun checkLaunch() {
+        if (!isOnline()) {
+            // Bez internetu wersji nie da się sprawdzić – gra działa normalnie, także po wcześniejszej blokadzie.
+            // Po powrocie sieci sprawdzamy od razu.
+            versionBlock = null
+            launchCheckedAt = 0L
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (launchJob?.isActive == true || (launchCheckedAt != 0L && now - launchCheckedAt < LAUNCH_RECHECK_MS)) return
+        launchJob = scope.launch {
+            val json = try {
+                withContext(Dispatchers.IO) { api.launch(store.loggedIn) }
+            } catch (e: Exception) {
+                Log.w("FishingParty", "Start gry: serwer nie odpowiada (${e.message})")
+                null
+            }
+            if (json == null) return@launch
+            launchCheckedAt = SystemClock.elapsedRealtime()
+            val info = LaunchInfo.parse(json)
+            versionBlock = info.block
+            // Lista z serwera zastępuje kolejkę – ogłoszenie wyłączone w panelu znika też z telefonu.
+            val fresh = SeenAnnouncements.unseen(info.announcements, seenAnnouncements())
+            if (fresh != announcements.toList()) {
+                announcements.clear()
+                announcements.addAll(fresh)
+            }
+        }
+    }
+
+    /** Gracz zamknął ogłoszenie – nie pokaże się ponownie (chyba że admin każe pokazać je jeszcze raz). */
+    fun dismissAnnouncement(announcement: Announcement) {
+        val seen = SeenAnnouncements.remember(seenAnnouncements(), announcement.key)
+        launchPrefs.edit { putString(KEY_SEEN, SeenAnnouncements.encode(seen)) }
+        announcements.removeAll { it.key == announcement.key }
+    }
+
+    private fun seenAnnouncements(): List<String> = SeenAnnouncements.decode(launchPrefs.getString(KEY_SEEN, null))
+
     // ------------------------------------------------------------------ ranking
 
     suspend fun ranking(): Result<RankingData> = try {
@@ -769,5 +839,8 @@ class OnlineManager(
         private const val SNAPSHOT_DEBOUNCE_MS = 4_000L
         private const val MAX_RUNS_PER_REQUEST = 50
         private const val CHALLENGE_REFRESH_MS = 5_000L
+        private const val LAUNCH_RECHECK_MS = 60_000L
+        private const val LAUNCH_PREFS = "launch"
+        private const val KEY_SEEN = "seen_announcements"
     }
 }
