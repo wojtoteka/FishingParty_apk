@@ -93,11 +93,18 @@ class ApiClient(
     /**
      * Start aplikacji (`GET /launch`, bez podpisu – działa też gościom i przy złej dacie w telefonie): czy ta wersja
      * nie jest zablokowana w panelu i bieżące ogłoszenia dla gościa albo zalogowanego ([account]).
+     * [deviceId] (losowy identyfikator instalacji) i [start] (nowe uruchomienie gry) liczą graczy w statystykach panelu.
      * Odpowiedź niesie też czas serwera. null = serwer bez tej funkcji.
      */
-    fun launch(account: Boolean): JSONObject? {
+    fun launch(account: Boolean, deviceId: String? = null, start: Boolean = false): JSONObject? {
         if (baseUrl.isEmpty()) return null
-        val res = getPublic("/launch?app=$appVersion" + if (account) "&account=1" else "") ?: return null
+        val query = buildString {
+            append("/launch?app=").append(appVersion)
+            if (account) append("&account=1")
+            if (deviceId != null && deviceId.matches(Regex("[a-f0-9]{32}"))) append("&device=").append(deviceId)
+            if (start) append("&start=1")
+        }
+        val res = getPublic(query) ?: return null
         clock?.onServerTime(res.json.optLong("now"), res.sentAt, res.receivedAt)
         return res.json
     }

@@ -30,6 +30,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Nowe uruchomienie gry (nie odtworzenie po obrocie czy zmianie języka) – liczy się w statystykach.
+        if (savedInstanceState == null) app.online.onLaunch()
         drawBehindSystemBars()
         applyOrientation(resources.configuration)
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.

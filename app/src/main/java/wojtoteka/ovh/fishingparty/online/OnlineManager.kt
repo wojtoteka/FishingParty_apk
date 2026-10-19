@@ -144,6 +144,10 @@ class OnlineManager(
     private var launchJob: Job? = null
     private var launchCheckedAt = 0L
 
+    /** Gra właśnie się uruchomiła – najbliższe udane sprawdzenie liczy się w statystykach jako uruchomienie. */
+    private var newSession = true
+    private var backgroundAt = 0L
+
     init {
         if (store.loggedIn) {
             account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
@@ -518,6 +522,9 @@ class OnlineManager(
 
     /** Aplikacja wróciła na ekran: wersja i ogłoszenia, potem czy inny telefon czegoś nie zapisał. */
     fun onForeground() {
+        // Powrót po dłuższej przerwie to dla gracza nowe uruchomienie gry.
+        if (backgroundAt != 0L && SystemClock.elapsedRealtime() - backgroundAt >= NEW_SESSION_MS) onLaunch()
+        backgroundAt = 0L
         syncClock()
         checkLaunch()
         if (store.loggedIn) scope.launch { sync(checkRemote = true) }
@@ -525,6 +532,7 @@ class OnlineManager(
 
     /** Aplikacja schodzi z ekranu – wysyłamy wszystko od razu. */
     fun onBackground() {
+        backgroundAt = SystemClock.elapsedRealtime()
         if (store.loggedIn && store.dirty) {
             snapshotJob?.cancel()
             scope.launch { sync() }
@@ -766,15 +774,17 @@ class OnlineManager(
         }
         val now = SystemClock.elapsedRealtime()
         if (launchJob?.isActive == true || (launchCheckedAt != 0L && now - launchCheckedAt < LAUNCH_RECHECK_MS)) return
+        val start = newSession
         launchJob = scope.launch {
             val json = try {
-                withContext(Dispatchers.IO) { api.launch(store.loggedIn) }
+                withContext(Dispatchers.IO) { api.launch(store.loggedIn, store.deviceId, start) }
             } catch (e: Exception) {
                 Log.w("FishingParty", "Start gry: serwer nie odpowiada (${e.message})")
                 null
             }
             if (json == null) return@launch
             launchCheckedAt = SystemClock.elapsedRealtime()
+            if (start) newSession = false
             val info = LaunchInfo.parse(json)
             versionBlock = info.block
             // Lista z serwera zastępuje kolejkę – ogłoszenie wyłączone w panelu znika też z telefonu.
@@ -784,6 +794,11 @@ class OnlineManager(
                 announcements.addAll(fresh)
             }
         }
+    }
+
+    /** Nowe uruchomienie gry (MainActivity albo powrót po dłuższej przerwie) – liczy się w statystykach. */
+    fun onLaunch() {
+        newSession = true
     }
 
     /** Gracz zamknął ogłoszenie – nie pokaże się ponownie (chyba że admin każe pokazać je jeszcze raz). */
@@ -842,5 +857,8 @@ class OnlineManager(
         private const val LAUNCH_RECHECK_MS = 60_000L
         private const val LAUNCH_PREFS = "launch"
         private const val KEY_SEEN = "seen_announcements"
+
+        /** Po takiej przerwie w tle powrót do gry liczy się jak nowe uruchomienie. */
+        private const val NEW_SESSION_MS = 30 * 60_000L
     }
 }

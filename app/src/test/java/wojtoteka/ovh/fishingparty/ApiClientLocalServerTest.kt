@@ -177,7 +177,8 @@ class ApiClientLocalServerTest {
         // Bez sekretu HMAC (gra zbudowana bez local.properties) – /launch i tak działa.
         val api = ApiClient("http://127.0.0.1:$PORT/api/v1", "", BuildConfig.VERSION_CODE, clock = clock)
         for (account in listOf(false, true)) {
-            val info = LaunchInfo.parse(api.launch(account)!!)
+            // Identyfikator instalacji i znacznik uruchomienia – liczą gracza w statystykach panelu.
+            val info = LaunchInfo.parse(api.launch(account, "f".repeat(32), start = true)!!)
             assertNull(info.block)
             for (a in info.announcements) assertTrue(a.title(true).isNotEmpty() && a.body(false).isNotEmpty())
         }
