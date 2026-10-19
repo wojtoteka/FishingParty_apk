@@ -26,7 +26,9 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
   - Konto można usunąć w grze (KONTO → USUŃ KONTO) – serwer kasuje wszystkie dane.
 - **Ogłoszenia i blokada wersji** (od wersji 2.3): przy każdym wejściu do gry z internetem – także bez konta – gra wysyła swój `versionCode` do serwera (`GET /launch`, bez podpisu, `OnlineManager.checkLaunch`, `LaunchInfo`).
   - Ogłoszenia dodaje admin w panelu serwera (tytuł i treść po polsku i angielsku, dla wszystkich, tylko gości albo tylko zalogowanych, w wybranych dniach). Gra pokazuje każde raz, w swoim języku, poza rozgrywką i przed nagrodą dzienną; po zamknięciu nie wraca (telefon pamięta zamknięte ogłoszenia, admin może kazać pokazać je ponownie).
-  - Wersja zablokowana w panelu (np. `12`, `5-10`, `<12`) zamiast gry pokazuje komunikat z powodem (bez powodu – „ta wersja gry jest nieaktualna”) i przycisk do Google Play. To samo dzieje się, gdy serwer odpowie `426 update_required` na dowolne żądanie w trakcie gry. Bez internetu blokady nie ma – gra działa normalnie, ogłoszeń też nie ma.
+  - Ogłoszenie oznaczone w panelu „przy każdym uruchomieniu” pokazuje się po każdym starcie gry (także po powrocie po ponad 30 min w tle), aż do daty końca albo wyłączenia. Z datą końca telefon zapisuje je (`StickyAnnouncements`) i pokazuje także bez internetu aż do tej daty, potem je usuwa; przy każdym połączeniu bierze z serwera aktualną treść i datę, a wyłączone albo usunięte w panelu znika.
+  - Wersja zablokowana w panelu (np. `12`, `5-10`, `<12`) zamiast gry pokazuje komunikat z powodem (bez powodu – „ta wersja gry jest nieaktualna”) i przycisk do Google Play. To samo dzieje się, gdy serwer odpowie `426 update_required` na dowolne żądanie w trakcie gry. Bez internetu blokady nie ma – gra działa normalnie, a ze zwykłych ogłoszeń nie pokazuje się nic.
+  - Statystyki w panelu serwera: to samo zapytanie niesie losowy identyfikator instalacji (`AccountStore.deviceId`, tworzony przy pierwszym uruchomieniu, także bez konta) i znacznik nowego uruchomienia. Serwer zapisuje tylko jego skrót, wersję i liczbę uruchomień na dzień.
 
 ## Ochrona wyników
 

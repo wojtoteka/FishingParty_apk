@@ -144,6 +144,12 @@ class OnlineManager(
     private var launchJob: Job? = null
     private var launchCheckedAt = 0L
 
+    /** Ostatnia lista ogłoszeń z serwera, a bez połączenia – zapisane ogłoszenia „przy każdym uruchomieniu”. */
+    private var knownAnnouncements: List<Announcement> = emptyList()
+
+    /** Ogłoszenia „przy każdym uruchomieniu” zamknięte od startu gry (po kolejnym uruchomieniu wracają). */
+    private val shownThisLaunch = mutableSetOf<String>()
+
     /** Gra właśnie się uruchomiła – najbliższe udane sprawdzenie liczy się w statystykach jako uruchomienie. */
     private var newSession = true
     private var backgroundAt = 0L
@@ -169,6 +175,9 @@ class OnlineManager(
             Log.w("FishingParty", "Brak nasłuchu sieci", e)
         }
         syncClock()
+        // Zapisane ogłoszenia „przy każdym uruchomieniu” pokazują się od razu, także bez internetu.
+        knownAnnouncements = loadSticky()
+        rebuildAnnouncements()
         checkLaunch()
     }
 
@@ -767,9 +776,11 @@ class OnlineManager(
     fun checkLaunch() {
         if (!isOnline()) {
             // Bez internetu wersji nie da się sprawdzić – gra działa normalnie, także po wcześniejszej blokadzie.
-            // Po powrocie sieci sprawdzamy od razu.
+            // Po powrocie sieci sprawdzamy od razu. Z ogłoszeń zostają tylko zapisane „przy każdym uruchomieniu”.
             versionBlock = null
             launchCheckedAt = 0L
+            knownAnnouncements = loadSticky()
+            rebuildAnnouncements()
             return
         }
         val now = SystemClock.elapsedRealtime()
@@ -787,28 +798,59 @@ class OnlineManager(
             if (start) newSession = false
             val info = LaunchInfo.parse(json)
             versionBlock = info.block
-            // Lista z serwera zastępuje kolejkę – ogłoszenie wyłączone w panelu znika też z telefonu.
-            val fresh = SeenAnnouncements.unseen(info.announcements, seenAnnouncements())
-            if (fresh != announcements.toList()) {
-                announcements.clear()
-                announcements.addAll(fresh)
-            }
+            // Lista z serwera zastępuje kolejkę i zapisane ogłoszenia – nowa data albo treść obowiązuje od razu,
+            // a ogłoszenie wyłączone albo usunięte w panelu znika też z telefonu.
+            knownAnnouncements = info.announcements
+            saveSticky(StickyAnnouncements.keep(info.announcements))
+            rebuildAnnouncements()
         }
     }
 
-    /** Nowe uruchomienie gry (MainActivity albo powrót po dłuższej przerwie) – liczy się w statystykach. */
+    /**
+     * Nowe uruchomienie gry (MainActivity albo powrót po dłuższej przerwie): ogłoszenia „przy każdym uruchomieniu”
+     * pokazują się znowu, a najbliższe sprawdzenie na serwerze liczy się jako uruchomienie w statystykach.
+     */
     fun onLaunch() {
         newSession = true
+        shownThisLaunch.clear()
+        rebuildAnnouncements()
     }
 
-    /** Gracz zamknął ogłoszenie – nie pokaże się ponownie (chyba że admin każe pokazać je jeszcze raz). */
+    /**
+     * Gracz zamknął ogłoszenie – zwykłe nie pokaże się ponownie (chyba że admin każe pokazać je jeszcze raz),
+     * a „przy każdym uruchomieniu” wróci po kolejnym starcie gry.
+     */
     fun dismissAnnouncement(announcement: Announcement) {
+        if (announcement.persistent) shownThisLaunch += announcement.key
+        // Także „przy każdym uruchomieniu” – gdy admin zmieni je na zwykłe, gracz nie zobaczy go jeszcze raz.
         val seen = SeenAnnouncements.remember(seenAnnouncements(), announcement.key)
         launchPrefs.edit { putString(KEY_SEEN, SeenAnnouncements.encode(seen)) }
         announcements.removeAll { it.key == announcement.key }
     }
 
+    private fun rebuildAnnouncements() {
+        val fresh = SeenAnnouncements.queue(knownAnnouncements, seenAnnouncements(), shownThisLaunch, repo.clock.now())
+        if (fresh != announcements.toList()) {
+            announcements.clear()
+            announcements.addAll(fresh)
+        }
+    }
+
     private fun seenAnnouncements(): List<String> = SeenAnnouncements.decode(launchPrefs.getString(KEY_SEEN, null))
+
+    /** Zapisane ogłoszenia „przy każdym uruchomieniu” – te po dacie końca są od razu usuwane z telefonu. */
+    private fun loadSticky(): List<Announcement> {
+        val cached = StickyAnnouncements.decode(launchPrefs.getString(KEY_STICKY, null))
+        val valid = StickyAnnouncements.valid(cached, repo.clock.now())
+        if (valid.size != cached.size) saveSticky(valid)
+        return valid
+    }
+
+    private fun saveSticky(list: List<Announcement>) {
+        launchPrefs.edit {
+            if (list.isEmpty()) remove(KEY_STICKY) else putString(KEY_STICKY, StickyAnnouncements.encode(list))
+        }
+    }
 
     // ------------------------------------------------------------------ ranking
 
@@ -857,6 +899,7 @@ class OnlineManager(
         private const val LAUNCH_RECHECK_MS = 60_000L
         private const val LAUNCH_PREFS = "launch"
         private const val KEY_SEEN = "seen_announcements"
+        private const val KEY_STICKY = "sticky_announcements"
 
         /** Po takiej przerwie w tle powrót do gry liczy się jak nowe uruchomienie. */
         private const val NEW_SESSION_MS = 30 * 60_000L

@@ -30,7 +30,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Nowe uruchomienie gry (nie odtworzenie po obrocie czy zmianie języka) – liczy się w statystykach.
+        // Nowe uruchomienie gry (nie odtworzenie po obrocie czy zmianie języka) – liczy się w statystykach,
+        // a ogłoszenia „przy każdym uruchomieniu” pokazują się znowu.
         if (savedInstanceState == null) app.online.onLaunch()
         drawBehindSystemBars()
         applyOrientation(resources.configuration)
