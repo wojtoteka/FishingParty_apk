@@ -24,6 +24,9 @@ Zręcznościówka na Androida: steruj łódką, łów ryby, otwieraj bramy kolej
   - Synchronizacja na bieżąco: ukończony poziom leci na serwer od razu, pełny zapis gry kilka sekund po każdej zmianie i przy wyjściu z aplikacji. Na nowym telefonie zapis jest przywracany; przy konflikcie dwóch urządzeń gra pyta, który postęp zachować.
   - Bez internetu gra działa normalnie, a ekrany KONTO i RANKING proszą o połączenie. Niewysłane wyniki czekają i lecą same po powrocie sieci.
   - Konto można usunąć w grze (KONTO → USUŃ KONTO) – serwer kasuje wszystkie dane.
+- **Ogłoszenia i blokada wersji** (od wersji 2.3): przy każdym wejściu do gry z internetem – także bez konta – gra wysyła swój `versionCode` do serwera (`GET /launch`, bez podpisu, `OnlineManager.checkLaunch`, `LaunchInfo`).
+  - Ogłoszenia dodaje admin w panelu serwera (tytuł i treść po polsku i angielsku, dla wszystkich, tylko gości albo tylko zalogowanych, w wybranych dniach). Gra pokazuje każde raz, w swoim języku, poza rozgrywką i przed nagrodą dzienną; po zamknięciu nie wraca (telefon pamięta zamknięte ogłoszenia, admin może kazać pokazać je ponownie).
+  - Wersja zablokowana w panelu (np. `12`, `5-10`, `<12`) zamiast gry pokazuje komunikat z powodem (bez powodu – „ta wersja gry jest nieaktualna”) i przycisk do Google Play. To samo dzieje się, gdy serwer odpowie `426 update_required` na dowolne żądanie w trakcie gry. Bez internetu blokady nie ma – gra działa normalnie, ogłoszeń też nie ma.
 
 ## Ochrona wyników
 

@@ -3,6 +3,7 @@ package wojtoteka.ovh.fishingparty
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
@@ -20,6 +21,7 @@ import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.online.ApiClient
 import wojtoteka.ovh.fishingparty.online.ApiException
+import wojtoteka.ovh.fishingparty.online.LaunchInfo
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.util.Base64
@@ -156,6 +158,33 @@ class ApiClientLocalServerTest {
         assertTrue(api.call("POST", "/account/set-password", JSONObject().put("password", "haslo1234"), token).getJSONObject("account").getBoolean("hasPassword"))
         val login = api.call("POST", "/auth/login", JSONObject().put("login", nick).put("password", "haslo1234").put("deviceId", device))
         assertTrue(api.call("POST", "/account/delete", JSONObject().put("password", "haslo1234"), login.getString("token")).getBoolean("deleted"))
+    }
+
+    /**
+     * Start gry: `GET /launch` bez podpisu i bez konta – ta wersja nie jest zablokowana, a ogłoszenia
+     * da się odczytać (dodaje je admin w panelu). Blokada wersji z panelu jest sprawdzana w testach serwera.
+     */
+    @Test
+    fun launchCheck() {
+        assumeTrue("lokalny serwer nie działa", serverUp())
+        val clock = GameClock({ System.nanoTime() / 1_000_000 }, { System.currentTimeMillis() }, 1, object : ClockStore {
+            private var saved: ClockState? = null
+            override fun load() = saved
+            override fun save(state: ClockState) {
+                saved = state
+            }
+        })
+        // Bez sekretu HMAC (gra zbudowana bez local.properties) – /launch i tak działa.
+        val api = ApiClient("http://127.0.0.1:$PORT/api/v1", "", BuildConfig.VERSION_CODE, clock = clock)
+        for (account in listOf(false, true)) {
+            val info = LaunchInfo.parse(api.launch(account)!!)
+            assertNull(info.block)
+            for (a in info.announcements) assertTrue(a.title(true).isNotEmpty() && a.body(false).isNotEmpty())
+        }
+        assertTrue(clock.synced)
+        // Wersja poniżej MIN_APP_VERSION serwera – zablokowana.
+        val old = ApiClient("http://127.0.0.1:$PORT/api/v1", "", 1, clock = clock)
+        assertTrue(LaunchInfo.parse(old.launch(false)!!).block != null)
     }
 
     companion object {
