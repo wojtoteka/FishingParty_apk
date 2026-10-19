@@ -744,7 +744,12 @@
     <string name="set_left">LEWA</string>
     <string name="set_right">PRAWA</string>
 
-    <!-- Start gry: ogłoszenia z panelu (GET /launch) -->
+    <!-- Start gry: ogłoszenia z panelu i blokada wersji (GET /launch) -->
     <string name="content_language">pl</string>
     <string name="announcement_label">OGŁOSZENIE</string>
+    <string name="version_blocked_title">WERSJA ZABLOKOWANA</string>
+    <string name="version_blocked_outdated">Ta wersja gry jest nieaktualna.</string>
+    <string name="version_blocked_info">Pobierz najnowszą wersję z Google Play, aby grać dalej.</string>
+    <string name="version_blocked_store">POBIERZ Z GOOGLE PLAY</string>
+    <string name="version_blocked_quit">ZAMKNIJ GRĘ</string>
 </resources>

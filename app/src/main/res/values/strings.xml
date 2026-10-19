@@ -736,7 +736,12 @@
     <string name="set_left">LEFT</string>
     <string name="set_right">RIGHT</string>
 
-    <!-- Start gry: ogłoszenia z panelu (GET /launch) -->
+    <!-- Start gry: ogłoszenia z panelu i blokada wersji (GET /launch) -->
     <string name="content_language">en</string>
     <string name="announcement_label">ANNOUNCEMENT</string>
+    <string name="version_blocked_title">VERSION BLOCKED</string>
+    <string name="version_blocked_outdated">This version of the game is out of date.</string>
+    <string name="version_blocked_info">Get the latest version from Google Play to keep playing.</string>
+    <string name="version_blocked_store">UPDATE ON GOOGLE PLAY</string>
+    <string name="version_blocked_quit">QUIT GAME</string>
 </resources>

@@ -46,6 +46,13 @@ private sealed interface Screen {
 
 @Composable
 fun AppRoot() {
+    // Wersja zablokowana w panelu serwera (sprawdzane przy każdym wejściu z internetem) – zamiast gry tylko komunikat.
+    val block = LocalServices.current.online.versionBlock
+    if (block != null) VersionBlockedScreen(block) else AppContent()
+}
+
+@Composable
+private fun AppContent() {
     val services = LocalServices.current
     val repo = services.repo
     var attempts by remember { mutableIntStateOf(0) }
