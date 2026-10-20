@@ -65,7 +65,7 @@ private fun challengeAccent(kind: ChallengeKind): Color = if (kind == ChallengeK
 
 /**
  * Kolorowy przycisk poziomu dnia/tygodnia w menu. Pod nazwą: ile zostało do końca okresu,
- * a po ukończeniu – za ile pojawi się nowy poziom. „NOWY!” – poziom czeka na rozegranie.
+ * a po ukończeniu – za ile pojawi się nowy poziom.
  */
 @Composable
 fun ChallengeButton(kind: ChallengeKind, onClick: () -> Unit, modifier: Modifier = Modifier) {
@@ -79,20 +79,17 @@ fun ChallengeButton(kind: ChallengeKind, onClick: () -> Unit, modifier: Modifier
     LaunchedEffect(challenge == null) {
         if (challenge == null) services.online.refreshChallenges()
     }
-    Box(modifier) {
-        PixelButton(text = "", onClick = onClick, style = challengeStyle(kind), size = 2, modifier = Modifier.fillMaxSize()) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                PixelText(challengeTitle(kind), size = 2, align = TextAlign.Center)
-                when {
-                    challenge != null && done != null ->
-                        PixelText(stringResource(R.string.challenge_new_in, countdownText(challenge.endsAt - now)), size = 1, color = Pal.GreenLight)
-                    challenge != null ->
-                        PixelText(stringResource(R.string.challenge_left, countdownText(challenge.endsAt - now)), size = 1, color = Pal.Foam)
-                    else -> PixelText(stringResource(R.string.challenge_points_short, kind.pointsMultiplier), size = 1, color = Pal.Foam)
-                }
+    PixelButton(text = "", onClick = onClick, style = challengeStyle(kind), size = 2, modifier = modifier) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            PixelText(challengeTitle(kind), size = 2, align = TextAlign.Center)
+            when {
+                challenge != null && done != null ->
+                    PixelText(stringResource(R.string.challenge_new_in, countdownText(challenge.endsAt - now)), size = 1, color = Pal.GreenLight)
+                challenge != null ->
+                    PixelText(stringResource(R.string.challenge_left, countdownText(challenge.endsAt - now)), size = 1, color = Pal.Foam)
+                else -> PixelText(stringResource(R.string.challenge_points_short, kind.pointsMultiplier), size = 1, color = Pal.Foam)
             }
         }
-        if (done == null) Badge(stringResource(R.string.challenge_new), Modifier.align(Alignment.TopEnd))
     }
 }
 

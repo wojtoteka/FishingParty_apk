@@ -74,7 +74,6 @@
     <string name="endless_world_name">%1$s of %2$s</string>
     <string name="daily_level">DAILY LEVEL</string>
     <string name="weekly_level">WEEKLY LEVEL</string>
-    <string name="challenge_new">NEW!</string>
     <string name="challenge_left">ENDS IN %s</string>
     <string name="challenge_new_in">NEW IN %s</string>
     <string name="challenge_points_short">POINTS x%d</string>

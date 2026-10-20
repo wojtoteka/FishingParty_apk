@@ -73,7 +73,6 @@
     <string name="endless_world_name">%1$s %2$s</string>
     <string name="daily_level">POZIOM DNIA</string>
     <string name="weekly_level">POZIOM TYGODNIA</string>
-    <string name="challenge_new">NOWY!</string>
     <string name="challenge_left">ZOSTAŁO %s</string>
     <string name="challenge_new_in">NOWY ZA %s</string>
     <string name="challenge_points_short">PUNKTY x%d</string>
