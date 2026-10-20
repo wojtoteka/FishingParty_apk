@@ -58,6 +58,8 @@ class PlayOutcome(
     val coins: Int,
     val points: Int,
     val overDailyLimit: Boolean,
+    /** Przejazd autora poziomu – bez monet i punktów. */
+    val own: Boolean,
     val level: OnlineLevel,
 )
 
@@ -179,6 +181,7 @@ class Community internal constructor(private val online: OnlineManager, private 
                             res.optInt("coins"),
                             res.optInt("points"),
                             res.optBoolean("overDailyLimit"),
+                            res.optBoolean("own"),
                             parseLevel(res.getJSONObject("level")),
                         )
                         if (outcome.coins > 0) repo.progress.addCoins(outcome.coins.toLong())

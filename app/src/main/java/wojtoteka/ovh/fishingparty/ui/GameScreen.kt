@@ -709,6 +709,7 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
     Overlay {
         PixelText(stringResource(R.string.result_win), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         PixelText(title, size = 2, color = Pal.Outline, outline = null)
+        VSpace(5)
         Badge(
             stringResource(
                 when (custom.mode) {
@@ -756,6 +757,7 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                             }
                         }
                         val note = when {
+                            answer.own -> R.string.community_own
                             answer.overDailyLimit -> R.string.community_daily_limit
                             !answer.level.rated && online.loggedIn -> R.string.community_points_pending
                             !online.loggedIn -> R.string.community_guest
@@ -777,8 +779,8 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                         Modifier.fillMaxWidth(),
                     )
                 }
-                VSpace(4)
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                // Głos tylko na cudzy poziom.
+                if (answer?.own != true) Row(Modifier.fillMaxWidth().padding(top = px(4)), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                     for ((value, label) in listOf(1 to R.string.community_like, -1 to R.string.community_dislike)) {
                         PixelButton(
                             stringResource(label),

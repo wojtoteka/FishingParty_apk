@@ -958,4 +958,5 @@
     <string name="creator_seed_difficulty">TRUDNOŚĆ</string>
     <string name="creator_seed_go">UTWÓRZ Z SEEDA</string>
     <string name="creator_seed_invalid">Nieprawidłowy kod – 13 znaków: cyfry i litery (bez I, L, O, U).</string>
+    <string name="editor_ready">GOTOWY DO PUBLIKACJI</string>
 </resources>

@@ -105,7 +105,8 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
         for ((value, label) in listOf(null to R.string.market_all, ItemKind.BOAT to R.string.shop_boats, ItemKind.SAIL to R.string.shop_sails)) {
             PixelButton(stringResource(label), onClick = { kind = value }, style = if (kind == value) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
         }
-        HSpace(3)
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(2))) {
         for ((value, label) in listOf("popular" to R.string.community_popular, "recent" to R.string.community_recent)) {
             PixelButton(stringResource(label), onClick = { sort = value }, style = if (sort == value) ButtonStyle.ORANGE else ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f))
         }
@@ -130,6 +131,8 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
                                 is Net.Ok -> if (res.value) {
                                     services.audio.play(Sfx.COIN)
                                     entry.item?.let(onPreview)
+                                    // Nowa liczba sprzedanych na karcie.
+                                    refresh++
                                 } else {
                                     error = OnlineResult.Failed("not_enough_coins")
                                 }

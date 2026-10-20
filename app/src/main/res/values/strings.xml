@@ -950,4 +950,5 @@
     <string name="creator_seed_difficulty">DIFFICULTY</string>
     <string name="creator_seed_go">BUILD FROM SEED</string>
     <string name="creator_seed_invalid">Invalid code – 13 characters: digits and letters (no I, L, O, U).</string>
+    <string name="editor_ready">READY TO PUBLISH</string>
 </resources>

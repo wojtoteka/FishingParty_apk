@@ -415,7 +415,7 @@ private fun EditorTopBar(model: EditorModel, onBack: () -> Unit, onDialog: (Edit
                     PixelText(
                         when {
                             model.draft.published -> stringResource(R.string.creator_state_published, model.draft.publishedId ?: 0)
-                            model.draft.verified -> stringResource(R.string.creator_state_verified)
+                            model.draft.verified -> stringResource(R.string.editor_ready)
                             else -> stringResource(R.string.creator_state_draft)
                         },
                         size = 1,
