@@ -276,8 +276,10 @@ class GameWorld(
         var dy = ownY + knockY * dt
         // Prąd nie wpycha łodzi na piasek (na plażę wpływa się tylko samemu), a łodzi na piasku już nie znosi.
         if (phase == Phase.PLAYING && !beached) {
-            val cx = spec.currentX * dt
-            val cy = spec.currentY * dt
+            // Poziom z kreatora może mieć inny prąd w każdym etapie.
+            val stage = stages[stageIndex]
+            val cx = (stage.currentX ?: spec.currentX) * dt
+            val cy = (stage.currentY ?: spec.currentY) * dt
             val own = beachDepth(shipX + dx, shipY + dy)
             if (beachDepth(shipX + dx + cx, shipY + dy) <= own) dx += cx
             if (beachDepth(shipX + dx, shipY + dy + cy) <= own) dy += cy
@@ -387,20 +389,27 @@ class GameWorld(
         for (s in stage.enemies) {
             val horizontal = s.kind == EnemyKind.PIRANHA || s.kind == EnemyKind.RED_PIRANHA
             val vertical = s.kind == EnemyKind.PIRANHA_VERTICAL
-            val dir = rng.nextInt(4)
+            // Losujemy zawsze, także przy kierunku z kreatora – kolejne losowania zostają te same.
+            val rolled = rng.nextInt(4)
+            val randomX = if (horizontal) rng.sign() else 0
+            val randomY = if (vertical) rng.sign() else 0
+            val dir = if (s.dir in 0..3) s.dir else rolled
+            val fixed = s.dir in 0..3
             pendingEnemies += Enemy(
                 kind = s.kind,
                 x = s.col * TILE + TILE / 2f,
                 y = s.row * TILE + TILE / 2f,
                 stage = k,
                 dirX = when {
-                    horizontal -> rng.sign()
+                    fixed -> DIR_X[dir]
+                    horizontal -> randomX
                     vertical -> 0
                     else -> DIR_X[dir]
                 },
                 dirY = when {
+                    fixed -> DIR_Y[dir]
                     horizontal -> 0
-                    vertical -> rng.sign()
+                    vertical -> randomY
                     else -> DIR_Y[dir]
                 },
                 phase = rng.nextFloat() * 0.4f,

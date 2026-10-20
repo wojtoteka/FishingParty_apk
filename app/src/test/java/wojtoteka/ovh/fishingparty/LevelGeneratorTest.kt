@@ -118,7 +118,7 @@ class LevelGeneratorTest {
         assertEquals(1, first.stages.size)
         assertEquals(0, first.enemyCount)
         val types = (1..LevelConstants.LEVEL_COUNT).map { LevelGenerator.typeOf(it) }.toSet()
-        assertEquals(LevelType.entries.toSet(), types)
+        assertEquals(LevelType.entries.toSet() - LevelType.CUSTOM, types)
         val early = (2..50).sumOf { LevelGenerator.plan(it).enemyCount } / 49f
         val late = (451..500).sumOf { LevelGenerator.plan(it).enemyCount } / 50f
         assertTrue("trudność nie rośnie: $early vs $late", late > early * 2)

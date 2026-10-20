@@ -66,6 +66,8 @@
     <string name="type_boss_desc">Ostatni poziom tego świata. Uważaj!</string>
     <string name="type_finale">WIELKI FINAŁ</string>
     <string name="type_finale_desc">Poziom 1000! Siedem etapów przez siedem światów i wszystkie morskie potwory naraz.</string>
+    <string name="type_custom">POZIOM GRACZA</string>
+    <string name="type_custom_desc">Poziom ułożony w kreatorze przez innego gracza.</string>
     <string name="finale_subtitle">OSTATNI POZIOM WYPRAWY</string>
     <string name="finale_win">WIELKI FINAŁ UKOŃCZONY!</string>
     <string name="finale_win_text">Wszystkie 1000 poziomów ukończone! Za portem czeka Bezkresne Morze – nowe poziomy bez końca.</string>

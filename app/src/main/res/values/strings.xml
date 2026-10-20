@@ -67,6 +67,8 @@
     <string name="type_boss_desc">The last level of this world. Watch out!</string>
     <string name="type_finale">GRAND FINALE</string>
     <string name="type_finale_desc">Level 1000! Seven stages through seven worlds and every sea monster at once.</string>
+    <string name="type_custom">PLAYER LEVEL</string>
+    <string name="type_custom_desc">A level built by another player in the level editor.</string>
     <string name="finale_subtitle">THE LAST LEVEL OF THE VOYAGE</string>
     <string name="finale_win">GRAND FINALE COMPLETE!</string>
     <string name="finale_win_text">All 1000 levels are done! Beyond the harbour lies the Endless Sea – new levels without end.</string>

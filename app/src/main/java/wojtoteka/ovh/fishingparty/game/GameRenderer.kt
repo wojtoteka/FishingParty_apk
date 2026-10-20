@@ -175,7 +175,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     private val rowTilesOf: (Int) -> TileSet = { r -> tilesAt(r) }
     private val doorOpenAt: (Int) -> Boolean = { row -> drawn.stageOfGateRow(row).let { it >= 0 && drawn.isDoorOpen(it) } }
 
-    /** Paleta każdego wiersza – w Wielkim Finale każdy etap leży w innym świecie (null = jedna paleta). */
+    /** Paleta każdego wiersza – w Wielkim Finale (i poziomach z kreatora) etapy leżą w różnych światach (null = jedna paleta). */
     private var rowWorlds: IntArray? = null
     private var rowTiles: Array<TileSet>? = null
 
@@ -188,7 +188,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (themeSpec !== world.spec) {
             themeSpec = world.spec
             currentTiles = Sprites.tiles(Worlds.theme(world.spec.world))
-            rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else null
+            rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else world.layout.rowWorlds
             rowTiles = rowWorlds?.let { rows -> Array(rows.size) { Sprites.tiles(Worlds.theme(rows[it])) } }
         }
         scale = scaleFor(width, height)

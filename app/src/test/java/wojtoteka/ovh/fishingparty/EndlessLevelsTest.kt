@@ -130,7 +130,7 @@ class EndlessLevelsTest {
             assertTrue(plan.stages.all { it.enemies.size <= 10 && it.rows <= 24 })
             assertEquals(LevelGenerator.worldOf(n), spec.world)
         }
-        assertEquals(LevelType.entries.toSet() - LevelType.FINALE, types)
+        assertEquals(LevelType.entries.toSet() - LevelType.FINALE - LevelType.CUSTOM, types)
     }
 
     @Test

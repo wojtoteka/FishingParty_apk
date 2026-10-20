@@ -60,6 +60,9 @@ enum class LevelType {
 
     /** Poziom 1000 – Wielki Finał. */
     FINALE,
+
+    /** Poziom z kreatora (od wersji 2.4). */
+    CUSTOM,
 }
 
 enum class EnemyKind(
@@ -107,7 +110,8 @@ enum class SecondGoal { NO_DAMAGE, ALL_FISH }
 /** Cel na trzecią gwiazdkę. */
 enum class ThirdGoal { PAR_TIME, SCORE, ALL_GOLDEN, COMBO }
 
-class EnemySpawn(val kind: EnemyKind, val col: Int, val row: Int)
+/** [dir] – kierunek na start (0 prawo, 1 dół, 2 lewo, 3 góra), -1 – losowy. */
+class EnemySpawn(val kind: EnemyKind, val col: Int, val row: Int, val dir: Int = -1)
 
 class FishSpawn(val kind: FishKind, val col: Int, val row: Int)
 
@@ -129,6 +133,9 @@ class StageLayout(
     val enemies: List<EnemySpawn>,
     /** Pola morza osiągalne z wejścia do etapu (do losowania odrodzeń). */
     val reachable: IntArray,
+    /** Prąd morski tylko w tym etapie (poziomy z kreatora); null – prąd całego poziomu ze [LevelSpec]. */
+    val currentX: Float? = null,
+    val currentY: Float? = null,
 ) {
     val fishTotal: Int get() = fish.size + golden.size
 }
@@ -162,6 +169,8 @@ class LevelLayout(
     val startRow: Int,
     /** Kraby na plaży – tylko dekoracja. */
     val crabs: List<Pair<Int, Int>>,
+    /** Paleta (świat) każdego wiersza, gdy etapy mają różne barwy (poziomy z kreatora); null – jedna paleta. */
+    val rowWorlds: IntArray? = null,
 ) {
     val fishCount: Int get() = stages.sumOf { it.fish.size }
     val goldenCount: Int get() = stages.sumOf { it.golden.size }
