@@ -3,7 +3,12 @@ package wojtoteka.ovh.fishingparty
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import wojtoteka.ovh.fishingparty.core.Rng
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
+import wojtoteka.ovh.fishingparty.level.Challenges
 import wojtoteka.ovh.fishingparty.level.FishKind
+import wojtoteka.ovh.fishingparty.level.LevelPlan
+import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
@@ -18,11 +23,31 @@ import java.security.MessageDigest
  */
 class LevelLimitsExportTest {
 
-    private fun row(n: Int): String {
-        val plan = LevelGenerator.plan(n)
+    private fun row(n: Int): String = "    [$n,${limits(LevelGenerator.plan(n))}]"
+
+    private fun limits(plan: LevelPlan): String {
         val minMs = (ScoreValidator.minimumSeconds(plan) * 1000f).toLong()
-        return "    [$n,${LevelGenerator.maxScore(plan)},$minMs,${plan.stages.sumOf { it.common }}," +
-            "${plan.stages.sumOf { it.blue }},${plan.goldenCount},${plan.stages.size},${plan.spec.parSeconds}]"
+        return "${LevelGenerator.maxScore(plan)},$minMs,${plan.stages.sumOf { it.common }}," +
+            "${plan.stages.sumOf { it.blue }},${plan.goldenCount},${plan.stages.size},${plan.spec.parSeconds}"
+    }
+
+    /**
+     * Poziomy dnia i tygodnia mają seed z serwera – serwer liczy ich limity sam (src/challenges.ts).
+     * Próbka trafia do `test/fixtures/challenge-sample.json` serwera: seed (tekst, Long ze znakiem),
+     * rodzaj i te same kolumny co level-limits.json (bez numeru poziomu).
+     */
+    @Test
+    fun exportChallengeSample() {
+        val rows = ChallengeKind.entries.flatMap { kind ->
+            (0 until 150).map { i ->
+                val seed = LevelSeed(Rng.mix(0x53_41_4D_50L + kind.ordinal, i.toLong()))
+                "    [\"${seed.value}\",\"${kind.id}\",${limits(Challenges.plan(kind, seed))}]"
+            }
+        }
+        val out = File("build/challenge-sample.json")
+        out.parentFile?.mkdirs()
+        out.writeText("{\n  \"levels\": [\n${rows.joinToString(",\n")}\n  ]\n}\n")
+        assertTrue(out.length() > 0)
     }
 
     /**

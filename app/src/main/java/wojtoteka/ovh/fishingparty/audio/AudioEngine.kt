@@ -65,11 +65,29 @@ class AudioEngine(context: Context) {
                 if (!file.exists()) writeWav(file, BeepSynth.toPcm16(SoundScript.render(lines, SAMPLE_RATE)))
                 soundIds[name] = pool.load(file.path, 1)
             }
-            val pcm = BeepSynth.toPcm16(SoundScript.render(SoundScript.MUSIC, SAMPLE_RATE, SoundScript.MUSIC_SECONDS))
-            MusicThread(pcm).start()
+            MusicThread(musicPcm(dir)).start()
         } catch (e: Exception) {
             Log.e(TAG, "Nie udało się przygotować dźwięku", e)
         }
+    }
+
+    /** Muzyka jest syntetyzowana raz i zapisywana jak efekty – kolejne starty tylko czytają plik. */
+    private fun musicPcm(dir: File): ShortArray {
+        val file = File(dir, "music.wav")
+        val expected = WAV_HEADER + (SAMPLE_RATE * SoundScript.MUSIC_SECONDS).toInt() * 2
+        if (file.length() == expected.toLong()) {
+            try {
+                val pcm = ShortArray(expected / 2 - WAV_HEADER / 2)
+                java.nio.ByteBuffer.wrap(file.readBytes(), WAV_HEADER, pcm.size * 2)
+                    .order(java.nio.ByteOrder.LITTLE_ENDIAN).asShortBuffer().get(pcm)
+                return pcm
+            } catch (e: Exception) {
+                Log.w(TAG, "Nie można odczytać muzyki z cache", e)
+            }
+        }
+        val pcm = BeepSynth.toPcm16(SoundScript.render(SoundScript.MUSIC, SAMPLE_RATE, SoundScript.MUSIC_SECONDS))
+        writeWav(file, pcm)
+        return pcm
     }
 
     private fun writeWav(file: File, pcm: ShortArray) {
@@ -211,5 +229,6 @@ class AudioEngine(context: Context) {
         private const val SFX_VOLUME = 0.9f
         private const val MUSIC_VOLUME = 0.7f
         private const val CHUNK = 4096
+        private const val WAV_HEADER = 44
     }
 }

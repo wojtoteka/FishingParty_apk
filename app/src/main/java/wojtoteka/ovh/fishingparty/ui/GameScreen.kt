@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -63,6 +64,8 @@ import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TouchStick
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
@@ -82,12 +85,27 @@ sealed interface GameExit {
 private class Outcome(val result: RunResult, val reason: LoseReason?)
 
 @Composable
-fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = false, onExit: (GameExit) -> Unit) {
+fun GameScreen(
+    level: Int,
+    loadout: Loadout,
+    attempt: Int,
+    tutorial: Boolean = false,
+    challenge: Challenge? = null,
+    onExit: (GameExit) -> Unit,
+) {
     val services = LocalServices.current
     val repo = services.repo
     val audio = services.audio
     // Samouczek to osobny poziom (dwa etapy: ryby, potem potwory) – nie liczy się do wyników.
-    val plan = remember(level, tutorial) { if (tutorial) LevelGenerator.tutorialPlan() else LevelGenerator.plan(level) }
+    // Poziom dnia/tygodnia powstaje z seeda z serwera.
+    val plan = remember(level, tutorial, challenge) {
+        when {
+            tutorial -> LevelGenerator.tutorialPlan()
+            challenge != null -> challenge.plan()
+            else -> LevelGenerator.plan(level)
+        }
+    }
+    val title = if (challenge != null) challengeTitle(challenge.kind) else stringResource(R.string.level_n, level)
     val layout = remember(plan, attempt) { LevelGenerator.generate(plan) }
 
     var outcome by remember(attempt) { mutableStateOf<Outcome?>(null) }
@@ -100,10 +118,10 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
     fun apply(result: RunResult) {
         if (applied) return
         applied = true
-        if (tutorial) {
-            if (result.completed) repo.save.tutorialDone = true
-        } else {
-            reward = repo.progress.applyRun(result, plan)
+        when {
+            tutorial -> if (result.completed) repo.save.tutorialDone = true
+            challenge != null -> reward = repo.progress.applyChallenge(result, plan, challenge)
+            else -> reward = repo.progress.applyRun(result, plan)
         }
         repo.changed()
     }
@@ -149,6 +167,8 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
         tutorialJoystick = stringResource(R.string.hud_tutorial_joystick),
         finale = stringResource(R.string.type_finale),
         finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
+        spotted = stringResource(R.string.hud_spotted),
+        levelTag = challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) },
     )
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val renderer = remember(attempt) { GameRenderer(hud, look) }
@@ -204,9 +224,11 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
     }
 
     val view = LocalView.current
+    // Strzałki sterują łodzią tylko w trakcie jazdy – w pauzie i na ekranie wyniku chodzą po przyciskach.
+    val steering = outcome == null && !paused && !welcome
+    SideEffect { KeyboardSteer.enabled = steering }
     DisposableEffect(Unit) {
         view.keepScreenOn = true
-        KeyboardSteer.enabled = true
         onDispose {
             view.keepScreenOn = false
             KeyboardSteer.enabled = false
@@ -297,9 +319,11 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
         val current = outcome
         when {
             current != null && current.result.completed && tutorial -> TutorialDonePanel(onExit)
-            current != null && current.result.completed -> WinPanel(level, current.result, reward, onExit)
+            current != null && current.result.completed -> WinPanel(level, title, challenge != null, current.result, reward, onExit)
             current != null -> LosePanel(
                 level = level,
+                title = title,
+                challenge = challenge != null,
                 world = world,
                 outcome = current,
                 onRevive = {
@@ -313,6 +337,8 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
             )
             paused -> PausePanel(
                 level = level,
+                title = title,
+                challenge = challenge != null,
                 tutorial = tutorial,
                 world = world,
                 onResume = { paused = false },
@@ -325,9 +351,9 @@ fun GameScreen(level: Int, loadout: Loadout, attempt: Int, tutorial: Boolean = f
 }
 
 @Composable
-private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (GameExit) -> Unit) {
+private fun WinPanel(level: Int, title: String, challenge: Boolean, result: RunResult, reward: Reward?, onExit: (GameExit) -> Unit) {
     val audio = LocalServices.current.audio
-    val finale = LevelGenerator.isFinale(level)
+    val finale = !challenge && LevelGenerator.isFinale(level)
     var shownStars by remember { mutableIntStateOf(0) }
     var shownScore by remember { mutableIntStateOf(0) }
     LaunchedEffect(result) {
@@ -353,7 +379,7 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             align = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
-        PixelText(stringResource(R.string.level_n, level), size = 2, color = Pal.Outline, outline = null)
+        PixelText(title, size = 2, color = Pal.Outline, outline = null)
         if (finale) {
             // Koniec gry: złote ryby wokół podziękowania.
             VSpace(4)
@@ -385,6 +411,10 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             RewardTile(stringResource(R.string.finale_bonus), reward.finaleBonus, "fishscore_gold", Pal.Gold, Modifier.fillMaxWidth())
             VSpace(4)
         }
+        if (reward != null && reward.challengePoints > 0) {
+            RewardTile(stringResource(R.string.challenge_points_won), reward.challengePoints, "fishscore_blue", Pal.SeaLight, Modifier.fillMaxWidth())
+            VSpace(4)
+        }
         if (reward != null && (reward.coins - reward.finaleBonus > 0 || reward.streakDays > 0)) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
                 if (reward.coins - reward.finaleBonus > 0) {
@@ -409,17 +439,22 @@ private fun WinPanel(level: Int, result: RunResult, reward: Reward?, onExit: (Ga
             PixelText(stringResource(R.string.result_rejected), size = 1, color = Pal.Red, align = TextAlign.Center)
         }
         VSpace(8)
-        if (level < LevelConstants.MAX_LEVEL) {
-            PixelButton(
-                stringResource(R.string.next),
-                onClick = { onExit(GameExit.Next(level + 1)) },
-                style = ButtonStyle.GREEN,
-                size = 4,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            VSpace(4)
+        if (challenge) {
+            // Poziom dnia/tygodnia zalicza się raz – po wygranej tylko powrót do menu.
+            PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        } else {
+            if (level < LevelConstants.MAX_LEVEL) {
+                PixelButton(
+                    stringResource(R.string.next),
+                    onClick = { onExit(GameExit.Next(level + 1)) },
+                    style = ButtonStyle.GREEN,
+                    size = 4,
+                    modifier = Modifier.keyPrimary().fillMaxWidth(),
+                )
+                VSpace(4)
+            }
+            ExitButtons(stringResource(R.string.retry), level, onExit)
         }
-        ExitButtons(stringResource(R.string.retry), level, onExit)
     }
 }
 
@@ -443,18 +478,28 @@ private fun RewardTile(label: String, amount: Int, icon: String, labelColor: Col
     }
 }
 
-/** Wspólny rząd wyjść z poziomu: od nowa, mapa, menu główne. */
+/** Wspólny rząd wyjść z poziomu: od nowa, mapa (poza poziomem dnia/tygodnia), menu główne. */
 @Composable
-private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit) {
+private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit, showMap: Boolean = true) {
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
         PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.weight(1f))
-        PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
+        if (showMap) {
+            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
+        }
         PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
     }
 }
 
 @Composable
-private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: () -> Unit, onExit: (GameExit) -> Unit) {
+private fun LosePanel(
+    level: Int,
+    title: String,
+    challenge: Boolean,
+    world: GameWorld,
+    outcome: Outcome,
+    onRevive: () -> Unit,
+    onExit: (GameExit) -> Unit,
+) {
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
@@ -463,6 +508,7 @@ private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: 
     val canRevive = world.tutorial || world.continuesUsed < 3
     Overlay {
         PixelText(stringResource(R.string.result_lose), size = 5, color = Pal.Red)
+        PixelText(title, size = 2, color = Pal.Outline, outline = null)
         PixelText(
             stringResource(if (outcome.reason == LoseReason.TIME) R.string.lose_time else R.string.lose_caught),
             size = 2,
@@ -498,12 +544,20 @@ private fun LosePanel(level: Int, world: GameWorld, outcome: Outcome, onRevive: 
             }
             VSpace(4)
         }
-        ExitButtons(stringResource(R.string.retry), level, onExit)
+        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge)
     }
 }
 
 @Composable
-private fun PausePanel(level: Int, tutorial: Boolean, world: GameWorld, onResume: () -> Unit, onExit: (GameExit) -> Unit) {
+private fun PausePanel(
+    level: Int,
+    title: String,
+    challenge: Boolean,
+    tutorial: Boolean,
+    world: GameWorld,
+    onResume: () -> Unit,
+    onExit: (GameExit) -> Unit,
+) {
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
@@ -511,7 +565,7 @@ private fun PausePanel(level: Int, tutorial: Boolean, world: GameWorld, onResume
     Overlay(onDismiss = onResume) {
         PixelText(stringResource(R.string.paused), size = 5)
         PixelText(
-            if (tutorial) stringResource(R.string.tutorial_badge) else stringResource(R.string.level_n, level) + " · " + typeName(world.spec.type),
+            if (tutorial) stringResource(R.string.tutorial_badge) else "$title · " + typeName(world.spec.type),
             size = 2,
             color = Pal.Outline,
             outline = null,
@@ -549,9 +603,9 @@ private fun PausePanel(level: Int, tutorial: Boolean, world: GameWorld, onResume
             )
         }
         VSpace(8)
-        PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
-        ExitButtons(stringResource(R.string.restart), level, onExit)
+        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge)
     }
 }
 
@@ -581,7 +635,7 @@ private fun TutorialWelcome(onStart: () -> Unit, onSkip: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
         VSpace(8)
-        PixelButton(stringResource(R.string.tutorial_start), onClick = onStart, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.tutorial_start), onClick = onStart, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
         PixelButton(stringResource(R.string.tutorial_skip), onClick = onSkip, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     }

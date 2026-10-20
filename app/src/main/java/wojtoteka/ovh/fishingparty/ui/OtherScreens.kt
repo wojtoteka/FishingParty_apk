@@ -38,6 +38,8 @@ import android.provider.Settings
 import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import wojtoteka.ovh.fishingparty.MainActivity
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminder
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import android.content.Context
@@ -53,8 +55,10 @@ import wojtoteka.ovh.fishingparty.AppLanguage
 import wojtoteka.ovh.fishingparty.BuildConfig
 import wojtoteka.ovh.fishingparty.Language
 import wojtoteka.ovh.fishingparty.R
+import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
+import wojtoteka.ovh.fishingparty.data.Metric
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.Worlds
@@ -78,20 +82,24 @@ fun AchievementsScreen(onBack: () -> Unit) {
     val repo = services.repo
     repo.revision.intValue
     val progress = repo.progress
-    val visible = Achievements.all.filter { !it.hidden || progress.isUnlocked(it) }
+    // Postęp każdej miary liczony raz na odświeżenie ekranu, a nie w każdej karcie przy przewijaniu
+    // (niektóre miary przechodzą przez wszystkie poziomy).
+    val metrics = remember(repo.revision.intValue) { Metric.entries.associateWith { progress.metric(it) } }
+    fun isUnlocked(a: Achievement) = metrics.getValue(a.metric) >= a.target
+    val visible = Achievements.all.filter { !it.hidden || isUnlocked(it) }
     // Kolejność ustalana raz przy wejściu – odebrana odznaka zostaje na miejscu,
     // inaczej lista przeskakiwała za nią na sam dół.
     val order = remember {
         visible.sortedBy {
             when {
-                progress.isUnlocked(it) && !progress.isClaimed(it) -> 0
-                !progress.isUnlocked(it) -> 1
+                isUnlocked(it) && !progress.isClaimed(it) -> 0
+                !isUnlocked(it) -> 1
                 else -> 2
             }
         }.map { it.id }
     }
     val sorted = order.mapNotNull { id -> visible.firstOrNull { it.id == id } }
-    val unlockedCount = visible.count { progress.isUnlocked(it) }
+    val unlockedCount = visible.count { isUnlocked(it) }
     val percent = if (visible.isEmpty()) 0 else unlockedCount * 100 / visible.size
     ScreenFrame(stringResource(R.string.achievements_title), onBack) {
         PixelText(
@@ -100,15 +108,18 @@ fun AchievementsScreen(onBack: () -> Unit) {
             color = Pal.Foam,
             modifier = Modifier.align(Alignment.CenterHorizontally),
         )
+        val list = rememberListState()
         LazyColumn(
-            Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars),
+            Modifier.fillMaxSize().keyScroll(list).windowInsetsPadding(WindowInsets.navigationBars),
+            state = list,
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(4)),
         ) {
             items(sorted, key = { it.id }) { a ->
-                val unlocked = progress.isUnlocked(a)
+                val unlocked = isUnlocked(a)
                 val claimed = progress.isClaimed(a)
-                DarkCard(Modifier.fillMaxWidth(), highlight = unlocked && !claimed) {
+                // Karta bez przycisku też jest przystankiem strzałek – inaczej z klawiatury lista by się nie przewijała.
+                DarkCard(Modifier.fillMaxWidth().then(if (unlocked && !claimed) Modifier else Modifier.keyStop()), highlight = unlocked && !claimed) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30)), contentAlignment = Alignment.Center) {
                             SpriteImage(a.icon, 2, alpha = if (unlocked) 1f else 0.45f)
@@ -118,7 +129,7 @@ fun AchievementsScreen(onBack: () -> Unit) {
                             PixelText(achievementTitle(a), size = 2, color = if (unlocked) Pal.Gold else Pal.White)
                             PixelText(achievementDescription(a), size = 1, color = Pal.Foam)
                             VSpace(2)
-                            val value = progress.metric(a.metric).coerceAtMost(a.target)
+                            val value = metrics.getValue(a.metric).coerceAtMost(a.target)
                             PixelBar(value.toFloat() / a.target, Modifier.fillMaxWidth().height(px(5)))
                             PixelText("$value/${a.target}", size = 1, color = Pal.SeaLight)
                         }
@@ -171,10 +182,12 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
     var confirmReset by remember { mutableStateOf(false) }
     Box(Modifier.fillMaxSize()) {
         ScreenFrame(stringResource(R.string.settings_title), onBack) {
+            val scroll = rememberScrollState()
             Column(
                 Modifier
                     .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
+                    .keyScroll(scroll)
+                    .verticalScroll(scroll)
                     .windowInsetsPadding(WindowInsets.navigationBars)
                     .padding(start = px(10), top = px(6), end = px(10), bottom = px(BOTTOM_GAP)),
                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -234,8 +247,10 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                             align = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        NotificationsBlockedNotice()
                     }
+                    VSpace(6)
+                    ChallengeReminderSettings()
+                    if (save.streakReminders || save.dailyLevelReminders || save.weeklyLevelReminders) NotificationsBlockedNotice()
                 }
 
                 SettingsSection(stringResource(R.string.set_section_game)) {
@@ -358,6 +373,56 @@ private fun ToggleRow(label: String, value: Boolean, onChange: (Boolean) -> Unit
             modifier = Modifier.widthIn(min = px(64)),
         )
     }
+}
+
+/** Przypomnienia o nowym poziomie dnia i tygodnia – osobno włączane, z własną godziną (przed passą). */
+@Composable
+private fun ChallengeReminderSettings() {
+    val context = LocalContext.current
+    val repo = LocalServices.current.repo
+    repo.revision.intValue
+    val save = repo.save
+    val changed = {
+        repo.changed()
+        if (save.dailyLevelReminders || save.weeklyLevelReminders) ChallengeReminder.schedule(context) else ChallengeReminder.cancel(context)
+    }
+    ToggleRow(stringResource(R.string.set_daily_reminders), save.dailyLevelReminders) {
+        save.dailyLevelReminders = it
+        changed()
+    }
+    ToggleRow(stringResource(R.string.set_weekly_reminders), save.weeklyLevelReminders) {
+        save.weeklyLevelReminders = it
+        changed()
+    }
+    if (!save.dailyLevelReminders && !save.weeklyLevelReminders) return
+    VSpace(4)
+    PixelText(
+        stringResource(R.string.set_challenge_hour) + ": %02d:00".format(save.challengeReminderHour),
+        size = 2,
+        color = Pal.Foam,
+    )
+    VSpace(3)
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        for (hour in ChallengeReminderPlan.HOURS) {
+            PixelButton(
+                hour.toString(),
+                onClick = {
+                    save.challengeReminderHour = hour
+                    changed()
+                },
+                style = if (hour == save.challengeReminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+    VSpace(3)
+    PixelText(
+        stringResource(R.string.set_challenge_reminder_info),
+        size = 1,
+        color = Pal.SeaLight,
+        align = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }
 
 /** Gdy powiadomienia są wyłączone w systemie, przypomnienia nie dotrą – dajemy skrót do ustawień telefonu. */

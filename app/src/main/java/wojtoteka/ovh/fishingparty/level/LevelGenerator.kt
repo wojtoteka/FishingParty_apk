@@ -25,6 +25,12 @@ class StagePlan(
     val islands: Int,
     val doorCenter: Int,
     val wideBanks: Boolean,
+    /**
+     * Miejsca potworów w kolejności losowania pozycji. Zwykle to samo co [enemies]; gdy widmokuda
+     * zastąpi kilka potworów ([Stalkers]), zajmuje miejsce jednego z nich, a reszta zostaje pusta (null) –
+     * dzięki temu ryby, skały i pozostałe potwory leżą dokładnie tam, gdzie przedtem.
+     */
+    val enemySlots: List<EnemyKind?> = enemies,
 )
 
 class LevelPlan(val spec: LevelSpec, val stages: List<StagePlan>) {
@@ -124,7 +130,7 @@ object LevelGenerator {
         if (type == LevelType.BOSS) stageCount = min(stageCount + 1, 7)
         if (type == LevelType.TIME_ATTACK) stageCount = min(stageCount, 4)
 
-        val unlocked = EnemyKind.entries.filter { number >= it.firstLevel }
+        val unlocked = EnemyKind.rolled.filter { number >= it.firstLevel }
         val newest = unlocked.lastOrNull()
         val featured = if (newest != null && number - newest.firstLevel < 4) newest else null
 
@@ -230,7 +236,8 @@ object LevelGenerator {
             currentX = currentX,
             currentY = currentY,
         )
-        return LevelPlan(spec, stages)
+        if (number < Stalkers.FIRST_LEVEL) return LevelPlan(spec, stages)
+        return LevelPlan(spec, Stalkers.place(spec, stages, e, intro = number - Stalkers.FIRST_LEVEL < Stalkers.INTRO_LEVELS))
     }
 
     private fun planEnemies(
@@ -374,7 +381,7 @@ object LevelGenerator {
             currentX = 0f,
             currentY = 0f,
         )
-        return LevelPlan(spec, stages)
+        return LevelPlan(spec, Stalkers.place(spec, stages, difficulty = 1.3f, intro = false))
     }
 
     fun generate(plan: LevelPlan): LevelLayout {
@@ -490,9 +497,9 @@ object LevelGenerator {
                 GoldenSpawn(3f + i * 9f + spawnRng.range(0, 3), cell % WIDTH, cell / WIDTH)
             }
             val enemyCells = reachable.toMutableList()
-            val enemies = stage.enemies.map { kind ->
+            val enemies = stage.enemySlots.mapNotNull { kind ->
                 val cell = takeCell(enemyCells, spawnRng, entries[k], entryRow, minDistance = 7)
-                EnemySpawn(kind, cell % WIDTH, cell / WIDTH)
+                kind?.let { EnemySpawn(it, cell % WIDTH, cell / WIDTH) }
             }
             StageLayout(
                 index = k,

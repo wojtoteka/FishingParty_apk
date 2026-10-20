@@ -3,6 +3,7 @@ package wojtoteka.ovh.fishingparty.ui
 import android.content.Intent
 import android.net.Uri
 import android.text.format.DateFormat
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
@@ -38,14 +40,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -58,6 +68,8 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.online.OnlineManager
 import wojtoteka.ovh.fishingparty.online.OnlineResult
 import wojtoteka.ovh.fishingparty.online.RankingData
+import wojtoteka.ovh.fishingparty.online.RankingEntry
+import wojtoteka.ovh.fishingparty.online.RankingPreview
 import wojtoteka.ovh.fishingparty.online.SyncStatus
 import java.util.Date
 
@@ -82,6 +94,12 @@ fun PixelTextField(
     val style = remember(fp, density) {
         with(density) { TextStyle(fontFamily = BitCell, fontSize = (16 * fp).toSp(), lineHeight = (12 * fp).toSp(), color = Pal.White) }
     }
+    // Stała wysokość wiersza – puste pole nie jest wyższe od wypełnionego (np. pola RGB w kreatorze nie skaczą).
+    val measurer = rememberTextMeasurer()
+    val lineHeight = remember(style, density) { with(density) { measurer.measure("0", style).size.height.toDp() } }
+    val focus = LocalFocusManager.current
+    val interaction = remember { MutableInteractionSource() }
+    val focused = keyFocused(interaction)
     Column(modifier) {
         PixelText(label, size = 1, color = Pal.Foam)
         VSpace(1)
@@ -99,10 +117,24 @@ fun PixelTextField(
                 capitalization = KeyboardCapitalization.None,
             ),
             keyboardActions = KeyboardActions(onDone = { onDone() }, onGo = { onDone() }),
+            interactionSource = interaction,
             modifier = Modifier
                 .fillMaxWidth()
-                .drawBehind { pixelBox(u, Pal.Outline.copy(alpha = 0.9f), Pal.Navy, Pal.Outline, shadow = 0f) }
-                .padding(horizontal = px(5), vertical = px(4)),
+                // Pole ma jedną linię, więc strzałki w górę i w dół przechodzą z klawiatury do sąsiednich elementów.
+                .onPreviewKeyEvent { e ->
+                    if (e.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                    when (e.key) {
+                        Key.DirectionUp -> focus.moveFocus(FocusDirection.Up)
+                        Key.DirectionDown -> focus.moveFocus(FocusDirection.Down)
+                        else -> false
+                    }
+                }
+                .drawBehind {
+                    if (focused) focusRing(u)
+                    pixelBox(u, Pal.Outline.copy(alpha = 0.9f), Pal.Navy, Pal.Outline, shadow = 0f)
+                }
+                .padding(horizontal = px(5), vertical = px(4))
+                .height(lineHeight),
         )
     }
 }
@@ -170,6 +202,8 @@ fun onlineErrorText(f: OnlineResult.Failed): String = when (f.code) {
     "password_short" -> stringResource(R.string.err_password_short)
     "password_long" -> stringResource(R.string.err_password_long)
     "password_mismatch" -> stringResource(R.string.err_password_mismatch)
+    "password_required" -> stringResource(R.string.err_password_required)
+    "password_already_set" -> stringResource(R.string.err_password_already_set)
     "email_invalid" -> stringResource(R.string.err_email_invalid)
     "email_taken" -> stringResource(R.string.err_email_taken)
     "policy_required", "policy_outdated" -> stringResource(R.string.err_policy)
@@ -302,10 +336,12 @@ private fun NotConfiguredCard() {
 private fun OnlineColumn(content: @Composable ColumnScope.() -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val viewport = maxHeight
+        val scroll = rememberScrollState()
         Column(
             Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
+                .keyScroll(scroll)
+                .verticalScroll(scroll)
                 .heightIn(min = viewport)
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .imePadding()
@@ -344,6 +380,35 @@ private fun QuickJoinForm() {
                 PixelText(stringResource(R.string.ranking_mode_warning), size = 1, color = Pal.Sand)
                 VSpace(4)
                 PixelButton(stringResource(R.string.ranking_join), onClick = go, style = ButtonStyle.GREEN, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
+                FormFeedback(form)
+            }
+        }
+        PolicyBlock(accepted) { accepted = !accepted }
+    }
+}
+
+// ------------------------------------------------------------------ tylko nick (bez hasła)
+
+@Composable
+private fun NickOnlyForm() {
+    val online = LocalServices.current.online
+    val form = remember { FormState() }
+    val submit = rememberSubmit(form)
+    var accepted by remember { mutableStateOf(false) }
+    var nick by remember { mutableStateOf("") }
+    val go = { submit(listOf(if (accepted) null else "policy_required", FormCheck.nick(nick)), { online.joinNick(nick) }) {} }
+    Column(Modifier.fillMaxWidth().widthIn(max = px(320)), verticalArrangement = Arrangement.spacedBy(px(4))) {
+        DarkCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
+                PixelText(stringResource(R.string.nick_only_title), size = 3, color = Pal.Gold)
+                VSpace(2)
+                PixelText(stringResource(R.string.nick_only_info), size = 1, color = Pal.Foam)
+                VSpace(4)
+                PixelTextField(nick, { nick = it }, stringResource(R.string.field_nick), maxLength = 16, imeAction = ImeAction.Done, onDone = go)
+                VSpace(3)
+                PixelText(stringResource(R.string.nick_only_warning), size = 1, color = Pal.Sand)
+                VSpace(4)
+                PixelButton(stringResource(R.string.nick_only_join), onClick = go, style = ButtonStyle.ORANGE, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
                 FormFeedback(form)
             }
         }
@@ -420,7 +485,12 @@ private fun LocalPointsPanel() {
 
 @Composable
 private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loading: Boolean, onRefresh: () -> Unit, onAccount: () -> Unit) {
-    val account = LocalServices.current.online.account
+    val services = LocalServices.current
+    val account = services.online.account
+    services.repo.revision.intValue
+    // Gość: punkty liczone w grze i miejsce, które zająłby po założeniu konta.
+    val guestPoints = services.repo.progress.rankingPoints()
+    val guestPlace = if (account == null && data != null) RankingPreview.place(guestPoints, data.entries.map { it.points }, data.size) else null
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = px(6)), horizontalAlignment = Alignment.CenterHorizontally) {
             if (account == null) {
@@ -434,6 +504,10 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                             align = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
+                        if (data != null) {
+                            VSpace(2)
+                            GuestRankText(guestPoints, guestPlace)
+                        }
                         VSpace(4)
                         PixelButton(stringResource(R.string.register_button), onClick = onAccount, style = ButtonStyle.GREEN, size = 2)
                     }
@@ -479,21 +553,35 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
             VSpace(10)
             Hint(stringResource(R.string.ranking_empty), Pal.Foam)
         }
+        val list = rememberListState()
         LazyColumn(
-            Modifier.fillMaxSize(),
+            Modifier.fillMaxSize().keyScroll(list),
+            state = list,
             contentPadding = PaddingValues(start = px(6), top = px(6), end = px(6), bottom = px(BOTTOM_GAP)),
             verticalArrangement = Arrangement.spacedBy(px(3)),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            items(entries, key = { it.id }) { e ->
+            // Gość w top 100 widzi siebie na miejscu, które zająłby z kontem (wiersz „TY (BEZ KONTA)”).
+            // Gracze poniżej przesuwają się o miejsce w dół, a ostatni wypada poza top.
+            val rows: List<RankingEntry?> = if (guestPlace != null) {
+                entries.toMutableList<RankingEntry?>().apply { add((guestPlace - 1).coerceAtMost(size), null) }.take(data?.size ?: 100)
+            } else {
+                entries
+            }
+            items(rows, key = { it?.id ?: -1L }) { e ->
+                if (e == null) {
+                    GuestRankRow(guestPlace ?: 0, guestPoints)
+                    return@items
+                }
                 val mine = e.id == data?.myId
-                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = mine) {
+                val rank = if (guestPlace != null && e.rank >= guestPlace) e.rank + 1 else e.rank
+                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)).keyStop(), highlight = mine) {
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30))) {
                             PixelText(
-                                "#${e.rank}",
+                                "#$rank",
                                 size = 2,
-                                color = when (e.rank) {
+                                color = when (rank) {
                                     1 -> Pal.Gold
                                     2 -> Pal.GreyLight
                                     3 -> Pal.WoodLight
@@ -520,9 +608,57 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
     }
 }
 
+/** „Z kontem: X pkt – N. miejsce” albo same punkty, gdy wynik nie mieści się w top 100. */
+@Composable
+private fun GuestRankText(points: Long, place: Int?) {
+    Hint(
+        when {
+            place != null -> stringResource(R.string.ranking_guest_preview_place, points, place)
+            else -> stringResource(R.string.ranking_guest_preview_points, points)
+        },
+        Pal.Gold,
+    )
+}
+
+/** Wiersz gościa wstawiony do listy w miejscu, które zająłby po założeniu konta. */
+@Composable
+private fun GuestRankRow(place: Int, points: Long) {
+    DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)).keyStop(), highlight = true) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.widthIn(min = px(30))) { PixelText("#$place", size = 2, color = Pal.Sand) }
+            HSpace(3)
+            Column(Modifier.weight(1f)) {
+                PixelText(stringResource(R.string.ranking_guest_row), size = 2, color = Pal.Sand)
+                PixelText(stringResource(R.string.ranking_guest_row_info), size = 1, color = Pal.Foam)
+            }
+            PixelText(points.toString(), size = 2, color = Pal.Gold)
+        }
+    }
+}
+
+/** Podgląd na ekranie konta: gra pobiera top 100 (jak gość) i liczy, które miejsce zająłby gracz. */
+@Composable
+private fun GuestRankPreview() {
+    val services = LocalServices.current
+    services.repo.revision.intValue
+    var top by remember { mutableStateOf<RankingData?>(null) }
+    LaunchedEffect(Unit) { services.online.ranking().onSuccess { top = it } }
+    val points = services.repo.progress.rankingPoints()
+    if (points <= 0) return
+    val data = top ?: return
+    DarkCard(Modifier.fillMaxWidth(), highlight = true) {
+        Column(Modifier.fillMaxWidth()) {
+            GuestRankText(points, RankingPreview.place(points, data.entries.map { it.points }, data.size))
+        }
+    }
+}
+
 // ------------------------------------------------------------------ konto
 
-private enum class AccountMode { MENU, QUICK, EMAIL_REGISTER, EMAIL_CODE, LOGIN, RESET_EMAIL, RESET_CODE, ADD_EMAIL, ADD_EMAIL_CODE, CHANGE_PASSWORD, DELETE }
+private enum class AccountMode {
+    MENU, QUICK, NICK_ONLY, EMAIL_REGISTER, EMAIL_CODE, LOGIN, RESET_EMAIL, RESET_CODE,
+    ADD_EMAIL, ADD_EMAIL_CODE, CHANGE_PASSWORD, SET_PASSWORD, DELETE,
+}
 
 @Composable
 fun AccountScreen(onBack: () -> Unit) {
@@ -542,6 +678,7 @@ fun AccountScreen(onBack: () -> Unit) {
                     !isOnline -> OfflineCard(recheck)
                     !loggedIn -> when (mode) {
                         AccountMode.QUICK -> QuickJoinForm()
+                        AccountMode.NICK_ONLY -> NickOnlyForm()
                         AccountMode.EMAIL_REGISTER -> EmailRegisterForm { pendingEmail = it; mode = AccountMode.EMAIL_CODE }
                         AccountMode.EMAIL_CODE -> CodeForm(pendingEmail, resend = null) { code -> online.verifyEmail(pendingEmail, code) }
                         AccountMode.LOGIN -> LoginForm(onForgot = { mode = AccountMode.RESET_EMAIL })
@@ -553,6 +690,7 @@ fun AccountScreen(onBack: () -> Unit) {
                         AccountMode.ADD_EMAIL -> AddEmailForm { pendingEmail = it; mode = AccountMode.ADD_EMAIL_CODE }
                         AccountMode.ADD_EMAIL_CODE -> AddEmailCodeForm(pendingEmail) { mode = AccountMode.MENU }
                         AccountMode.CHANGE_PASSWORD -> ChangePasswordForm { mode = AccountMode.MENU }
+                        AccountMode.SET_PASSWORD -> SetPasswordForm { mode = AccountMode.MENU }
                         AccountMode.DELETE -> DeleteAccountForm()
                         else -> AccountProfile { mode = it }
                     }
@@ -570,8 +708,10 @@ private fun AccountChooser(onPick: (AccountMode) -> Unit) {
     PixelPanel(Modifier.fillMaxWidth()) {
         PixelText(stringResource(R.string.account_intro), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
+    GuestRankPreview()
     OptionCard(stringResource(R.string.account_email_option), stringResource(R.string.account_email_option_info), ButtonStyle.GREEN) { onPick(AccountMode.EMAIL_REGISTER) }
     OptionCard(stringResource(R.string.account_quick_option), stringResource(R.string.account_quick_option_info), ButtonStyle.SAND) { onPick(AccountMode.QUICK) }
+    OptionCard(stringResource(R.string.account_nick_option), stringResource(R.string.account_nick_option_info), ButtonStyle.ORANGE) { onPick(AccountMode.NICK_ONLY) }
     PixelButton(stringResource(R.string.account_login_option), onClick = { onPick(AccountMode.LOGIN) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
 }
 
@@ -717,7 +857,20 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
     DarkCard(Modifier.fillMaxWidth(), highlight = true) {
         Column(Modifier.fillMaxWidth()) {
             ProfileRow(stringResource(R.string.account_nick), account.nick)
-            ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
+            ProfileRow(
+                stringResource(R.string.account_type),
+                stringResource(
+                    when {
+                        !account.hasPassword -> R.string.account_type_nick
+                        account.email == null -> R.string.account_type_password
+                        else -> R.string.account_type_email
+                    },
+                ),
+                if (account.hasPassword) Pal.White else Pal.Sand,
+            )
+            if (account.hasPassword) {
+                ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
+            }
             ProfileRow(stringResource(R.string.account_points), account.points.toString())
             ProfileRow(stringResource(R.string.account_rank), account.rank?.let { "#$it" } ?: stringResource(R.string.ranking_not_ranked))
             val sync = when (online.status) {
@@ -731,17 +884,25 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
         }
     }
     if (account.hidden) Hint(stringResource(R.string.account_hidden), Pal.RedLight)
+    if (!account.hasPassword) Hint(stringResource(R.string.account_no_password_warning), Pal.Sand)
     PixelButton(stringResource(R.string.sync_now), onClick = { online.syncNow() }, style = ButtonStyle.GREEN, size = 2, enabled = online.status != SyncStatus.SYNCING, modifier = Modifier.fillMaxWidth())
-    if (account.email == null) {
-        PixelButton(stringResource(R.string.account_add_email), onClick = { onPick(AccountMode.ADD_EMAIL) }, style = ButtonStyle.SAND, size = 2, modifier = Modifier.fillMaxWidth())
+    if (!account.hasPassword) {
+        // Konto „tylko nick”: najpierw hasło, dopiero potem e-mail.
+        PixelButton(stringResource(R.string.account_set_password), onClick = { onPick(AccountMode.SET_PASSWORD) }, style = ButtonStyle.ORANGE, size = 2, modifier = Modifier.fillMaxWidth())
+        PixelButton(stringResource(R.string.account_add_email), onClick = {}, enabled = false, size = 2, modifier = Modifier.fillMaxWidth())
+        Hint(stringResource(R.string.account_email_needs_password), Pal.Foam)
+    } else {
+        if (account.email == null) {
+            PixelButton(stringResource(R.string.account_add_email), onClick = { onPick(AccountMode.ADD_EMAIL) }, style = ButtonStyle.SAND, size = 2, modifier = Modifier.fillMaxWidth())
+        }
+        PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     }
-    PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     PixelButton(stringResource(R.string.account_logout), onClick = { confirmLogout = true }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     VSpace(4)
     PixelButton(stringResource(R.string.account_delete), onClick = { onPick(AccountMode.DELETE) }, style = ButtonStyle.RED, size = 2, modifier = Modifier.fillMaxWidth())
     if (confirmLogout) {
         ConfirmDialog(
-            message = stringResource(R.string.account_logout_confirm),
+            message = stringResource(if (account.hasPassword) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
             onConfirm = {
                 confirmLogout = false
                 online.logout()
@@ -821,16 +982,53 @@ private fun ChangePasswordForm(onDone: () -> Unit) {
 }
 
 @Composable
+private fun SetPasswordForm(onDone: () -> Unit) {
+    val online = LocalServices.current.online
+    val form = remember { FormState() }
+    val submit = rememberSubmit(form)
+    var password by remember { mutableStateOf("") }
+    var repeat by remember { mutableStateOf("") }
+    val done = stringResource(R.string.password_set)
+    val go = {
+        submit(listOf(FormCheck.password(password, repeat)), { online.setPassword(password) }) {
+            password = ""
+            repeat = ""
+            form.info = done
+        }
+    }
+    FormCard(stringResource(R.string.account_set_password)) {
+        PixelText(stringResource(R.string.account_set_password_info), size = 1, color = Pal.Foam)
+        VSpace(4)
+        PixelTextField(password, { password = it }, stringResource(R.string.field_new_password), password = true, maxLength = 72)
+        VSpace(3)
+        PixelTextField(repeat, { repeat = it }, stringResource(R.string.field_password2), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        VSpace(5)
+        PixelButton(stringResource(R.string.save_button), onClick = go, style = ButtonStyle.GREEN, size = 3, enabled = !form.busy && form.info == null, modifier = Modifier.fillMaxWidth())
+        FormFeedback(form)
+        if (form.info != null) {
+            VSpace(3)
+            PixelButton(stringResource(R.string.close), onClick = onDone, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+@Composable
 private fun DeleteAccountForm() {
     val online = LocalServices.current.online
     val form = remember { FormState() }
     val submit = rememberSubmit(form)
     var password by remember { mutableStateOf("") }
-    val go = { submit(listOf(if (password.isEmpty()) "invalid_credentials" else null), { online.deleteAccount(password) }) {} }
+    // Konto „tylko nick” nie ma hasła – usuwa się samą sesją z tego telefonu.
+    val needsPassword = online.account?.hasPassword != false
+    val go = {
+        submit(listOf(if (needsPassword && password.isEmpty()) "invalid_credentials" else null), { online.deleteAccount(if (needsPassword) password else null) }) {}
+    }
     FormCard(stringResource(R.string.account_delete)) {
-        PixelText(stringResource(R.string.account_delete_info), size = 1, color = Pal.Foam)
+        PixelText(stringResource(if (needsPassword) R.string.account_delete_info else R.string.account_delete_nick_info), size = 1, color = Pal.Foam)
         VSpace(4)
-        PixelTextField(password, { password = it }, stringResource(R.string.field_password), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        if (needsPassword) {
+            PixelTextField(password, { password = it }, stringResource(R.string.field_password), password = true, maxLength = 72, imeAction = ImeAction.Done, onDone = go)
+        }
         VSpace(5)
         PixelButton(stringResource(R.string.account_delete), onClick = go, style = ButtonStyle.RED, size = 3, enabled = !form.busy, modifier = Modifier.fillMaxWidth())
         FormFeedback(form)

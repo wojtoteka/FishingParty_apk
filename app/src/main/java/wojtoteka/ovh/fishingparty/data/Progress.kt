@@ -1,6 +1,8 @@
 package wojtoteka.ovh.fishingparty.data
 
 import wojtoteka.ovh.fishingparty.game.Loadout
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelPlan
 import wojtoteka.ovh.fishingparty.level.LevelType
@@ -22,6 +24,8 @@ class Reward(
     val finaleBonus: Int = 0,
     /** Telefon nie zna czasu serwera – dzień passy zaliczy się po połączeniu z internetem. */
     val streakDeferred: Boolean = false,
+    /** Punkty rankingowe za poziom dnia/tygodnia (0 = zwykły poziom albo nieukończony). */
+    val challengePoints: Int = 0,
 )
 
 /**
@@ -75,8 +79,8 @@ class Progress(val save: SaveData, private val time: GameTime) {
 
     fun completedLevels(): Int = save.stars.count { it > 0 }
 
-    /** Punkty rankingowe: suma najlepszych wyników ze wszystkich poziomów plus trofea za passę. */
-    fun rankingPoints(): Long = save.best.sum() + save.trophies.get()
+    /** Punkty rankingowe: suma najlepszych wyników ze wszystkich poziomów, trofea za passę i poziomy dnia/tygodnia. */
+    fun rankingPoints(): Long = save.best.sum() + save.trophies.get() + save.challengePoints.get()
 
     val trophies: Long get() = save.trophies.get()
 
@@ -107,15 +111,10 @@ class Progress(val save: SaveData, private val time: GameTime) {
         var finaleBonus = 0
         var streakDeferred = false
         if (result.completed) {
-            val day = time.today()
-            if (day == null) {
-                // Komunikat tylko przy pierwszym takim poziomie – kolejne i tak liczą się do tego samego dnia.
-                streakDeferred = !time.hasDeferredPlay()
-                time.deferPlay()
-            } else {
-                trophies = creditStreakDay(day)
-                if (trophies > 0) streakDays = save.streak
-            }
+            val credit = creditCompletion()
+            streakDays = credit.days
+            trophies = credit.trophies
+            streakDeferred = credit.deferred
             save.levelWins++
             if (result.hits == 0) save.noHitWins++
             if (plan.spec.type == LevelType.BOSS || plan.spec.type == LevelType.FINALE) save.bossWins++
@@ -145,6 +144,85 @@ class Progress(val save: SaveData, private val time: GameTime) {
         ) + finaleBonus
         addCoins(coins.toLong())
         return Reward(true, coins, previousBest, newBest, newStars, streakDays, trophies, finaleBonus, streakDeferred)
+    }
+
+    private class StreakCredit(val days: Int, val trophies: Int, val deferred: Boolean)
+
+    /** Ukończony poziom (zwykły albo dnia/tygodnia) zalicza dzień passy. */
+    private fun creditCompletion(): StreakCredit {
+        val day = time.today()
+        if (day == null) {
+            // Komunikat tylko przy pierwszym takim poziomie – kolejne i tak liczą się do tego samego dnia.
+            val deferred = !time.hasDeferredPlay()
+            time.deferPlay()
+            return StreakCredit(0, 0, deferred)
+        }
+        val trophies = creditStreakDay(day)
+        return StreakCredit(if (trophies > 0) save.streak else 0, trophies, false)
+    }
+
+    // ------------------------------------------------------------ poziom dnia i tygodnia
+
+    /** Zaliczenie poziomu [kind] w okresie [period] albo null, gdy jeszcze nie ukończony. */
+    fun challengeResult(kind: ChallengeKind, period: Int): ChallengeResult? =
+        save.challengeResults.firstOrNull { it.kind == kind && it.period == period }
+
+    /** Bieżący poziom dnia/tygodnia z ostatnio pobranych (null = trzeba pobrać z serwera). */
+    fun currentChallenge(kind: ChallengeKind): Challenge? {
+        val now = now()
+        return save.challengeCache.firstOrNull { it.kind == kind && it.isCurrent(now) }
+    }
+
+    /** Zapamiętuje seedy z serwera; zwraca true, gdy coś się zmieniło. */
+    fun cacheChallenges(fresh: List<Challenge>): Boolean {
+        var changed = false
+        for (c in fresh) {
+            val old = save.challengeCache.firstOrNull { it.kind == c.kind }
+            if (old != null && old.period == c.period && old.seed == c.seed && old.endsAt == c.endsAt) continue
+            save.challengeCache.removeAll { it.kind == c.kind }
+            save.challengeCache += c
+            changed = true
+        }
+        return changed
+    }
+
+    /**
+     * Wynik poziomu dnia/tygodnia: monety za ryby, przy pierwszym ukończeniu w okresie premia
+     * i punkty rankingowe (wynik × mnożnik). Kolejne ukończenia tego samego okresu nie dają punktów.
+     */
+    fun applyChallenge(result: RunResult, plan: LevelPlan, challenge: Challenge): Reward {
+        if (!ScoreValidator.isPlausible(plan, result)) {
+            save.tamperEvents++
+            return Reward(false, 0, 0, false, 0)
+        }
+        save.totalFish.add(result.fishCaught.toLong())
+        save.totalGolden.add(result.goldenCaught.toLong())
+        save.maxCombo = max(save.maxCombo, result.maxCombo)
+        var credit = StreakCredit(0, 0, false)
+        var points = 0
+        var bonus = 0
+        if (result.completed) {
+            credit = creditCompletion()
+            save.levelWins++
+            if (result.hits == 0) save.noHitWins++
+            if (challengeResult(challenge.kind, challenge.period) == null) {
+                points = result.score * challenge.kind.pointsMultiplier
+                bonus = challenge.kind.coinBonus
+                save.challengePoints.add(points.toLong())
+                save.challengeResults.addLast(
+                    ChallengeResult(
+                        challenge.kind, challenge.period, result.score, points, result.timeMillis, result.commonCaught,
+                        result.blueCaught, result.goldenCaught, result.hits, result.maxCombo, result.stagesCleared, now(),
+                    ),
+                )
+                while (save.challengeResults.size > SaveData.MAX_CHALLENGE_RESULTS) save.challengeResults.removeFirst()
+            }
+        }
+        val coins = Scoring.coinsFor(
+            result.commonCaught, result.blueCaught, result.goldenCaught, result.completed, plan.spec.world, 0,
+        ) + bonus
+        addCoins(coins.toLong())
+        return Reward(true, coins, 0, false, 0, credit.days, credit.trophies, 0, credit.deferred, points)
     }
 
     // ------------------------------------------------------------ passa
@@ -240,6 +318,10 @@ class Progress(val save: SaveData, private val time: GameTime) {
 
     fun owns(item: ShopItem): Boolean = item.key in save.owned
 
+    /** Kupione projekty z kreatora danego rodzaju, w kolejności zakupu. */
+    fun creations(kind: ItemKind): List<ShopItem> =
+        save.owned.filter { it.startsWith("${kind.name.lowercase()}:own-") }.mapNotNull { Workshop.find(it) }
+
     fun isEquipped(item: ShopItem): Boolean = when (item.kind) {
         ItemKind.BOAT -> save.boat == item.id
         ItemKind.SAIL -> save.sail == item.id
@@ -282,6 +364,10 @@ class Progress(val save: SaveData, private val time: GameTime) {
             shield = PowerUp.SHIELD in used,
             turbo = PowerUp.TURBO in used,
             extraLife = PowerUp.LIFE in used,
+            net = PowerUp.NET in used,
+            frost = PowerUp.FROST in used,
+            lure = PowerUp.LURE in used,
+            rhythm = PowerUp.RHYTHM in used,
         )
     }
 
@@ -395,6 +481,8 @@ class Progress(val save: SaveData, private val time: GameTime) {
         save.trophies.set(0)
         save.veteran = false
         save.records.clear()
+        save.challengePoints.set(0)
+        save.challengeResults.clear()
     }
 
     companion object {

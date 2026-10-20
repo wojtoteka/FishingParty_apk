@@ -7,6 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -16,9 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
-import wojtoteka.ovh.fishingparty.level.EndlessLevels
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
-import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelType
 
 /** Karta poziomu przed startem: typ, cele na gwiazdki i wybór wzmocnień. */
@@ -30,7 +32,6 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
     val plan = remember(level) { LevelGenerator.plan(level) }
     val spec = plan.spec
     val worldName = rememberWorldNames()
-    val endless = EndlessLevels.isEndless(level)
     val selected = remember(level) { mutableStateListOf<PowerUp>() }
     val earned = progress.stars(level)
     val finale = spec.type == LevelType.FINALE
@@ -45,10 +46,6 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
                     PixelText(stringResource(R.string.finale_subtitle), size = 1, color = Pal.Gold)
                 } else {
                     PixelText(worldName(spec.world), size = 1, color = Pal.Foam)
-                }
-                if (endless) {
-                    // Seed planszy – ten sam kod oznacza u każdego gracza ten sam poziom.
-                    PixelText(stringResource(R.string.endless_seed, LevelSeed(spec.seed).code), size = 1, color = Pal.SeaLight)
                 }
             }
         }
@@ -66,6 +63,24 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
                 )
             }
         }
+        // Nowy potwór (pierwsze 4 poziomy, na których występuje) – co to jest i jak go omijać.
+        val newcomers = remember(level) {
+            plan.stages.flatMap { it.enemies }.distinct().filter { level - it.firstLevel in 0 until NEW_MONSTER_LEVELS }
+        }
+        for (kind in newcomers) {
+            VSpace(4)
+            DarkCard(Modifier.fillMaxWidth(), highlight = true) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.width(px(54)), contentAlignment = Alignment.Center) { SpriteImage(enemyIcon(kind), 2) }
+                    HSpace(4)
+                    Column(Modifier.weight(1f)) {
+                        PixelText(stringResource(R.string.intro_new_monster), size = 1, color = Pal.Gold)
+                        PixelText(enemyName(kind), size = 2)
+                        PixelText(enemyDescription(kind), size = 1, color = Pal.Foam)
+                    }
+                }
+            }
+        }
         VSpace(6)
         for ((i, goal) in goalTexts(spec).withIndex()) {
             Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
@@ -79,43 +94,62 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
             PixelText(stringResource(R.string.intro_best, progress.best(level)), size = 2, color = Pal.WoodDark, outline = null)
         }
         VSpace(6)
-        PixelText(stringResource(R.string.intro_powerups), size = 2, color = Pal.Outline, outline = null)
-        VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            for (p in PowerUp.entries) {
-                val count = progress.powerups(p)
-                val on = p in selected
-                PixelButton(
-                    text = "",
-                    onClick = { if (on) selected.remove(p) else if (count > 0) selected.add(p) },
-                    style = if (on) ButtonStyle.GREEN else ButtonStyle.SEA,
-                    enabled = count > 0 || on,
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(Modifier.height(px(18)), contentAlignment = Alignment.Center) { SpriteImage(powerUpIcon(p), 2) }
-                        PixelText("x$count", size = 1)
-                    }
-                }
-            }
-        }
-        VSpace(2)
-        val hint = selected.lastOrNull()
-        PixelText(
-            if (hint != null) powerUpName(hint) + ": " + powerUpDescription(hint) else stringResource(R.string.intro_powerups_hint),
-            size = 1,
-            color = Pal.WoodDark,
-            outline = null,
-            align = TextAlign.Center,
-            modifier = Modifier.fillMaxWidth(),
-        )
+        PowerUpPicker(selected)
         VSpace(8)
         PixelButton(
             stringResource(R.string.play),
             onClick = { onPlay(selected.toSet()) },
             style = ButtonStyle.GREEN,
             size = 5,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.keyPrimary().fillMaxWidth(),
         )
     }
 }
+
+/**
+ * Wybór wzmocnień na kartę poziomu. Wzmocnień jest więcej, niż mieści się w oknie,
+ * więc rząd przewija się w bok (okno zostaje tej samej wielkości).
+ */
+@Composable
+fun PowerUpPicker(selected: SnapshotStateList<PowerUp>) {
+    val progress = LocalServices.current.repo.progress
+    PixelText(stringResource(R.string.intro_powerups), size = 2, color = Pal.Outline, outline = null)
+    VSpace(3)
+    Row(
+        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(px(3)),
+    ) {
+        for (p in PowerUp.entries) {
+            val count = progress.powerups(p)
+            val on = p in selected
+            PixelButton(
+                text = "",
+                onClick = { if (on) selected.remove(p) else if (count > 0) selected.add(p) },
+                style = if (on) ButtonStyle.GREEN else ButtonStyle.SEA,
+                enabled = count > 0 || on,
+                modifier = Modifier.width(px(POWERUP_TILE)),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(Modifier.height(px(18)), contentAlignment = Alignment.Center) { SpriteImage(powerUpIcon(p), powerUpIconScale(p, 2)) }
+                    PixelText("x$count", size = 1)
+                }
+            }
+        }
+    }
+    VSpace(2)
+    val hint = selected.lastOrNull()
+    PixelText(
+        if (hint != null) powerUpName(hint) + ": " + powerUpDescription(hint) else stringResource(R.string.intro_powerups_hint),
+        size = 1,
+        color = Pal.WoodDark,
+        outline = null,
+        align = TextAlign.Center,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/** Przez tyle poziomów od pierwszego pojawienia się potwór jest przedstawiany na karcie poziomu. */
+private const val NEW_MONSTER_LEVELS = 4
+
+/** Szerokość kafelka wzmocnienia – pięć mieści się w oknie, kolejne są po przewinięciu w prawo. */
+private const val POWERUP_TILE = 52

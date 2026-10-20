@@ -23,6 +23,7 @@ import wojtoteka.ovh.fishingparty.data.StreakRepairs
 import wojtoteka.ovh.fishingparty.data.StreakRewards
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelConstants.TILE
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import wojtoteka.ovh.fishingparty.notify.StreakReminderSlots
 import wojtoteka.ovh.fishingparty.ui.Backdrop
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
@@ -67,10 +68,24 @@ class SaveAndProgressTest {
         repairsTotal = 7
         streakReminders = false
         reminderHour = 20
+        dailyLevelReminders = false
+        challengeReminderHour = 9
         keepScreenOn = false
         controls = ControlMode.JOYSTICK
         controlsChosen = true
         joystickLeft = false
+    }
+
+    @Test
+    fun saveFromVersion5KeepsLevelRemindersOn() {
+        // Zapis v5 = v6 bez trzech ostatnich bajtów (ustawień przypomnień o poziomach).
+        val v6 = SaveCodec.encode(sample())
+        val v5 = v6.copyOf(v6.size - 3).also { it[4] = 0; it[5] = 5 }
+        val copy = SaveCodec.decode(v5)
+        assertTrue(copy.dailyLevelReminders)
+        assertTrue(copy.weeklyLevelReminders)
+        assertEquals(ChallengeReminderPlan.DEFAULT_HOUR, copy.challengeReminderHour)
+        assertEquals(1234L, copy.coins.get())
     }
 
     @Test
@@ -96,11 +111,51 @@ class SaveAndProgressTest {
         assertEquals(7, copy.repairsTotal)
         assertFalse(copy.streakReminders)
         assertEquals(20, copy.reminderHour)
+        assertFalse(copy.dailyLevelReminders)
+        assertTrue(copy.weeklyLevelReminders)
+        assertEquals(9, copy.challengeReminderHour)
         assertFalse(copy.keepScreenOn)
         assertEquals(ControlMode.JOYSTICK, copy.controls)
         assertTrue(copy.controlsChosen)
         assertFalse(copy.joystickLeft)
         assertArrayEquals(SaveCodec.encode(original), SaveCodec.encode(copy))
+    }
+
+    @Test
+    fun everyCosmeticHasGraphicsAndName() {
+        val assets = java.io.File("src/main/assets/sprites")
+        for (item in Catalog.boats) {
+            for (part in listOf("ship", "ship2", "shiptop")) assertTrue("${item.key}/$part", java.io.File(assets, "boats/${item.id}/$part.png").exists())
+        }
+        for (item in Catalog.sailors) assertTrue(item.key, java.io.File(assets, "sailors/${item.id}.png").exists())
+        val strings = java.io.File("src/main/res/values/strings.xml").readText() + java.io.File("src/main/res/values-pl/strings.xml").readText()
+        for (item in Catalog.cosmetics) {
+            val name = "${item.kind.name.lowercase()}_${item.id}"
+            assertEquals(item.key, 2, Regex("name=\"$name\"").findAll(strings).count())
+        }
+        // Żagle mają własne kolory (nieznany żagiel rysowałby się na biało).
+        for (item in Catalog.sails) assertTrue(item.key, wojtoteka.ovh.fishingparty.gfx.SailStyles.has(item.id))
+        val looks = Catalog.sails.map { s -> wojtoteka.ovh.fishingparty.gfx.SailStyles.bands(s.id).joinToString { it.contentToString() } }
+        assertEquals("każdy żagiel wygląda inaczej", looks.size, looks.toSet().size)
+        assertTrue(Catalog.flags.size >= 25 && Catalog.sails.containsAll(Catalog.flags))
+        assertEquals(Catalog.cosmetics.size, Catalog.cosmetics.map { it.key }.toSet().size)
+    }
+
+    @Test
+    fun unknownLookFromNewerVersionFallsBack() {
+        val save = sample().apply {
+            boat = "spaceship"
+            sail = "laser"
+            sailor = "cyborg"
+        }
+        val copy = SaveCodec.decode(SaveCodec.encode(save))
+        assertEquals("classic", copy.boat)
+        assertEquals("white", copy.sail)
+        assertEquals("ginger", copy.sailor)
+        val known = SaveCodec.decode(SaveCodec.encode(sample().apply { boat = "lavender"; sail = "poland"; sailor = "king" }))
+        assertEquals("lavender", known.boat)
+        assertEquals("poland", known.sail)
+        assertEquals("king", known.sailor)
     }
 
     @Test
@@ -210,6 +265,13 @@ class SaveAndProgressTest {
         val loadout = p.consume(setOf(PowerUp.SHIELD, PowerUp.TURBO))
         assertTrue(loadout.shield && loadout.turbo && !loadout.magnet)
         assertEquals(1, p.powerups(PowerUp.SHIELD))
+        // Nowe wzmocnienia (2.3): na start po 2 sztuki, jak pozostałe.
+        val extra = p.consume(setOf(PowerUp.NET, PowerUp.FROST, PowerUp.LURE, PowerUp.RHYTHM))
+        assertTrue(extra.net && extra.frost && extra.lure && extra.rhythm && !extra.shield)
+        assertEquals(1, p.powerups(PowerUp.RHYTHM))
+        p.addCoins(1000)
+        assertTrue(p.buy(Catalog.powerups.first { it.id == "frost" }))
+        assertEquals(2, p.powerups(PowerUp.FROST))
     }
 
     @Test

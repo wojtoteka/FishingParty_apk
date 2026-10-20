@@ -8,7 +8,9 @@ Wynik:   app/src/main/assets/sprites/... (postacie, ryby, łodzie, marynarze)
 Skrypt tylko podmienia kolory pikseli - kształty spritów zostają oryginalne.
 Uruchomienie:  python tools/recolor_sprites.py
 """
+import colorsys
 from pathlib import Path
+
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -193,12 +195,35 @@ def build_characters():
     for i in (1, 2):
         save(recolor(load(f"shark{i}"), mapping(dark_shark)), OUT_SPRITES / f"sharkdark{i}.png")
 
+    # Ikony wzmocnień: lodowy rekin (Lodowa mgła) i złota pętla (Rytm).
+    frost_shark = {
+        (82, 158, 196): (170, 225, 245), (52, 128, 166): (120, 190, 225), (127, 203, 241): (220, 245, 255),
+        (145, 186, 207): (200, 235, 250), (117, 158, 178): (160, 210, 235), (161, 202, 223): (235, 250, 255),
+        (0, 76, 114): (40, 110, 160), (105, 105, 105): (190, 225, 245), (75, 75, 75): (130, 180, 215),
+        (99, 98, 136): (150, 185, 225),
+    }
+    save(recolor(load("shark1"), mapping(frost_shark)), OUT_SPRITES / "sharkfrost1.png")
+    save(recolor(load("huit"), mapping({(255, 255, 255): (255, 196, 32)})), OUT_SPRITES / "combo.png")
+
     red_octopus = {
         (140, 112, 226): (220, 70, 60), (185, 101, 227): (250, 110, 70),
         (228, 144, 255): (255, 170, 120), (170, 170, 255): (255, 200, 170),
     }
     for i in (1, 2):
         save(recolor(load(f"octopus{i}"), mapping(red_octopus)), OUT_SPRITES / f"octopusred{i}.png")
+
+
+def hull_shades(main):
+    """4 odcienie kadłuba z koloru głównego (jak HullPaints.shades w grze): ciemniejszy, główny, 2 jaśniejsze."""
+    h, s, v = colorsys.rgb_to_hsv(*[c / 255 for c in main])
+
+    def shade(sat, val_mul, val_add):
+        val = v * val_mul + val_add
+        sat = s * sat - max(0.0, val - 1) * 0.9  # zabrakło jasności – rozjaśnia spadek nasycenia
+        rgb = colorsys.hsv_to_rgb(h, max(0.0, min(1.0, sat)), max(0.0, min(1.0, val)))
+        return tuple(clamp(c * 255) for c in rgb)
+
+    return [shade(1.05, 0.78, 0), tuple(main), shade(0.92, 1.12, 0.04), shade(0.82, 1.24, 0.08)]
 
 
 BOATS = {
@@ -210,6 +235,24 @@ BOATS = {
     "golden": [(150, 95, 0), (190, 130, 10), (220, 165, 30), (245, 200, 60)],
     "shadow": [(20, 18, 25), (35, 32, 42), (52, 48, 62), (72, 68, 85)],
     "royal": [(60, 15, 80), (85, 30, 110), (110, 50, 140), (135, 75, 165)],
+    # Wersja 2.3
+    "sky": [(30, 90, 150), (45, 115, 180), (70, 145, 205), (100, 175, 230)],
+    "teal": [(0, 80, 80), (10, 105, 100), (25, 130, 120), (45, 155, 145)],
+    "mint": [(40, 120, 90), (60, 150, 110), (90, 180, 135), (130, 210, 165)],
+    "lime": [(70, 110, 10), (95, 140, 20), (125, 170, 35), (160, 200, 60)],
+    "amber": [(150, 60, 0), (185, 85, 5), (215, 115, 20), (240, 150, 45)],
+    "rose": [(140, 40, 80), (175, 60, 105), (205, 90, 135), (230, 125, 165)],
+    "lavender": [(90, 70, 140), (115, 95, 170), (145, 125, 195), (175, 160, 220)],
+    "silver": [(90, 95, 105), (125, 130, 140), (160, 165, 175), (195, 200, 210)],
+    # Kolory z jednego odcienia głównego – tak samo liczy je kreator kolorów w grze.
+    "tangerine": hull_shades((225, 95, 20)),
+    "coral": hull_shades((230, 105, 95)),
+    "lemon": hull_shades((225, 200, 40)),
+    "turquoise": hull_shades((30, 180, 170)),
+    "cobalt": hull_shades((30, 70, 200)),
+    "fuchsia": hull_shades((200, 40, 150)),
+    "plum": hull_shades((110, 30, 75)),
+    "ice": hull_shades((185, 220, 235)),
 }
 HULL = [(85, 27, 0), (97, 39, 9), (113, 55, 25), (129, 71, 41)]
 
@@ -228,12 +271,202 @@ SAILORS = {
     "captain": {(255, 104, 28): (236, 236, 236), (0, 57, 170): (22, 32, 84)},
     "punk": {(255, 104, 28): (255, 80, 170), (0, 57, 170): (34, 34, 40)},
     "diver": {(255, 104, 28): (60, 200, 120), (0, 57, 170): (210, 120, 0)},
+    # Wersja 2.3 (część z inną karnacją: skóra i jej cień)
+    "fisher": {(255, 104, 28): (60, 140, 60), (0, 57, 170): (120, 80, 40), (255, 227, 170): (198, 134, 66), (227, 185, 101): (160, 100, 45)},
+    "surfer": {(255, 104, 28): (0, 200, 220), (0, 57, 170): (255, 140, 0)},
+    "beach": {(255, 104, 28): (255, 214, 70), (0, 57, 170): (30, 140, 220), (255, 227, 170): (141, 85, 36), (227, 185, 101): (110, 60, 20)},
+    "pirate": {(255, 104, 28): (200, 30, 40), (0, 57, 170): (30, 30, 36)},
+    "ninja": {(255, 104, 28): (40, 40, 48), (0, 57, 170): (60, 60, 70)},
+    "ghost": {(255, 104, 28): (200, 215, 240), (0, 57, 170): (150, 170, 210), (255, 227, 170): (230, 240, 255), (227, 185, 101): (190, 205, 230)},
+    "king": {(255, 104, 28): (150, 60, 200), (0, 57, 170): (255, 200, 40), (255, 227, 170): (224, 172, 105), (227, 185, 101): (190, 135, 70)},
+    "golden": {(255, 104, 28): (255, 200, 40), (0, 57, 170): (200, 140, 0)},
 }
 
 
 def build_sailors():
     for sailor_id, table in SAILORS.items():
         save(recolor(load("sailor"), mapping(table or {})), OUT_SPRITES / "sailors" / f"{sailor_id}.png")
+
+
+# Wersja 2.3: postacie narysowane od zera (9x9, jak oryginalny marynarz), a nie przemalowane.
+# Litery a/d/c to skóra, jej cień i oczy oryginału; pozostałe – kolory z tabeli danej postaci.
+DRAWN_SAILORS = {
+ "viking": (["w.......w",
+             "w.ggggg.w",
+             ".wgggggw.",
+             "..gcacg..",
+             "..yaaay..",
+             ".ayyyyya.",
+             "..arrra..",
+             "...ppp...",
+             "...p.p..."], dict(w=(240,232,205), g=(150,158,170), y=(255,206,60), r=(190,40,40), p=(110,70,40))),
+ "chef": ([".wwwwwww.",
+           "..wwwww..",
+           "..ggggg..",
+           "..acaca..",
+           "..ammma..",
+           ".awwwwwa.",
+           "..wwkww..",
+           "...kwk...",
+           "...k.k..."], dict(w=(250,250,250), g=(200,205,215), k=(40,40,48), m=(90,50,20))),
+ "cat": (["..o...o..",
+          "..oo.oo..",
+          "..ooooo..",
+          "..gcocg..",
+          "..oopoo..",
+          ".owwwwwo.",
+          "..nnnnn..",
+          "...www...",
+          "...o.o..."], dict(o=(245,150,40), g=(245,150,40), p=(255,130,150), w=(240,240,250), n=(30,60,150))),
+ "penguin": (["...kkk...",
+              "..kkkkk..",
+              "..kwkwk..",
+              "..kwowk..",
+              "..kwwwk..",
+              ".kkwwwkk.",
+              "..kwwwk..",
+              "...kkk...",
+              "..oo.oo.."], dict(k=(30,32,40), w=(245,245,250), o=(255,150,30))),
+ "frog": (["..g...g..",
+           ".gwg.gwg.",
+           ".gcgggcg.",
+           ".ggggggg.",
+           "..grrrg..",
+           ".lgggggl.",
+           "..lllll..",
+           "...ggg...",
+           "..gg.gg.."], dict(g=(70,170,60), w=(250,250,250), r=(200,40,60), l=(150,215,90))),
+ "skeleton": (["..rrrrr..",
+               ".rrwwwrr.",
+               "..kkwkk..",
+               "..wwkww..",
+               "...wkw...",
+               ".w.www.w.",
+               "...www...",
+               "...w.w...",
+               "...w.w..."], dict(r=(200,30,40), w=(235,235,225), k=(20,20,24))),
+ "santa": (["....rrw..",
+            "...rrr...",
+            "..wwwww..",
+            "..acaca..",
+            "..wwwww..",
+            ".rwwwwwr.",
+            "..rkykr..",
+            "...rrr...",
+            "...k.k..."], dict(r=(210,30,40), w=(250,250,250), k=(30,30,34), y=(255,200,40))),
+ "alien": (["..a...a..",
+            "...a.a...",
+            "..ggggg..",
+            ".gkkgkkg.",
+            "..ggggg..",
+            "...gdg...",
+            "..sssss..",
+            "...sss...",
+            "...s.s..."], dict(a=(120,230,90), g=(120,230,90), k=(20,20,30), d=(60,140,50), s=(160,90,220))),
+ "robot": (["....r....",
+            "....m....",
+            "..mmmmm..",
+            "..mcmcm..",
+            "..mmmmm..",
+            ".dmyyymd.",
+            "..mmmmm..",
+            "...mmm...",
+            "...d.d..."], dict(r=(255,60,60), m=(170,180,195), c=(60,220,255), d=(100,110,125), y=(255,200,40))),
+ "astronaut": (["...www...",
+                "..wwwww..",
+                ".wwbbbww.",
+                ".wbbllbw.",
+                ".wwbbbww.",
+                "..wwwww..",
+                ".wwrwrww.",
+                "...www...",
+                "...w.w..."], dict(w=(240,242,248), b=(30,50,110), l=(130,200,255), r=(220,60,60))),
+ "wizard": (["....p....",
+             "...ppp...",
+             "...pyp...",
+             ".ppppppp.",
+             "..acaca..",
+             "..wwwww..",
+             ".pwwwwwp.",
+             "..ppwpp..",
+             "...ppp..."], dict(p=(100,60,180), y=(255,215,60), w=(235,235,240))),
+ "shark": (["....g....",
+            "...ggg...",
+            "..ggggg..",
+            ".gcgggcg.",
+            ".wrwrwrw.",
+            "..rrrrr..",
+            ".gwwwwwg.",
+            "...ggg...",
+            "..gg.gg.."], dict(g=(110,130,150), w=(250,250,250), r=(200,40,50))),
+}
+
+
+def build_drawn_sailors():
+    base = {"a": (255, 227, 170), "d": (227, 185, 101), "c": (0, 0, 0)}
+    for sailor_id, (rows, colors) in DRAWN_SAILORS.items():
+        palette = {**base, **colors}
+        image = Image.new("RGBA", (9, 9), (0, 0, 0, 0))
+        for y, row in enumerate(rows):
+            assert len(row) == 9 and len(rows) == 9, sailor_id
+            for x, ch in enumerate(row):
+                if ch != ".":
+                    image.putpixel((x, y), palette[ch] + (255,))
+        save(image, OUT_SPRITES / "sailors" / f"{sailor_id}.png")
+
+
+# Wersja 2.3: widmokuda – najgroźniejszy potwór, narysowana od zera w stylu oryginałów (bez czarnego
+# obrysu, jasny grzbiet i ciemny spód, małe oko i paszcza pełna kłów jak u piranii). Patrzy w prawo jak rekin.
+# T/B/M/D – blask grzbietu, grzbiet, bok i spód; W – jasny brzuch; s – kolce grzbietu; f – płetwy;
+# A/a – półprzezroczysty ogon („widmo”); t/h – kły i paszcza; e/p – oko i źrenica.
+# Wariant „lock” (namierzyła łódź): czerwone oko i zjeżone, czerwone kolce.
+STALKER_FRAMES = [
+    ["..........s..s........",
+     "A........sssssf.......",
+     "AA.......TTTTTTT......",
+     "AAA....TTBBTBBDDDT....",
+     ".AAa.TTBTBBBBBBeeDTT..",
+     "..aaTBBBMMMMMMMepBBBT.",
+     "..aaBBBMMMfMMMMMMMBBBT",
+     "..aaBWWWfffMMMhththth.",
+     ".aaaDWWWWWWWWWhhththtt",
+     "aaa..DDDWWWWWWWWWWWDDD",
+     "aa...ff.DDDDDDDDDDD...",
+     "a........ff..........."],
+    ["..........s..s........",
+     ".........sssssf.......",
+     ".A.......TTTTTTT......",
+     "AAA....TTBBTBBDDDT....",
+     ".AAa.TTBTBBBBBBeeDTT..",
+     "..aaTBBBMMMMMMMepBBBT.",
+     "..aaBBBMMMfMMMMMMMBBBT",
+     "..aaBWWWMfffMMhththth.",
+     ".aaaDWWWWWWWWWhhththtt",
+     "aaa..DDDWWWWWWWWWWWDDD",
+     "aa...ff.DDDDDDDDDDD...",
+     "aa.......ff..........."],
+]
+STALKER_COLORS = dict(
+    T=(178, 168, 255), B=(122, 104, 232), M=(92, 72, 196), D=(58, 42, 138), W=(206, 212, 255),
+    s=(150, 136, 250), f=(96, 78, 206), A=(150, 136, 250), a=(96, 78, 206),
+    t=(240, 244, 255), h=(24, 14, 56), e=(255, 224, 64), p=(24, 14, 56),
+)
+STALKER_LOCK = dict(e=(255, 72, 52), s=(255, 96, 72))
+STALKER_GHOST_ALPHA = 170
+
+
+def build_stalker():
+    for prefix, extra in (("stalker", {}), ("stalkerlock", STALKER_LOCK)):
+        palette = {**STALKER_COLORS, **extra}
+        for i, rows in enumerate(STALKER_FRAMES, start=1):
+            image = Image.new("RGBA", (len(rows[0]), len(rows)), (0, 0, 0, 0))
+            for y, row in enumerate(rows):
+                assert len(row) == len(rows[0]), (prefix, i, y)
+                for x, ch in enumerate(row):
+                    if ch != ".":
+                        alpha = STALKER_GHOST_ALPHA if ch in "Aa" else 255
+                        image.putpixel((x, y), palette[ch] + (alpha,))
+            save(image, OUT_SPRITES / f"{prefix}{i}.png")
 
 
 def build_notification_icon():
@@ -254,5 +487,7 @@ if __name__ == "__main__":
     build_characters()
     build_boats()
     build_sailors()
+    build_drawn_sailors()
+    build_stalker()
     build_notification_icon()
     print("OK")

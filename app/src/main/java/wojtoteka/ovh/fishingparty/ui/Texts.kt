@@ -8,6 +8,8 @@ import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.data.ShopItem
+import wojtoteka.ovh.fishingparty.data.Workshop
+import wojtoteka.ovh.fishingparty.level.EnemyKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSpec
 import wojtoteka.ovh.fishingparty.level.LevelType
@@ -69,6 +71,46 @@ fun typeDescription(type: LevelType): String = stringResource(
     },
 )
 
+@Composable
+fun enemyName(kind: EnemyKind): String = stringResource(
+    when (kind) {
+        EnemyKind.PIRANHA -> R.string.enemy_piranha
+        EnemyKind.PIRANHA_VERTICAL -> R.string.enemy_piranha_vertical
+        EnemyKind.OCTOPUS -> R.string.enemy_octopus
+        EnemyKind.SHARK -> R.string.enemy_shark
+        EnemyKind.RED_PIRANHA -> R.string.enemy_red_piranha
+        EnemyKind.RED_OCTOPUS -> R.string.enemy_red_octopus
+        EnemyKind.DARK_SHARK -> R.string.enemy_dark_shark
+        EnemyKind.STALKER -> R.string.enemy_stalker
+    },
+)
+
+@Composable
+fun enemyDescription(kind: EnemyKind): String = stringResource(
+    when (kind) {
+        EnemyKind.PIRANHA -> R.string.enemy_piranha_desc
+        EnemyKind.PIRANHA_VERTICAL -> R.string.enemy_piranha_vertical_desc
+        EnemyKind.OCTOPUS -> R.string.enemy_octopus_desc
+        EnemyKind.SHARK -> R.string.enemy_shark_desc
+        EnemyKind.RED_PIRANHA -> R.string.enemy_red_piranha_desc
+        EnemyKind.RED_OCTOPUS -> R.string.enemy_red_octopus_desc
+        EnemyKind.DARK_SHARK -> R.string.enemy_dark_shark_desc
+        EnemyKind.STALKER -> R.string.enemy_stalker_desc
+    },
+)
+
+/** Sprite potwora na kartę poziomu. */
+fun enemyIcon(kind: EnemyKind): String = when (kind) {
+    EnemyKind.PIRANHA -> "piranha1"
+    EnemyKind.PIRANHA_VERTICAL -> "piranhafront0"
+    EnemyKind.OCTOPUS -> "octopus1"
+    EnemyKind.SHARK -> "shark1"
+    EnemyKind.RED_PIRANHA -> "piranhared1"
+    EnemyKind.RED_OCTOPUS -> "octopusred1"
+    EnemyKind.DARK_SHARK -> "sharkdark1"
+    EnemyKind.STALKER -> "stalker1"
+}
+
 /** Opisy trzech celów gwiazdkowych poziomu. */
 @Composable
 fun goalTexts(spec: LevelSpec): List<String> = listOf(
@@ -92,6 +134,10 @@ fun powerUpName(p: PowerUp): String = stringResource(
         PowerUp.SHIELD -> R.string.powerup_shield
         PowerUp.TURBO -> R.string.powerup_turbo
         PowerUp.LIFE -> R.string.powerup_life
+        PowerUp.NET -> R.string.powerup_net
+        PowerUp.FROST -> R.string.powerup_frost
+        PowerUp.LURE -> R.string.powerup_lure
+        PowerUp.RHYTHM -> R.string.powerup_rhythm
     },
 )
 
@@ -102,6 +148,10 @@ fun powerUpDescription(p: PowerUp): String = stringResource(
         PowerUp.SHIELD -> R.string.powerup_shield_desc
         PowerUp.TURBO -> R.string.powerup_turbo_desc
         PowerUp.LIFE -> R.string.powerup_life_desc
+        PowerUp.NET -> R.string.powerup_net_desc
+        PowerUp.FROST -> R.string.powerup_frost_desc
+        PowerUp.LURE -> R.string.powerup_lure_desc
+        PowerUp.RHYTHM -> R.string.powerup_rhythm_desc
     },
 )
 
@@ -110,11 +160,22 @@ fun powerUpIcon(p: PowerUp): String = when (p) {
     PowerUp.SHIELD -> "boats/navy/ship"
     PowerUp.TURBO -> "arrowup"
     PowerUp.LIFE -> "boats/classic/ship"
+    PowerUp.NET -> "fishblue1"
+    PowerUp.FROST -> "sharkfrost1"
+    PowerUp.LURE -> "fishgold1"
+    PowerUp.RHYTHM -> "combo"
+}
+
+/** Duże ikony (rekin, pętla) rysujemy o stopień mniejsze, żeby wszystkie kafelki miały podobną wielkość. */
+fun powerUpIconScale(p: PowerUp, base: Int): Int = when (p) {
+    PowerUp.FROST, PowerUp.RHYTHM -> (base - 1).coerceAtLeast(1)
+    else -> base
 }
 
 @Composable
 fun itemName(item: ShopItem): String {
     if (item.kind == ItemKind.POWERUP) return powerUpName(PowerUp.entries.first { it.id == item.id })
+    if (Workshop.isCreation(item)) return stringResource(if (item.kind == ItemKind.BOAT) R.string.boat_own else R.string.sail_own)
     return stringResource(
         when (item.key) {
             "boat:classic" -> R.string.boat_classic
@@ -125,6 +186,22 @@ fun itemName(item: ShopItem): String {
             "boat:royal" -> R.string.boat_royal
             "boat:shadow" -> R.string.boat_shadow
             "boat:golden" -> R.string.boat_golden
+            "boat:sky" -> R.string.boat_sky
+            "boat:teal" -> R.string.boat_teal
+            "boat:mint" -> R.string.boat_mint
+            "boat:lime" -> R.string.boat_lime
+            "boat:amber" -> R.string.boat_amber
+            "boat:rose" -> R.string.boat_rose
+            "boat:lavender" -> R.string.boat_lavender
+            "boat:silver" -> R.string.boat_silver
+            "boat:tangerine" -> R.string.boat_tangerine
+            "boat:coral" -> R.string.boat_coral
+            "boat:lemon" -> R.string.boat_lemon
+            "boat:turquoise" -> R.string.boat_turquoise
+            "boat:cobalt" -> R.string.boat_cobalt
+            "boat:fuchsia" -> R.string.boat_fuchsia
+            "boat:plum" -> R.string.boat_plum
+            "boat:ice" -> R.string.boat_ice
             "sail:white" -> R.string.sail_white
             "sail:red" -> R.string.sail_red
             "sail:blue" -> R.string.sail_blue
@@ -133,12 +210,69 @@ fun itemName(item: ShopItem): String {
             "sail:black" -> R.string.sail_black
             "sail:striped" -> R.string.sail_striped
             "sail:rainbow" -> R.string.sail_rainbow
+            "sail:orange" -> R.string.sail_orange
+            "sail:pink" -> R.string.sail_pink
+            "sail:purple" -> R.string.sail_purple
+            "sail:cyan" -> R.string.sail_cyan
+            "sail:marine" -> R.string.sail_marine
+            "sail:candy" -> R.string.sail_candy
+            "sail:poland" -> R.string.sail_poland
+            "sail:pirate" -> R.string.sail_pirate
+            "sail:ocean" -> R.string.sail_ocean
+            "sail:sunset" -> R.string.sail_sunset
+            "sail:gold" -> R.string.sail_gold
             "sailor:ginger" -> R.string.sailor_ginger
             "sailor:blond" -> R.string.sailor_blond
             "sailor:brunet" -> R.string.sailor_brunet
             "sailor:diver" -> R.string.sailor_diver
             "sailor:punk" -> R.string.sailor_punk
             "sailor:captain" -> R.string.sailor_captain
+            "sailor:fisher" -> R.string.sailor_fisher
+            "sailor:surfer" -> R.string.sailor_surfer
+            "sailor:beach" -> R.string.sailor_beach
+            "sailor:pirate" -> R.string.sailor_pirate
+            "sailor:ninja" -> R.string.sailor_ninja
+            "sailor:ghost" -> R.string.sailor_ghost
+            "sailor:king" -> R.string.sailor_king
+            "sailor:golden" -> R.string.sailor_golden
+            "sail:germany" -> R.string.sail_germany
+            "sail:ukraine" -> R.string.sail_ukraine
+            "sail:lithuania" -> R.string.sail_lithuania
+            "sail:czechia" -> R.string.sail_czechia
+            "sail:netherlands" -> R.string.sail_netherlands
+            "sail:austria" -> R.string.sail_austria
+            "sail:hungary" -> R.string.sail_hungary
+            "sail:france" -> R.string.sail_france
+            "sail:italy" -> R.string.sail_italy
+            "sail:spain" -> R.string.sail_spain
+            "sail:ireland" -> R.string.sail_ireland
+            "sail:belgium" -> R.string.sail_belgium
+            "sail:sweden" -> R.string.sail_sweden
+            "sail:norway" -> R.string.sail_norway
+            "sail:finland" -> R.string.sail_finland
+            "sail:denmark" -> R.string.sail_denmark
+            "sail:switzerland" -> R.string.sail_switzerland
+            "sail:portugal" -> R.string.sail_portugal
+            "sail:greece" -> R.string.sail_greece
+            "sail:uk" -> R.string.sail_uk
+            "sail:usa" -> R.string.sail_usa
+            "sail:canada" -> R.string.sail_canada
+            "sail:mexico" -> R.string.sail_mexico
+            "sail:brazil" -> R.string.sail_brazil
+            "sail:argentina" -> R.string.sail_argentina
+            "sail:japan" -> R.string.sail_japan
+            "sailor:cat" -> R.string.sailor_cat
+            "sailor:penguin" -> R.string.sailor_penguin
+            "sailor:frog" -> R.string.sailor_frog
+            "sailor:chef" -> R.string.sailor_chef
+            "sailor:viking" -> R.string.sailor_viking
+            "sailor:santa" -> R.string.sailor_santa
+            "sailor:skeleton" -> R.string.sailor_skeleton
+            "sailor:shark" -> R.string.sailor_shark
+            "sailor:robot" -> R.string.sailor_robot
+            "sailor:wizard" -> R.string.sailor_wizard
+            "sailor:alien" -> R.string.sailor_alien
+            "sailor:astronaut" -> R.string.sailor_astronaut
             else -> R.string.app_name
         },
     )

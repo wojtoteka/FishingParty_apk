@@ -9,12 +9,16 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import wojtoteka.ovh.fishingparty.game.KeyboardSteer
+import wojtoteka.ovh.fishingparty.notify.ChallengeReminder
+import wojtoteka.ovh.fishingparty.notify.ReminderLog
 import wojtoteka.ovh.fishingparty.notify.StreakReminder
 import wojtoteka.ovh.fishingparty.ui.AppRoot
+import wojtoteka.ovh.fishingparty.ui.KeyNav
 import wojtoteka.ovh.fishingparty.ui.ProvideUi
 
 class MainActivity : ComponentActivity() {
@@ -26,6 +30,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // Nowe uruchomienie gry (nie odtworzenie po obrocie czy zmianie języka) – liczy się w statystykach,
+        // a ogłoszenia „przy każdym uruchomieniu” pokazują się znowu.
+        if (savedInstanceState == null) app.online.onLaunch()
         drawBehindSystemBars()
         applyOrientation(resources.configuration)
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
@@ -42,6 +49,8 @@ class MainActivity : ComponentActivity() {
         app.inForeground = true
         app.audio.setForeground(true)
         StreakReminder.dismiss(this)
+        ChallengeReminder.dismiss(this)
+        ReminderLog.opened(this)
         app.online.onForeground()
     }
 
@@ -49,6 +58,7 @@ class MainActivity : ComponentActivity() {
         app.inForeground = false
         app.audio.setForeground(false)
         StreakReminder.schedule(this)
+        ChallengeReminder.schedule(this)
         app.online.onBackground()
         super.onPause()
     }
@@ -64,9 +74,21 @@ class MainActivity : ComponentActivity() {
         if (hasFocus) hideSystemBars() else KeyboardSteer.release()
     }
 
-    // Klawiatura steruje łodzią zanim Compose użyje strzałek do przenoszenia fokusu między przyciskami.
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        KeyboardSteer.onKey(event) || super.dispatchKeyEvent(event)
+    // Klawiatura steruje łodzią zanim Compose użyje strzałek do przenoszenia fokusu między przyciskami,
+    // a poza grą pierwsza strzałka wybiera przycisk na wierzchu (okienko, a nie ekran pod nim).
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Esc działa jak „wstecz” (zamyka okienko, wraca do menu, pauzuje grę) – nie każda klawiatura robi to sama.
+        // Przy wpisywaniu (pole RGB, logowanie) Esc najpierw chowa klawiaturę ekranową.
+        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE) {
+            if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+                val ime = ViewCompat.getRootWindowInsets(window.decorView)?.isVisible(WindowInsetsCompat.Type.ime()) == true
+                if (ime) WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.ime())
+                else onBackPressedDispatcher.onBackPressed()
+            }
+            return true
+        }
+        return KeyboardSteer.onKey(event) || KeyNav.onKey(event) || super.dispatchKeyEvent(event)
+    }
 
     /** Ekran nie gaśnie w trakcie gry (można wyłączyć w ustawieniach). */
     fun applyKeepScreenOn() {

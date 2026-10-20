@@ -22,6 +22,9 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.Sfx
+import wojtoteka.ovh.fishingparty.level.Challenge
+import wojtoteka.ovh.fishingparty.level.ChallengeKind
+import wojtoteka.ovh.fishingparty.level.Challenges
 
 private sealed interface Screen {
     data object Menu : Screen
@@ -31,11 +34,25 @@ private sealed interface Screen {
     data object Ranking : Screen
     data object Account : Screen
     data object Settings : Screen
-    data class Game(val level: Int, val loadout: Loadout, val attempt: Int, val tutorial: Boolean = false) : Screen
+    data class Game(
+        val level: Int,
+        val loadout: Loadout,
+        val attempt: Int,
+        val tutorial: Boolean = false,
+        /** Poziom dnia/tygodnia zamiast zwykłego poziomu [level]. */
+        val challenge: Challenge? = null,
+    ) : Screen
 }
 
 @Composable
 fun AppRoot() {
+    // Wersja zablokowana w panelu serwera (sprawdzane przy każdym wejściu z internetem) – zamiast gry tylko komunikat.
+    val block = LocalServices.current.online.versionBlock
+    if (block != null) VersionBlockedScreen(block) else AppContent()
+}
+
+@Composable
+private fun AppContent() {
     val services = LocalServices.current
     val repo = services.repo
     var attempts by remember { mutableIntStateOf(0) }
@@ -55,7 +72,7 @@ fun AppRoot() {
     var showDaily by remember { mutableStateOf(false) }
     var dailyOffered by remember { mutableStateOf(false) }
     var showRepair by remember { mutableStateOf(false) }
-    var showSoon by remember { mutableStateOf(false) }
+    var challengeDialog by remember { mutableStateOf<ChallengeKind?>(null) }
     var repairOffered by remember { mutableStateOf(false) }
     var lastSelection by remember { mutableStateOf(emptySet<PowerUp>()) }
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
@@ -65,19 +82,30 @@ fun AppRoot() {
     // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
     val currentScreen by rememberUpdatedState(screen)
     LaunchedEffect(Unit) { services.online.canAutoPull = { currentScreen !is Screen.Game } }
+    // Po wyjściu z rozgrywki łączymy postęp, który drugi telefon zapisał na koncie w jej trakcie.
+    var wasPlaying by remember { mutableStateOf(false) }
+    val playing = screen is Screen.Game
+    LaunchedEffect(playing) {
+        if (wasPlaying && !playing) services.online.syncNow()
+        wasPlaying = playing
+    }
 
-    fun start(level: Int, selection: Set<PowerUp>) {
+    fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null) {
         lastSelection = selection
         val loadout = repo.progress.consume(selection)
         repo.changed()
         attempts++
         intro = null
-        screen = Screen.Game(level, loadout, attempts)
+        challengeDialog = null
+        screen = Screen.Game(level, loadout, attempts, challenge = challenge)
     }
 
-    // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna.
-    LaunchedEffect(screen, showRepair, chooseControls) {
-        if (screen != Screen.Menu || showRepair || chooseControls || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
+    // Ogłoszenie z panelu serwera (pierwsze z niezamkniętych) – poza rozgrywką i po wyborze sterowania.
+    val announcement = services.online.announcements.firstOrNull()
+
+    // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna (obie po ogłoszeniach).
+    LaunchedEffect(screen, showRepair, chooseControls, announcement) {
+        if (screen != Screen.Menu || showRepair || chooseControls || announcement != null || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
         if (!repairOffered && repo.progress.streakRepair() != null) {
             repairOffered = true
             delay(600)
@@ -89,11 +117,12 @@ fun AppRoot() {
         }
     }
 
-    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && !showSoon) {
+    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null) {
         screen = Screen.Menu
     }
 
-    Box(Modifier.fillMaxSize().background(Pal.SeaDark)) {
+    // Cała aplikacja to warstwa nawigacji klawiaturą; okienka (Overlay) dokładają swoje na wierzchu.
+    Box(Modifier.fillMaxSize().background(Pal.SeaDark).keyLayer()) {
         when (val s = screen) {
             Screen.Menu -> MenuScreen(
                 onPlay = { intro = it },
@@ -107,7 +136,8 @@ fun AppRoot() {
                         Destination.SETTINGS -> screen = Screen.Settings
                         Destination.DAILY -> showDaily = true
                         Destination.REPAIR -> showRepair = true
-                        Destination.SOON -> showSoon = true
+                        Destination.DAILY_LEVEL -> challengeDialog = ChallengeKind.DAILY
+                        Destination.WEEKLY_LEVEL -> challengeDialog = ChallengeKind.WEEKLY
                     }
                 },
             )
@@ -121,12 +151,17 @@ fun AppRoot() {
                 // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
                 onTutorial = { screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true) },
             )
-            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial) { exit ->
+            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge) { exit ->
+                val challenge = s.challenge
                 when (exit) {
-                    GameExit.ToMap -> screen = Screen.Map
+                    // Poziom dnia/tygodnia nie leży na mapie – wracamy do menu.
+                    GameExit.ToMap -> screen = if (challenge != null) Screen.Menu else Screen.Map
                     GameExit.ToMenu -> screen = Screen.Menu
-                    is GameExit.Retry ->
-                        if (s.tutorial) screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true) else start(exit.level, lastSelection)
+                    is GameExit.Retry -> when {
+                        s.tutorial -> screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true)
+                        challenge != null -> start(exit.level, lastSelection, challenge)
+                        else -> start(exit.level, lastSelection)
+                    }
                     is GameExit.Next -> {
                         screen = Screen.Map
                         intro = exit.level
@@ -141,8 +176,13 @@ fun AppRoot() {
         if (screen !is Screen.Game) OnlineDialogs()
         if (showDaily) DailyRewardDialog(onClose = { showDaily = false })
         if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
-        if (showSoon) SoonDialog(onClose = { showSoon = false })
+        challengeDialog?.let { kind ->
+            ChallengeDialog(kind, onPlay = { challenge, selection -> start(Challenges.LEVEL_NUMBER, selection, challenge) }, onClose = { challengeDialog = null })
+        }
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
+        if (announcement != null && screen !is Screen.Game && !chooseControls) {
+            AnnouncementDialog(announcement, onClose = { services.online.dismissAnnouncement(announcement) })
+        }
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {
                 PixelText(stringResource(R.string.save_tampered), size = 2, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())

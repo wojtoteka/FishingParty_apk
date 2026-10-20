@@ -4,8 +4,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,10 +21,16 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.layout.LazyLayoutCacheWindow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,11 +42,14 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInputModeManager
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.Font
@@ -46,10 +57,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import wojtoteka.ovh.fishingparty.FishingPartyApp
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.audio.AudioEngine
@@ -89,6 +102,12 @@ object Pal {
     val GreyLight = Color(0xFFB4B4B4)
     val GreyDark = Color(0xFF5A5A5A)
     val Gold = Color(0xFFFFC420)
+    val Orange = Color(0xFFFF8A1E)
+    val OrangeLight = Color(0xFFFFC27A)
+    val OrangeDark = Color(0xFFD25E00)
+    val Purple = Color(0xFF9A52E0)
+    val PurpleLight = Color(0xFFD7B0FF)
+    val PurpleDark = Color(0xFF6A2DB0)
     val White = Color.White
     val Scrim = Color(0xA0000000)
 }
@@ -102,13 +121,20 @@ val LocalUnit = staticCompositionLocalOf { 3 }
 
 val BitCell = FontFamily(Font(R.font.bitcell))
 
+/**
+ * Wspólny miernik tekstu z dużą pamięcią. Każdy [PixelText] miał własny, więc w listach (sklep, odznaki)
+ * każda nowa karta przy przewijaniu od nowa układała te same napisy – ceny, „WYBIERZ”, „W UŻYCIU”.
+ */
+val LocalTextMeasurer = staticCompositionLocalOf<TextMeasurer?> { null }
+
 @Composable
 fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
     // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
     val window = LocalWindowInfo.current.containerSize
     val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
     val services = remember(app) { Services(app.repository, app.audio, app.online) }
-    CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, content = content)
+    val measurer = rememberTextMeasurer(cacheSize = 512)
+    CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, LocalTextMeasurer provides measurer, content = content)
 }
 
 /** Piksele interfejsu → dp. */
@@ -126,18 +152,67 @@ fun px(units: Float): Dp {
 
 /** Rozmiar fontu: 1 = mały, 2 = zwykły, 3 = duży, 4+ = nagłówki. Zawsze całkowite piksele – litery są ostre. */
 @Composable
-fun fontPixels(size: Int): Int {
-    val u = LocalUnit.current
-    return when (size) {
-        1 -> u
-        2 -> (u * 4f / 3f).roundToInt()
-        else -> u * (size - 1)
-    }
+fun fontPixels(size: Int): Int = fontPixels(size, LocalUnit.current)
+
+fun fontPixels(size: Int, u: Int): Int = when (size) {
+    1 -> u
+    2 -> (u * 4f / 3f).roundToInt()
+    else -> u * (size - 1)
 }
 
+/** Styl napisu [PixelText] (fp – piksele fontu z [fontPixels]); ten sam w kartach rysowanych ręcznie. */
+fun pixelTextStyle(fp: Int, color: Color, align: TextAlign, density: Density): TextStyle = with(density) {
+    TextStyle(
+        fontFamily = BitCell,
+        fontSize = (16 * fp).toSp(),
+        lineHeight = (11 * fp).toSp(),
+        color = color,
+        textAlign = align,
+    )
+}
+
+/**
+ * Mierzy napis jak [PixelText]. [maxWidth] obejmuje obrys (po pikselu fontu z każdej strony),
+ * a pełny rozmiar z obrysem to rozmiar wyniku powiększony o 2·fp.
+ */
+fun TextMeasurer.measurePixelText(
+    text: String,
+    fp: Int,
+    color: Color,
+    density: Density,
+    maxWidth: Int,
+    align: TextAlign = TextAlign.Start,
+    maxLines: Int = Int.MAX_VALUE,
+    outline: Boolean = true,
+): TextLayoutResult {
+    val o = if (outline) fp else 0
+    return measure(
+        AnnotatedString(text),
+        pixelTextStyle(fp, color, align, density),
+        constraints = Constraints(maxWidth = max(0, maxWidth - 2 * o)),
+        maxLines = maxLines,
+    )
+}
+
+/** Rysuje zmierzony napis z obrysem tak jak [PixelText]; (x, y) to lewy górny róg razem z obrysem. */
+fun DrawScope.drawPixelText(r: TextLayoutResult, x: Float, y: Float, fp: Int, outline: Color? = Pal.Outline) {
+    val o = if (outline != null) fp.toFloat() else 0f
+    if (outline != null) {
+        for ((dx, dy) in OUTLINE_OFFSETS) {
+            drawText(r, color = outline, topLeft = Offset(x + o + dx * fp, y + o + dy * fp))
+        }
+    }
+    drawText(r, topLeft = Offset(x + o, y + o))
+}
+
+/**
+ * Wynik pomiaru tekstu. Stan Compose, a nie zwykłe pola: gdy tekst się zmienia, a szerokość
+ * zostaje ta sama (np. sekundy w odliczaniu), węzeł nie zmienia rozmiaru i bez odczytu stanu
+ * w rysowaniu na ekranie zostawałby stary napis.
+ */
 private class TextHolder {
-    var result: TextLayoutResult? = null
-    var offsetX = 0
+    var result by mutableStateOf<TextLayoutResult?>(null)
+    var offsetX by mutableIntStateOf(0)
 }
 
 /** Tekst BitCell z pikselowym obrysem (jak napisy w grze). */
@@ -153,30 +228,13 @@ fun PixelText(
 ) {
     val fp = fontPixels(size)
     val density = LocalDensity.current
-    val measurer = rememberTextMeasurer(cacheSize = 4)
-    val style = remember(fp, color, align, density) {
-        with(density) {
-            TextStyle(
-                fontFamily = BitCell,
-                fontSize = (16 * fp).toSp(),
-                lineHeight = (11 * fp).toSp(),
-                color = color,
-                textAlign = align,
-            )
-        }
-    }
+    val measurer = LocalTextMeasurer.current ?: rememberTextMeasurer(cacheSize = 4)
+    val style = remember(fp, color, align, density) { pixelTextStyle(fp, color, align, density) }
     val holder = remember { TextHolder() }
     Layout(
         modifier = modifier.drawBehind {
             val r = holder.result ?: return@drawBehind
-            val o = if (outline != null) fp.toFloat() else 0f
-            val x = holder.offsetX.toFloat()
-            if (outline != null) {
-                for ((dx, dy) in OUTLINE_OFFSETS) {
-                    drawText(r, color = outline, topLeft = Offset(x + o + dx * fp, o + dy * fp))
-                }
-            }
-            drawText(r, topLeft = Offset(x + o, o))
+            drawPixelText(r, holder.offsetX.toFloat(), 0f, fp, outline)
         },
     ) { _, constraints ->
         val o = if (outline != null) fp else 0
@@ -262,12 +320,23 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
     WOOD(Pal.Wood, Pal.WoodLight, Pal.WoodDark),
     RED(Pal.Red, Pal.RedLight, Pal.RedDark),
     GREY(Pal.Grey, Pal.GreyLight, Pal.GreyDark),
+    /** Poziom dnia. */
+    ORANGE(Pal.Orange, Pal.OrangeLight, Pal.OrangeDark),
+    /** Poziom tygodnia. */
+    PURPLE(Pal.Purple, Pal.PurpleLight, Pal.PurpleDark),
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */
-fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline: Color = Pal.Outline, shadow: Float = 2f) {
-    val w = size.width
-    val h = size.height
+fun DrawScope.pixelBox(
+    u: Float,
+    base: Color,
+    light: Color,
+    dark: Color,
+    outline: Color = Pal.Outline,
+    shadow: Float = 2f,
+    w: Float = size.width,
+    h: Float = size.height,
+) {
     drawRect(outline, Offset(u, 0f), Size(w - 2 * u, h))
     drawRect(outline, Offset(0f, u), Size(w, h - 2 * u))
     drawRect(base, Offset(u, u), Size(w - 2 * u, h - 2 * u))
@@ -280,6 +349,31 @@ fun DrawScope.pixelBox(u: Float, base: Color, light: Color, dark: Color, outline
  * Zaokrąglone rogi wyświetlacza ścinały narożniki ostatniej karty, gdy stała tuż przy dole.
  */
 const val BOTTOM_GAP = 24
+
+/**
+ * Złota ramka wokół elementu wybranego z klawiatury (strzałki, Tab). Rysowana na zewnątrz elementu,
+ * z odstępem i uciętymi narożnikami jak [pixelBox].
+ */
+fun DrawScope.focusRing(u: Float, width: Float = size.width, height: Float = size.height) {
+    fun ring(gap: Float, line: Float, color: Color) {
+        val w = width + 2 * gap
+        val h = height + 2 * gap
+        drawRect(color, Offset(-gap + u, -gap), Size(w - 2 * u, line))
+        drawRect(color, Offset(-gap + u, height + gap - line), Size(w - 2 * u, line))
+        drawRect(color, Offset(-gap, -gap + u), Size(line, h - 2 * u))
+        drawRect(color, Offset(width + gap - line, -gap + u), Size(line, h - 2 * u))
+    }
+    // Złoto z ciemnym obrysem po obu stronach – widać je na piasku, wodzie i złotych przyciskach.
+    ring(4 * u, 4 * u, Pal.Outline)
+    ring(3 * u, 2 * u, Pal.Gold)
+}
+
+/** Czy element ma fokus z klawiatury – po dotknięciu ekranu ramka znika, nawet jeśli fokus został. */
+@Composable
+fun keyFocused(interaction: MutableInteractionSource): Boolean {
+    val focused by interaction.collectIsFocusedAsState()
+    return focused && LocalInputModeManager.current.inputMode == InputMode.Keyboard
+}
 
 /** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
 const val MIN_BUTTON = 32
@@ -300,10 +394,16 @@ fun PixelButton(
     val u = LocalUnit.current.toFloat()
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
+    val focused = keyFocused(interaction)
     val s = if (enabled) style else ButtonStyle.GREY
     Box(
         modifier = modifier
-            .drawBehind { pixelBox(u, s.base, s.light, s.dark, shadow = if (pressed) 1f else 3f) }
+            // Wybrany przycisk rysuje się nad sąsiadami, żeby nie zasłaniały mu ramki.
+            .zIndex(if (focused) 1f else 0f)
+            .drawBehind {
+                if (focused) focusRing(u)
+                pixelBox(u, s.base, s.light, s.dark, shadow = if (pressed) 1f else 3f)
+            }
             .clickable(interactionSource = interaction, indication = null, enabled = enabled) {
                 if (sound) services.audio.play(Sfx.CLICK)
                 onClick()
@@ -332,6 +432,7 @@ fun PixelButton(
 fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val u = LocalUnit.current.toFloat()
     val sand = rememberSprite("tiles/sunny_bay/sandfull")
+    val scroll = rememberScrollState()
     Column(
         modifier = modifier
             .drawBehind {
@@ -345,7 +446,7 @@ fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, conte
                 drawContext.canvas.restore()
             }
             // Ramka stoi w miejscu, przewija się tylko zawartość.
-            .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+            .then(if (scrollable) Modifier.keyScroll(scroll).verticalScroll(scroll) else Modifier)
             .padding(px(8)),
         horizontalAlignment = Alignment.CenterHorizontally,
         content = content,
@@ -425,8 +526,22 @@ fun PixelBar(fraction: Float, modifier: Modifier = Modifier, color: Color = Pal.
 @Composable
 fun Modifier.noRippleClick(onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
-    return this.clickable(interactionSource = interaction, indication = null, onClick = onClick)
+    val focused = keyFocused(interaction)
+    val u = LocalUnit.current.toFloat()
+    return this
+        .zIndex(if (focused) 1f else 0f)
+        .drawBehind { if (focused) focusRing(u) }
+        .clickable(interactionSource = interaction, indication = null, onClick = onClick)
 }
+
+/**
+ * Listy (odznaki, ranking) przygotowują karty z wyprzedzeniem – mniej więcej ekran do przodu
+ * i pół ekranu wstecz – w wolnym czasie między klatkami. Przy szybkim przewijaniu karta jest już
+ * gotowa, zamiast powstawać w tej samej klatce, w której ma się pokazać.
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+fun rememberListState(): LazyListState = rememberLazyListState(LazyLayoutCacheWindow(aheadFraction = 1f, behindFraction = 0.5f))
 
 @Composable
 fun VSpace(units: Int) = Box(Modifier.size(width = 1.dp, height = px(units)))

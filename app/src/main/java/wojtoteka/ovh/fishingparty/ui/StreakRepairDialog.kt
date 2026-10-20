@@ -93,6 +93,7 @@ fun StreakRepairDialog(onClose: () -> Unit) {
                 stringResource(R.string.repair_later),
                 onClick = onClose,
                 style = ButtonStyle.WOOD,
+                size = 2,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             PixelButton(
@@ -108,15 +109,12 @@ fun StreakRepairDialog(onClose: () -> Unit) {
                 enabled = affordable,
                 modifier = Modifier.weight(1.4f).fillMaxHeight(),
             ) {
-                // Cena w osobnej linii – w jednej z napisem łamała się na wąskim telefonie.
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    PixelText(stringResource(R.string.streak_repair), size = 3)
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        SpriteImage("fishscore_gold", 2)
-                        HSpace(1)
-                        PixelText(offer.cost.toString(), size = 3, maxLines = 1)
-                    }
-                }
+                // Napis i cena w jednej linii, mniejszą czcionką – przycisk jest cienki, a nic się nie łamie nawet na wąskim telefonie.
+                PixelText(stringResource(R.string.streak_repair), size = 2, maxLines = 1)
+                HSpace(3)
+                SpriteImage("fishscore_gold", 1)
+                HSpace(1)
+                PixelText(offer.cost.toString(), size = 2, maxLines = 1)
             }
         }
         if (!affordable) {

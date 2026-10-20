@@ -158,6 +158,7 @@ object StreakReminder {
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
             .build()
         manager.notify(NOTIFICATION_ID, notification)
+        ReminderLog.notified(context)
     }
 
     /** Tytuł i treść – kilka wariantów, zmieniających się z dnia na dzień, żeby nie nudziły. */
@@ -176,7 +177,8 @@ object StreakReminder {
             }
             ReminderKind.SECOND -> context.getString(R.string.notif_second_title) to context.getString(R.string.notif_second_text, daysText)
             ReminderKind.LAST -> context.getString(R.string.notif_last_title) to context.getString(R.string.notif_last_text, daysText)
-            ReminderKind.REPAIR -> context.getString(R.string.notif_repair_title) to context.getString(R.string.notif_repair_text, daysText)
+            ReminderKind.REPAIR -> context.getString(R.string.notif_repair_title) to
+                context.getString(R.string.notif_repair_text, daysText, context.getString(R.string.streak_repair))
         }
     }
 }
@@ -190,6 +192,7 @@ class StreakBootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
             StreakReminder.schedule(context)
+            ChallengeReminder.schedule(context)
         }
     }
 }
