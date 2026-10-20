@@ -46,6 +46,24 @@ class ChallengeResult(
     val at: Long,
 )
 
+/**
+ * Zakończony przejazd poziomu gracza (z kreatora), który czeka na wysłanie na serwer – wygrany ([completed])
+ * albo przegrany (liczy się do statystyk poziomu). Serwer odpowiada monetami i punktami rankingu.
+ */
+class UserLevelPlay(
+    val levelId: Int,
+    val completed: Boolean,
+    val score: Int,
+    val timeMillis: Long,
+    val common: Int,
+    val blue: Int,
+    val golden: Int,
+    val hits: Int,
+    val maxCombo: Int,
+    val stages: Int,
+    val at: Long,
+)
+
 /** Sterowanie łodzią: przesuwanie palcem po całym ekranie albo stały joystick w rogu. */
 enum class ControlMode { SWIPE, JOYSTICK }
 
@@ -128,6 +146,18 @@ class SaveData {
     var weeklyLevelReminders = true
     var challengeReminderHour = ChallengeReminderPlan.DEFAULT_HOUR
 
+    /** Poziomy graczy (id z serwera) ukończone na tym telefonie albo koncie. */
+    val userLevelsDone = LinkedHashSet<Int>()
+
+    /** Przejazdy poziomów graczy, których jeszcze nie udało się wysłać (np. bez internetu). */
+    val userLevelQueue = ArrayDeque<UserLevelPlay>()
+
+    /**
+     * Rozpoczęty odbiór zarobku z targu: identyfikator prośby ponawianej, dopóki serwer nie odpowie
+     * (ta sama prośba nie wypłaca drugi raz). Pusty – nic nie czeka.
+     */
+    var marketClaim = ""
+
     /** Liczba poziomów w tablicach rekordów i gwiazdek (co najmniej 1000). */
     val levelSlots: Int get() = stars.size
 
@@ -147,13 +177,15 @@ class SaveData {
     companion object {
         const val MAX_RECORDS = 50
         const val MAX_CHALLENGE_RESULTS = 20
+        const val MAX_USER_LEVEL_QUEUE = 30
+        const val MAX_USER_LEVELS_DONE = 5000
     }
 }
 
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 6
+    private const val VERSION = 7
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -256,6 +288,24 @@ object SaveCodec {
             o.writeBoolean(d.dailyLevelReminders)
             o.writeBoolean(d.weeklyLevelReminders)
             o.writeByte(d.challengeReminderHour)
+            // v7
+            o.writeShort(d.userLevelsDone.size)
+            for (id in d.userLevelsDone) o.writeInt(id)
+            o.writeShort(d.userLevelQueue.size)
+            for (p in d.userLevelQueue) {
+                o.writeInt(p.levelId)
+                o.writeBoolean(p.completed)
+                o.writeInt(p.score)
+                o.writeLong(p.timeMillis)
+                o.writeShort(p.common)
+                o.writeShort(p.blue)
+                o.writeShort(p.golden)
+                o.writeShort(p.hits)
+                o.writeByte(p.maxCombo)
+                o.writeByte(p.stages)
+                o.writeLong(p.at)
+            }
+            o.writeUTF(d.marketClaim)
         }
         return bytes.toByteArray()
     }
@@ -383,6 +433,25 @@ object SaveCodec {
                 d.dailyLevelReminders = i.readBoolean()
                 d.weeklyLevelReminders = i.readBoolean()
                 d.challengeReminderHour = i.readByte().toInt()
+            }
+            if (version >= 7) {
+                repeat(i.readUnsignedShort()) { d.userLevelsDone += i.readInt() }
+                repeat(i.readUnsignedShort()) {
+                    d.userLevelQueue += UserLevelPlay(
+                        levelId = i.readInt(),
+                        completed = i.readBoolean(),
+                        score = i.readInt(),
+                        timeMillis = i.readLong(),
+                        common = i.readShort().toInt(),
+                        blue = i.readShort().toInt(),
+                        golden = i.readShort().toInt(),
+                        hits = i.readShort().toInt(),
+                        maxCombo = i.readByte().toInt(),
+                        stages = i.readByte().toInt(),
+                        at = i.readLong(),
+                    )
+                }
+                d.marketClaim = i.readUTF()
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.

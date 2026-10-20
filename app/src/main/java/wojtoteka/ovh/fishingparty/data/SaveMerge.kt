@@ -76,6 +76,13 @@ object SaveMerge {
         out.records.clear()
         out.records += records.takeLast(SaveData.MAX_RECORDS)
         mergeChallenges(base, local, remote, out)
+        out.userLevelsDone += local.userLevelsDone
+        // Przejazdy poziomów graczy z obu telefonów czekają na wysłanie (serwer odrzuca powtórki tego samego przejazdu).
+        val plays = (remote.userLevelQueue + local.userLevelQueue).distinctBy { it.levelId to it.at }.sortedBy { it.at }
+        out.userLevelQueue.clear()
+        out.userLevelQueue += plays.takeLast(SaveData.MAX_USER_LEVEL_QUEUE)
+        // Odbiór zarobku rozpoczęty na tym telefonie dokańcza ten telefon.
+        if (local.marketClaim.isNotEmpty()) out.marketClaim = local.marketClaim
 
         // ---------------------------------------------------------------- ustawienia: zmienione tutaj wygrywają
         fun <T> pick(b: T, l: T, r: T) = if (l != b) l else r
