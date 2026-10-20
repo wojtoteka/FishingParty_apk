@@ -26,6 +26,7 @@ import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
+import wojtoteka.ovh.fishingparty.level.UserLevels
 import kotlin.math.atan2
 import kotlin.math.floor
 import kotlin.math.sqrt
@@ -52,11 +53,12 @@ class GameSimulationTest {
         spec = layout.spec,
         grid = layout.grid,
         stages = layout.stages.map {
-            StageLayout(it.index, it.gateRow, it.topRow, it.bottomRow, it.doorCols, it.quota, it.fish, it.golden, emptyList(), it.reachable)
+            StageLayout(it.index, it.gateRow, it.topRow, it.bottomRow, it.doorCols, it.quota, it.fish, it.golden, emptyList(), it.reachable, it.currentX, it.currentY)
         },
         startCol = layout.startCol,
         startRow = layout.startRow,
         crabs = layout.crabs,
+        rowWorlds = layout.rowWorlds,
     )
 
     private fun play(number: Int): Pair<RunResult?, GameWorld> = play(LevelGenerator.generate(number), tutorial = false)
@@ -194,8 +196,8 @@ class GameSimulationTest {
         val dx = tx - world.shipX
         val dy = ty - world.shipY
         val d = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
-        val vx = dx / d * world.maxSpeed - world.spec.currentX
-        val vy = dy / d * world.maxSpeed - world.spec.currentY
+        val vx = dx / d * world.maxSpeed - (stage.currentX ?: world.spec.currentX)
+        val vy = dy / d * world.maxSpeed - (stage.currentY ?: world.spec.currentY)
         world.setInput(true, atan2(vy, vx))
     }
 
@@ -269,6 +271,26 @@ class GameSimulationTest {
                 assertTrue("$kind #$i: wynik niewiarygodny", ScoreValidator.isPlausible(plan, result!!))
             }
         }
+    }
+
+    /** Poziomy z kreatora bez błędów da się przejść (prąd w etapach, różne palety, start od dalszego etapu). */
+    @Test
+    fun botCompletesUserLevels() {
+        var played = 0
+        for (seed in 1L..80L) {
+            val level = UserLevelSamples.random(seed).copy(time = 0)
+            if (UserLevels.check(level).any { it.error }) continue
+            val built = UserLevels.build(level)
+            val (result, world) = play(built.layout, tutorial = false)
+            assertTrue("poziom gracza $seed nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            assertTrue("poziom gracza $seed: wynik niewiarygodny", ScoreValidator.isPlausible(built.plan, result!!))
+            if (level.stages.size > 1) {
+                val (partial, _) = play(UserLevels.build(level, fromStage = 1).layout, tutorial = false)
+                assertTrue("poziom gracza $seed od etapu 2 nieukończony", partial?.completed == true)
+            }
+            played++
+        }
+        assertTrue("za mało poprawnych próbek: $played", played >= 20)
     }
 
     /** Wzmocnienia ułatwiają grę, ale nie mogą dać wyniku ponad limity anty-cheat (serwer liczy je bez wzmocnień). */
