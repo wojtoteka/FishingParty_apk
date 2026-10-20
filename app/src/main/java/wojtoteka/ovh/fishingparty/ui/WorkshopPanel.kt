@@ -440,7 +440,7 @@ private fun PatternChip(design: SailDesign, selected: Boolean, modifier: Modifie
     )
 }
 
-private fun DrawScope.drawGrid(grid: Array<IntArray>, topLeft: Offset, area: Size) {
+internal fun DrawScope.drawGrid(grid: Array<IntArray>, topLeft: Offset, area: Size) {
     val rows = grid.size
     val cols = grid[0].size
     for (r in 0 until rows) {

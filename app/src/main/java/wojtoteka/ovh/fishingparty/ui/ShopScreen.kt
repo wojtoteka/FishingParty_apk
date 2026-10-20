@@ -121,7 +121,7 @@ private fun drawShip(canvas: android.graphics.Canvas, look: ShipLook, scale: Int
 private const val SHIP_H = 28f
 private const val SHIP_W = 24f
 
-private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
+private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS, MARKET }
 
 @Composable
 fun ShopScreen(onBack: () -> Unit) {
@@ -147,6 +147,7 @@ fun ShopScreen(onBack: () -> Unit) {
         ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
+        ShopTab.MARKET -> emptyList()
     }
     // Karta ŻAGLE: zwykłe kolory, pod nimi flagi (z nagłówkiem), potem własne żagle i kreator na samym dole.
     val flags = if (tab == ShopTab.SAILS) Catalog.flags else emptyList()
@@ -173,6 +174,7 @@ fun ShopScreen(onBack: () -> Unit) {
                                 ShopTab.SAILS -> R.string.shop_sails
                                 ShopTab.SAILORS -> R.string.shop_sailors
                                 ShopTab.POWERUPS -> R.string.shop_powerups
+                                ShopTab.MARKET -> R.string.shop_market
                             },
                         ),
                         onClick = {
@@ -180,7 +182,7 @@ fun ShopScreen(onBack: () -> Unit) {
                             preview = null
                             workshopOpen = false
                         },
-                        style = if (t == tab) ButtonStyle.GREEN else ButtonStyle.SEA,
+                        style = if (t == tab) ButtonStyle.GREEN else if (t == ShopTab.MARKET) ButtonStyle.ORANGE else ButtonStyle.SEA,
                         size = 2,
                         modifier = Modifier.weight(1f),
                     )
@@ -233,6 +235,8 @@ fun ShopScreen(onBack: () -> Unit) {
                     .padding(start = px(6), top = gap, end = px(6), bottom = px(BOTTOM_GAP)),
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
+                // Targ: projekty innych graczy i stoisko gracza (zamiast kart sklepu).
+                if (tab == ShopTab.MARKET) MarketPanel(preview?.key, onPreview = { preview = it }, onEquip = equip)
                 // Własne łodzie i żagle dochodzą na koniec ostatniej sekcji, w tych samych rzędach.
                 CardRows(if (flags.isEmpty()) items + creations else items, gap, card)
                 if (flags.isNotEmpty()) {
