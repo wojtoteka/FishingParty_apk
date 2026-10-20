@@ -25,6 +25,7 @@ import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
+import wojtoteka.ovh.fishingparty.level.UserLevels
 
 private sealed interface Screen {
     data object Menu : Screen
@@ -34,6 +35,9 @@ private sealed interface Screen {
     data object Ranking : Screen
     data object Account : Screen
     data object Settings : Screen
+    data object Community : Screen
+    data object Creator : Screen
+    data class Editor(val draftId: String) : Screen
     data class Game(
         val level: Int,
         val loadout: Loadout,
@@ -41,6 +45,8 @@ private sealed interface Screen {
         val tutorial: Boolean = false,
         /** Poziom dnia/tygodnia zamiast zwykłego poziomu [level]. */
         val challenge: Challenge? = null,
+        /** Poziom z kreatora (test, przejście przed publikacją albo poziom gracza). */
+        val custom: CustomRun? = null,
     ) : Screen
 }
 
@@ -88,6 +94,16 @@ private fun AppContent() {
     LaunchedEffect(playing) {
         if (wasPlaying && !playing) services.online.syncNow()
         wasPlaying = playing
+    }
+
+    // Lista poziomów graczy zostaje taka sama po zagraniu w poziom.
+    val communityBrowser = remember { CommunityBrowser() }
+
+    /** Poziom z kreatora – bez wzmocnień (liczy się sama umiejętność). */
+    fun startCustom(run: CustomRun) {
+        attempts++
+        intro = null
+        screen = Screen.Game(UserLevels.LEVEL_NUMBER, Loadout(), attempts, custom = run)
     }
 
     fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null) {
@@ -138,6 +154,8 @@ private fun AppContent() {
                         Destination.REPAIR -> showRepair = true
                         Destination.DAILY_LEVEL -> challengeDialog = ChallengeKind.DAILY
                         Destination.WEEKLY_LEVEL -> challengeDialog = ChallengeKind.WEEKLY
+                        Destination.COMMUNITY -> screen = Screen.Community
+                        Destination.CREATOR -> screen = Screen.Creator
                     }
                 },
             )
@@ -151,8 +169,37 @@ private fun AppContent() {
                 // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
                 onTutorial = { screen = Screen.Game(1, Loadout(), ++attempts, tutorial = true) },
             )
-            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge) { exit ->
+            Screen.Community -> CommunityScreen(
+                communityBrowser,
+                onBack = { screen = Screen.Menu },
+                onPlay = { d -> startCustom(CustomRun(d.data, CustomMode.PLAY, d.level.title, onlineId = d.level.id)) },
+                onCopied = { },
+            )
+            Screen.Creator -> CreatorScreen(onBack = { screen = Screen.Menu }, onEdit = { screen = Screen.Editor(it) })
+            is Screen.Editor -> EditorScreen(
+                s.draftId,
+                onBack = { screen = Screen.Creator },
+                onPlay = { draft, run ->
+                    startCustom(
+                        when (run) {
+                            is EditorRun.Test -> CustomRun(draft.level, CustomMode.TEST, draft.level.title, fromStage = run.fromStage, draftId = draft.id)
+                            EditorRun.Verify -> CustomRun(draft.level, CustomMode.VERIFY, draft.level.title, draftId = draft.id)
+                        },
+                    )
+                },
+                onAccount = { screen = Screen.Account },
+            )
+            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge, s.custom) { exit ->
                 val challenge = s.challenge
+                val custom = s.custom
+                if (custom != null) {
+                    when (exit) {
+                        GameExit.ToMap -> screen = if (custom.mode == CustomMode.PLAY || custom.draftId == null) Screen.Community else Screen.Editor(custom.draftId)
+                        GameExit.ToMenu -> screen = Screen.Menu
+                        is GameExit.Retry, is GameExit.Next -> startCustom(custom)
+                    }
+                    return@GameScreen
+                }
                 when (exit) {
                     // Poziom dnia/tygodnia nie leży na mapie – wracamy do menu.
                     GameExit.ToMap -> screen = if (challenge != null) Screen.Menu else Screen.Map

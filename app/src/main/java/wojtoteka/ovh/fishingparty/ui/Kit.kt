@@ -67,6 +67,7 @@ import wojtoteka.ovh.fishingparty.FishingPartyApp
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.audio.AudioEngine
 import wojtoteka.ovh.fishingparty.data.GameRepository
+import wojtoteka.ovh.fishingparty.data.LevelDrafts
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.Sprites
 import wojtoteka.ovh.fishingparty.online.OnlineManager
@@ -108,11 +109,14 @@ object Pal {
     val Purple = Color(0xFF9A52E0)
     val PurpleLight = Color(0xFFD7B0FF)
     val PurpleDark = Color(0xFF6A2DB0)
+    val Teal = Color(0xFF00AAAA)
+    val TealLight = Color(0xFF7FE6DC)
+    val TealDark = Color(0xFF007A7A)
     val White = Color.White
     val Scrim = Color(0xA0000000)
 }
 
-class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager)
+class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager, val drafts: LevelDrafts)
 
 val LocalServices = staticCompositionLocalOf<Services> { error("Brak usług") }
 
@@ -132,7 +136,7 @@ fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
     // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
     val window = LocalWindowInfo.current.containerSize
     val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
-    val services = remember(app) { Services(app.repository, app.audio, app.online) }
+    val services = remember(app) { Services(app.repository, app.audio, app.online, app.drafts) }
     val measurer = rememberTextMeasurer(cacheSize = 512)
     CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, LocalTextMeasurer provides measurer, content = content)
 }
@@ -324,6 +328,9 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
     ORANGE(Pal.Orange, Pal.OrangeLight, Pal.OrangeDark),
     /** Poziom tygodnia. */
     PURPLE(Pal.Purple, Pal.PurpleLight, Pal.PurpleDark),
+
+    /** Poziomy graczy. */
+    TEAL(Pal.Teal, Pal.TealLight, Pal.TealDark),
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */

@@ -156,7 +156,7 @@ private fun PixelCheck(checked: Boolean, label: String, onToggle: () -> Unit) {
 }
 
 @Composable
-private fun Hint(text: String, color: androidx.compose.ui.graphics.Color = Pal.SeaLight) {
+internal fun Hint(text: String, color: androidx.compose.ui.graphics.Color = Pal.SeaLight) {
     PixelText(text, size = 1, color = color, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
 }
 
@@ -221,6 +221,23 @@ fun onlineErrorText(f: OnlineResult.Failed): String = when (f.code) {
     "clock_skew" -> stringResource(R.string.err_clock)
     "not_configured" -> stringResource(R.string.online_not_configured)
     "not_logged_in" -> stringResource(R.string.session_expired)
+    "level_exists" -> stringResource(R.string.err_level_exists)
+    "level_problems" -> stringResource(R.string.err_level_problems)
+    "verify_rejected", "not_verified" -> stringResource(R.string.err_verify_rejected)
+    "publish_limit" -> stringResource(R.string.err_publish_limit)
+    "level_limit" -> stringResource(R.string.err_level_limit)
+    "title_banned", "title_invalid", "name_banned" -> stringResource(R.string.err_title_banned)
+    "level_format", "level_json", "level_not_normalized", "level_too_large", "design_invalid" -> stringResource(R.string.err_level_invalid)
+    "not_found" -> stringResource(R.string.err_not_found)
+    "play_first" -> stringResource(R.string.err_play_first)
+    "own_level" -> stringResource(R.string.err_own_level)
+    "design_taken" -> stringResource(R.string.err_design_taken)
+    "market_limit" -> stringResource(R.string.err_market_limit)
+    "name_length" -> stringResource(R.string.err_name_length)
+    "price_invalid" -> stringResource(R.string.err_price_invalid)
+    "own_item" -> stringResource(R.string.err_own_item)
+    "item_removed" -> stringResource(R.string.err_item_removed)
+    "not_enough_coins" -> stringResource(R.string.err_not_enough_coins)
     else -> stringResource(R.string.err_generic, f.code)
 }
 
@@ -296,7 +313,7 @@ private fun rememberSubmit(form: FormState): (List<String?>, suspend () -> Onlin
 
 /** Sprawdza sieć przy wejściu i po powrocie do aplikacji. */
 @Composable
-private fun rememberOnline(): Pair<Boolean, () -> Unit> {
+internal fun rememberOnline(): Pair<Boolean, () -> Unit> {
     val online = LocalServices.current.online
     var state by remember { mutableStateOf(online.isOnline()) }
     LifecycleResumeEffect(Unit) {
@@ -307,7 +324,7 @@ private fun rememberOnline(): Pair<Boolean, () -> Unit> {
 }
 
 @Composable
-private fun OfflineCard(onRetry: () -> Unit) {
+internal fun OfflineCard(onRetry: () -> Unit) {
     PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
         PixelText(stringResource(R.string.online_offline_title), size = 4, color = Pal.RedDark, outline = null)
         VSpace(4)
@@ -325,7 +342,7 @@ private fun OfflineCard(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun NotConfiguredCard() {
+internal fun NotConfiguredCard() {
     PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
         PixelText(stringResource(R.string.online_not_configured), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
@@ -872,6 +889,7 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
                 ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
             }
             ProfileRow(stringResource(R.string.account_points), account.points.toString())
+            if (account.userLevelPoints > 0) ProfileRow(stringResource(R.string.account_user_level_points), account.userLevelPoints.toString())
             ProfileRow(stringResource(R.string.account_rank), account.rank?.let { "#$it" } ?: stringResource(R.string.ranking_not_ranked))
             val sync = when (online.status) {
                 SyncStatus.OK -> stringResource(R.string.sync_ok, DateFormat.getTimeFormat(context).format(Date(online.lastSyncAt)))

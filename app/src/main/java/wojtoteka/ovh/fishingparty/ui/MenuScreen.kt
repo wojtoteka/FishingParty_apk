@@ -54,7 +54,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL, COMMUNITY, CREATOR }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -167,6 +167,11 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         PixelText(stringResource(R.string.play), size = 6)
                         PixelText(stringResource(R.string.level_n, current), size = 2, color = Pal.GreenLight)
                     }
+                }
+                // Poziomy graczy i kreator poziomów (od wersji 2.4).
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                    PixelButton(stringResource(R.string.menu_community), onClick = { onOpen(Destination.COMMUNITY) }, style = ButtonStyle.TEAL, modifier = Modifier.weight(1f).fillMaxHeight())
+                    PixelButton(stringResource(R.string.menu_creator), onClick = { onOpen(Destination.CREATOR) }, style = ButtonStyle.ORANGE, modifier = Modifier.weight(1f).fillMaxHeight())
                 }
                 Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
                     PixelButton(stringResource(R.string.map_title), onClick = { onOpen(Destination.MAP) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f).fillMaxHeight())
