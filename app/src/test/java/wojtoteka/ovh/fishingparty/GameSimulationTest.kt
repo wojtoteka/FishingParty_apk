@@ -26,6 +26,7 @@ import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
+import wojtoteka.ovh.fishingparty.level.UserLevelSeeds
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import kotlin.math.atan2
 import kotlin.math.floor
@@ -291,6 +292,23 @@ class GameSimulationTest {
             played++
         }
         assertTrue("za mało poprawnych próbek: $played", played >= 20)
+    }
+
+    /** Poziom z seeda w kreatorze: zawsze ten sam dla tego samego kodu i trudności, bez błędów i do przejścia. */
+    @Test
+    fun seedLevelsForEditorArePlayable() {
+        for (difficulty in UserLevelSeeds.Difficulty.entries) {
+            for (i in 0L until 8L) {
+                val seed = LevelSeed(Rng.mix(0x5EEDL, i * 31 + difficulty.ordinal))
+                val level = UserLevelSeeds.build(seed, difficulty)
+                assertEquals(UserLevels.encode(level), UserLevels.encode(UserLevelSeeds.build(seed, difficulty)))
+                assertEquals(UserLevels.encode(level), UserLevels.encode(UserLevels.normalize(level)))
+                assertTrue("$difficulty #$i: ${UserLevels.check(level).map { it.kind }}", UserLevels.check(level).none { it.error })
+                val built = UserLevels.build(level.copy(time = 0))
+                val (result, world) = play(built.layout, tutorial = false)
+                assertTrue("$difficulty #$i nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            }
+        }
     }
 
     /** Wzmocnienia ułatwiają grę, ale nie mogą dać wyniku ponad limity anty-cheat (serwer liczy je bez wzmocnień). */
