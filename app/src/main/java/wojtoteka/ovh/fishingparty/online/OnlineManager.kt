@@ -42,6 +42,10 @@ class AccountInfo(
     val hidden: Boolean,
     val maxLevel: Int,
     val hasPassword: Boolean = true,
+    /** Punkty rankingu z ukończonych poziomów graczy (wliczone w [points]). */
+    val userLevelPoints: Long = 0,
+    /** Zarobek z targu czekający na odebranie. */
+    val marketPending: Long = 0,
 )
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
@@ -154,6 +158,9 @@ class OnlineManager(
     private var newSession = true
     private var backgroundAt = 0L
 
+    /** Poziomy graczy i targ. */
+    val community = Community(this, repo)
+
     init {
         if (store.loggedIn) {
             account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
@@ -168,6 +175,8 @@ class OnlineManager(
                         // Gra uruchomiona bez internetu sprawdza wersję i ogłoszenia, gdy tylko złapie sieć.
                         checkLaunch()
                         if (store.loggedIn) sync()
+                        community.flush()
+                        community.resumeClaim()
                     }
                 }
             })
@@ -207,7 +216,7 @@ class OnlineManager(
     }
 
     /** [device] = false: bez atestacji telefonu (tylko podgląd rankingu przez gościa). */
-    private suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true, device: Boolean = true): JSONObject = try {
+    internal suspend fun call(method: String, path: String, body: JSONObject? = null, auth: Boolean = true, device: Boolean = true): JSONObject = try {
         withContext(Dispatchers.IO) {
             if (!device) return@withContext api.call(method, path, body, null)
             val generation = ensureDevice()
@@ -257,6 +266,16 @@ class OnlineManager(
         store.save()
         deviceGeneration++
         deviceGeneration
+    }
+
+    /** Identyfikator tej instalacji gry (gracz na poziomach graczy i kupujący na targu, także bez konta). */
+    internal val deviceId: String get() = store.deviceId
+
+    internal fun failureOf(e: Exception): OnlineResult.Failed = failure(e)
+
+    /** Odpowiedź z profilem konta (np. po ukończeniu poziomu gracza) – odświeża punkty na ekranach. */
+    internal fun applyProfileOf(res: JSONObject) {
+        if (store.loggedIn) res.optJSONObject("account")?.let { applyProfile(it) }
     }
 
     private fun failure(e: Exception): OnlineResult.Failed = when (e) {
@@ -408,6 +427,8 @@ class OnlineManager(
             hidden = p.optBoolean("hidden"),
             maxLevel = p.optInt("maxLevel"),
             hasPassword = p.optBoolean("hasPassword", true),
+            userLevelPoints = p.optLong("userLevelPoints"),
+            marketPending = p.optLong("marketPending"),
         )
         account = info
         if (store.nick != info.nick || store.email != info.email || store.hasPassword != info.hasPassword) {
@@ -537,6 +558,15 @@ class OnlineManager(
         syncClock()
         checkLaunch()
         if (store.loggedIn) scope.launch { sync(checkRemote = true) }
+        scope.launch {
+            community.flush()
+            community.resumeClaim()
+        }
+    }
+
+    /** Nowy przejazd poziomu gracza w kolejce – wysyłamy od razu (bez internetu poczeka). */
+    fun flushPlays() {
+        scope.launch { community.flush() }
     }
 
     /** Aplikacja schodzi z ekranu – wysyłamy wszystko od razu. */
@@ -873,7 +903,7 @@ class OnlineManager(
             } else {
                 val rank = if (me.isNull("rank")) null else me.optInt("rank")
                 account?.let {
-                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword)
+                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword, it.userLevelPoints, it.marketPending)
                 }
                 Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden"), size))
             }
