@@ -36,6 +36,7 @@ import wojtoteka.ovh.fishingparty.level.UserLevelSeeds
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.online.Net
 import wojtoteka.ovh.fishingparty.online.OnlineLevel
+import wojtoteka.ovh.fishingparty.online.OnlineManager
 import wojtoteka.ovh.fishingparty.online.OnlineResult
 
 /** Kreator poziomów: szkice na tym telefonie i poziomy opublikowane z konta (ze statystykami). */
@@ -166,6 +167,8 @@ private fun SeedCard(onCreate: (UserLevel) -> Unit) {
 @Composable
 private fun DraftCard(draft: LevelDraft, onEdit: () -> Unit, onCopy: () -> Unit, onDelete: () -> Unit) {
     val estimate = remember(draft.hash) { UserLevelRating.estimate(draft.level) }
+    val share = rememberLinkShare()
+    val online = LocalServices.current.online
     DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = draft.published) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -193,10 +196,33 @@ private fun DraftCard(draft: LevelDraft, onEdit: () -> Unit, onCopy: () -> Unit,
             }
             VSpace(3)
             ButtonRow(gap = 3) {
+                PixelButton(
+                    stringResource(R.string.community_share),
+                    onClick = { shareDraft(share, online, draft) },
+                    enabled = !share.busy,
+                    style = ButtonStyle.ORANGE,
+                    size = 1,
+                )
                 PixelButton(stringResource(R.string.creator_copy), onClick = onCopy, style = ButtonStyle.SEA, size = 1)
                 PixelButton(stringResource(R.string.creator_delete), onClick = onDelete, style = ButtonStyle.RED, size = 1)
             }
+            share.error?.let {
+                VSpace(2)
+                PixelText(onlineErrorText(it), size = 1, color = Pal.RedLight)
+            }
         }
+    }
+}
+
+/**
+ * Link do szkicu: opublikowany poziom (ta sama wersja) – link do niego, a każdy inny – link bez publikacji
+ * (bez przejścia poziomu i bez konta; zagrają tylko osoby z linkiem).
+ */
+fun shareDraft(share: LinkShare, online: OnlineManager, draft: LevelDraft) {
+    val title = draft.level.title.ifBlank { "?" }
+    val published = draft.publishedId.takeIf { draft.published }
+    share.share(title, own = true) { lang ->
+        if (published != null) online.community.shareLink(published, lang) else online.community.shareDraft(draft.level, lang)
     }
 }
 

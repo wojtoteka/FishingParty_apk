@@ -1,6 +1,7 @@
 package wojtoteka.ovh.fishingparty
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.Build
@@ -32,7 +33,11 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // Nowe uruchomienie gry (nie odtworzenie po obrocie czy zmianie języka) – liczy się w statystykach,
         // a ogłoszenia „przy każdym uruchomieniu” pokazują się znowu.
-        if (savedInstanceState == null) app.online.onLaunch()
+        if (savedInstanceState == null) {
+            app.online.onLaunch()
+            // Gra otwarta linkiem do poziomu (https://…/l/<numer> albo /s/<kod>).
+            app.online.community.openLink(intent?.dataString)
+        }
         drawBehindSystemBars()
         applyOrientation(resources.configuration)
         // Gra steruje się dotykiem bez przerw – ekran nie może gasnąć w trakcie.
@@ -41,6 +46,13 @@ class MainActivity : ComponentActivity() {
         setContent {
             ProvideUi(app) { AppRoot() }
         }
+    }
+
+    /** Link do poziomu, gdy gra już działa (singleTask) – otwiera się po wyjściu z rozgrywki. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        app.online.community.openLink(intent.dataString)
     }
 
     override fun onResume() {

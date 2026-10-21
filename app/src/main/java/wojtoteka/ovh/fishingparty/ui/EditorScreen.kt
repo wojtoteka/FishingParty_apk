@@ -1229,6 +1229,35 @@ private fun PublishDialog(model: EditorModel, onVerify: () -> Unit, onAccount: (
             VSpace(3)
             PixelText(stringResource(R.string.online_loading), size = 1, color = Pal.WoodDark, outline = null)
         }
+        VSpace(5)
+        // Link dla znajomych – bez wymagań publikacji (przejścia poziomu, konta, poprawek planszy).
+        val share = rememberLinkShare()
+        DarkCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelText(stringResource(R.string.share_title), size = 2, color = Pal.Gold)
+                VSpace(2)
+                PixelText(
+                    if (draft.published) stringResource(R.string.share_info_published, draft.publishedId ?: 0) else stringResource(R.string.share_info_draft),
+                    size = 1,
+                    color = Pal.Foam,
+                    align = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                VSpace(3)
+                PixelButton(
+                    stringResource(R.string.share_go),
+                    onClick = { shareDraft(share, online, draft) },
+                    enabled = !share.busy,
+                    style = ButtonStyle.SEA,
+                    size = 2,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                share.error?.let {
+                    VSpace(2)
+                    PixelText(onlineErrorText(it), size = 1, color = Pal.RedLight, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                }
+            }
+        }
         VSpace(6)
         PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     }

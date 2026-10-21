@@ -767,7 +767,7 @@
 
     <string name="creator_title">KREATOR POZIOMÓW</string>
     <string name="creator_new">NOWY POZIOM</string>
-    <string name="creator_intro">Ułóż własny poziom: brzegi, wyspy, skały, ryby i wszystkie potwory z gry, każdy etap w innych barwach i z innym prądem. Przetestuj go, przejdź od początku do końca i opublikuj – inni zagrają w niego w POZIOMACH GRACZY.</string>
+    <string name="creator_intro">Ułóż własny poziom: brzegi, wyspy, skały, ryby i wszystkie potwory z gry, każdy etap w innych barwach i z innym prądem. Przetestuj go, przejdź od początku do końca i opublikuj – inni zagrają w niego w POZIOMACH GRACZY. Znajomym możesz też od razu wysłać link (UDOSTĘPNIJ).</string>
     <string name="creator_drafts">TWOJE POZIOMY</string>
     <string name="creator_empty">Nie masz jeszcze żadnego poziomu – zacznij od nowego!</string>
     <string name="creator_edit">EDYTUJ</string>
@@ -883,6 +883,7 @@
     <string name="community_featured">POLECANE</string>
     <string name="community_recent">NOWE</string>
     <string name="community_popular">POPULARNE</string>
+    <string name="community_top">NAJLEPSZE</string>
     <string name="community_hard">TRUDNE</string>
     <string name="community_search">SZUKAJ: NAZWA, AUTOR LUB #NUMER</string>
     <string name="community_search_go">SZUKAJ</string>
@@ -894,10 +895,12 @@
     <string name="community_done">UKOŃCZONY</string>
     <string name="community_players">GRACZE</string>
     <string name="community_rate">UKOŃCZYŁO</string>
-    <string name="community_likes">LUBI</string>
+    <string name="community_stars">GWIAZDKI</string>
     <string name="community_rating_pending">Ocena po %d graczach – dopiero wtedy poziom daje punkty rankingu (także tym, którzy ukończą go wcześniej).</string>
-    <string name="community_like">LUBIĘ</string>
-    <string name="community_dislike">NIE LUBIĘ</string>
+    <string name="community_star">DAJ GWIAZDKĘ</string>
+    <string name="community_unstar">COFNIJ GWIAZDKĘ</string>
+    <string name="community_star_hint">Zagraj w poziom, a potem daj mu gwiazdkę – im więcej gwiazdek, tym wyżej poziom w zakładce NAJLEPSZE.</string>
+    <string name="community_share">UDOSTĘPNIJ</string>
     <string name="community_report">ZGŁOŚ</string>
     <string name="community_reported">Zgłoszono – dziękujemy!</string>
     <string name="community_copy">KOPIUJ DO KREATORA</string>
@@ -942,6 +945,18 @@
     <string name="err_not_found">Nie znaleziono – mogło zostać usunięte.</string>
     <string name="err_play_first">Najpierw zagraj w ten poziom.</string>
     <string name="err_own_level">To twój poziom.</string>
+    <string name="err_share_limit">Dzienny limit linków do poziomów – spróbuj jutro.</string>
+    <string name="err_device_untrusted">Ten telefon ma zmieniony system – gwiazdki są na nim wyłączone.</string>
+    <!-- Linki do poziomów -->
+    <string name="share_text">Zagraj w poziom „%1$s” w Fishing Party! %2$s</string>
+    <string name="share_text_own">Zagraj w mój poziom „%1$s” w Fishing Party! %2$s</string>
+    <string name="share_title">UDOSTĘPNIJ ZNAJOMYM</string>
+    <string name="share_info_draft">Wyślij znajomym link do tego poziomu – bez publikacji i bez przechodzenia go. Zagrają w niego tylko osoby z linkiem (bez punktów i monet).</string>
+    <string name="share_info_published">Link do opublikowanego poziomu #%d – gwiazdki i punkty liczą się jak zawsze.</string>
+    <string name="share_go">UDOSTĘPNIJ LINK</string>
+    <string name="shared_badge">POZIOM Z LINKU</string>
+    <string name="shared_no_author">poziom z kreatora</string>
+    <string name="shared_rules">Ten poziom nie jest opublikowany – grasz bez punktów i monet, bez wzmocnień i kontynuacji.</string>
     <string name="err_design_taken">Ten projekt jest już na targu – wystawił go inny gracz.</string>
     <string name="err_market_limit">Masz już na targu najwięcej projektów.</string>
     <string name="err_name_length">Nazwa musi mieć 3–20 znaków.</string>

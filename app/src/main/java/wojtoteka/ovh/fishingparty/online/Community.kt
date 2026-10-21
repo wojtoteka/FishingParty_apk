@@ -1,10 +1,14 @@
 package wojtoteka.ovh.fishingparty.online
 
 import android.util.Log
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.json.JSONObject
+import wojtoteka.ovh.fishingparty.BuildConfig
 import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.data.ItemKind
 import wojtoteka.ovh.fishingparty.data.LevelDraft
@@ -32,8 +36,8 @@ class OnlineLevel(
     val attempts: Int,
     val players: Int,
     val completions: Int,
-    val likes: Int,
-    val dislikes: Int,
+    /** Gwiazdki od graczy (jedna na telefon i jedna na konto) – im więcej, tym wyżej w zakładce NAJLEPSZE. */
+    val stars: Int,
     val featured: Boolean,
     val hidden: Boolean = false,
     val hiddenReason: String? = null,
@@ -44,10 +48,21 @@ class OnlineLevel(
 
 class LevelPage(val levels: List<OnlineLevel>, val page: Int, val more: Boolean)
 
-/** Stan tego telefonu na poziomie: próby, ukończenie, rekord, głos. [creator] – to poziom tego gracza. */
-class PlayerState(val attempts: Int, val completed: Boolean, val best: Int, val vote: Int, val reported: Boolean, val creator: Boolean)
+/** Stan tego telefonu na poziomie: próby, ukończenie, rekord, gwiazdka. [creator] – to poziom tego gracza. */
+class PlayerState(val attempts: Int, val completed: Boolean, val best: Int, val starred: Boolean, val reported: Boolean, val creator: Boolean) {
+    /** Gwiazdkę daje się po zagraniu w poziom (na tym telefonie) i nie własnemu poziomowi. */
+    val canStar: Boolean get() = attempts > 0 && !creator
+
+    fun withStar(starred: Boolean) = PlayerState(attempts, completed, best, starred, reported, creator)
+}
 
 class LevelDetails(val level: OnlineLevel, val data: UserLevel, val me: PlayerState?)
+
+/** Gwiazdka po odpowiedzi serwera: aktualny poziom (liczba gwiazdek) i czy ten gracz ją dał. */
+class StarResult(val level: OnlineLevel, val starred: Boolean)
+
+/** Poziom z linku bez publikacji (/s/<kod>): do zagrania bez punktów i monet. [creator] – nick, gdy udostępniono z konta. */
+class SharedLevel(val code: String, val title: String, val creator: String?, val data: UserLevel)
 
 /**
  * Odpowiedź serwera na przejazd: monety za pierwsze ukończenie (już dodane do zapisu), punkty rankingu
@@ -105,6 +120,16 @@ class Community internal constructor(private val online: OnlineManager, private 
     /** Odpowiedzi serwera na wysłane przejazdy (klucz – czas przejazdu), np. dla ekranu wygranej. */
     val outcomes = mutableStateMapOf<Long, PlayOutcome>()
 
+    /** Link do poziomu, którym otwarto grę – czeka, aż gracz będzie poza rozgrywką (AppRoot). */
+    var pendingLink by mutableStateOf<LevelLink?>(null)
+
+    /** Link z intencji (App Links albo przycisk ZAGRAJ na stronie poziomu); false – to nie link do poziomu. */
+    fun openLink(link: String?): Boolean {
+        val parsed = LevelLinks.parse(link, BuildConfig.FP_LINK_HOST) ?: return false
+        pendingLink = parsed
+        return true
+    }
+
     private suspend fun <T> request(block: suspend () -> T): Net<T> = try {
         if (!online.isOnline()) Net.Err(OnlineResult.Failed("offline")) else Net.Ok(block())
     } catch (e: Exception) {
@@ -121,11 +146,12 @@ class Community internal constructor(private val online: OnlineManager, private 
     }
 
     suspend fun level(id: Int): Net<LevelDetails> = request {
-        val res = online.call("GET", "/levels/$id?device=${online.deviceId}", auth = online.loggedIn)
+        val phone = online.phoneId.takeIf { it.isNotEmpty() }?.let { "&phone=$it" }.orEmpty()
+        val res = online.call("GET", "/levels/$id?device=${online.deviceId}$phone", auth = online.loggedIn)
         val o = res.getJSONObject("level")
         val data = UserLevels.decode(o.getString("data")) ?: throw ApiException(0, "level_format", JSONObject())
         val me = res.optJSONObject("me")?.let {
-            PlayerState(it.optInt("attempts"), it.optBoolean("completed"), it.optInt("best"), it.optInt("vote"), it.optBoolean("reported"), it.optBoolean("creator"))
+            PlayerState(it.optInt("attempts"), it.optBoolean("completed"), it.optInt("best"), it.optBoolean("starred"), it.optBoolean("reported"), it.optBoolean("creator"))
         }
         if (me?.completed == true) repo.progress.markUserLevelDone(id)
         LevelDetails(parseLevel(o), data, me)
@@ -155,8 +181,33 @@ class Community internal constructor(private val online: OnlineManager, private 
         online.applyProfileOf(online.call("POST", "/levels/$id/delete"))
     }
 
-    suspend fun vote(id: Int, value: Int): Net<OnlineLevel> = request {
-        parseLevel(online.call("POST", "/levels/$id/vote", JSONObject().put("deviceId", online.deviceId).put("value", value), auth = online.loggedIn).getJSONObject("level"))
+    /** Gwiazdka dla poziomu ([star] = true) albo jej cofnięcie. Jedna na telefon i jedna na konto (pilnuje serwer). */
+    suspend fun star(id: Int, star: Boolean): Net<StarResult> = request {
+        val body = JSONObject().put("deviceId", online.deviceId).put("star", star)
+        online.phoneId.takeIf { it.isNotEmpty() }?.let { body.put("phone", it) }
+        val res = online.call("POST", "/levels/$id/star", body, auth = online.loggedIn)
+        StarResult(parseLevel(res.getJSONObject("level")), res.optBoolean("starred", star))
+    }
+
+    /** Link do opublikowanego poziomu ([lang] – język gry: podgląd linku w komunikatorze w tym języku). */
+    suspend fun shareLink(id: Int, lang: String): Net<String> = request {
+        val body = JSONObject().put("deviceId", online.deviceId).put("levelId", id).put("lang", lang)
+        online.call("POST", "/shares", body, auth = online.loggedIn).getString("url")
+    }
+
+    /** Link do poziomu z kreatora bez publikacji – bez przejścia poziomu, konta i innych wymagań publikacji. */
+    suspend fun shareDraft(level: UserLevel, lang: String): Net<String> = request {
+        val body = JSONObject().put("deviceId", online.deviceId).put("data", UserLevels.encode(level)).put("lang", lang)
+        online.call("POST", "/shares", body, auth = online.loggedIn).getString("url")
+    }
+
+    /** Poziom z linku /s/<kod>. */
+    suspend fun shared(code: String): Net<SharedLevel> = request {
+        val res = online.call("GET", "/shares/$code", auth = false, device = false)
+        val share = res.getJSONObject("share")
+        val data = UserLevels.decode(res.getString("data")) ?: throw ApiException(0, "level_format", JSONObject())
+        val creator = share.optJSONObject("creator")?.optString("nick")?.takeIf { it.isNotEmpty() }
+        SharedLevel(share.getString("code"), share.optString("title").ifBlank { data.title }, creator, data)
     }
 
     suspend fun report(id: Int): Net<Unit> = request {
@@ -235,8 +286,7 @@ class Community internal constructor(private val online: OnlineManager, private 
             attempts = o.optInt("attempts"),
             players = o.optInt("players"),
             completions = o.optInt("completions"),
-            likes = o.optInt("likes"),
-            dislikes = o.optInt("dislikes"),
+            stars = o.optInt("stars"),
             featured = o.optBoolean("featured"),
             hidden = o.optBoolean("hidden"),
             hiddenReason = o.optString("hiddenReason").takeIf { !o.isNull("hiddenReason") && it.isNotEmpty() },

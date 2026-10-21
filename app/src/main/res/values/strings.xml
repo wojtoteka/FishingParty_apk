@@ -759,7 +759,7 @@
 
     <string name="creator_title">LEVEL EDITOR</string>
     <string name="creator_new">NEW LEVEL</string>
-    <string name="creator_intro">Build your own level: shores, islands, rocks, fish and every monster in the game, each stage with its own colours and current. Test it, beat it from start to finish and publish it – others will play it in PLAYER LEVELS.</string>
+    <string name="creator_intro">Build your own level: shores, islands, rocks, fish and every monster in the game, each stage with its own colours and current. Test it, beat it from start to finish and publish it – others will play it in PLAYER LEVELS. You can also send a link to your friends right away (SHARE).</string>
     <string name="creator_drafts">YOUR LEVELS</string>
     <string name="creator_empty">You have no levels yet – start a new one!</string>
     <string name="creator_edit">EDIT</string>
@@ -875,6 +875,7 @@
     <string name="community_featured">FEATURED</string>
     <string name="community_recent">NEW</string>
     <string name="community_popular">POPULAR</string>
+    <string name="community_top">TOP</string>
     <string name="community_hard">HARDEST</string>
     <string name="community_search">SEARCH: NAME, AUTHOR OR #NUMBER</string>
     <string name="community_search_go">SEARCH</string>
@@ -886,10 +887,12 @@
     <string name="community_done">BEATEN</string>
     <string name="community_players">PLAYERS</string>
     <string name="community_rate">BEATEN BY</string>
-    <string name="community_likes">LIKES</string>
+    <string name="community_stars">STARS</string>
     <string name="community_rating_pending">Rated after %d players – only then does the level give ranking points (also to those who beat it earlier).</string>
-    <string name="community_like">LIKE</string>
-    <string name="community_dislike">DISLIKE</string>
+    <string name="community_star">GIVE A STAR</string>
+    <string name="community_unstar">TAKE STAR BACK</string>
+    <string name="community_star_hint">Play the level, then give it a star – the more stars, the higher it ranks in TOP.</string>
+    <string name="community_share">SHARE</string>
     <string name="community_report">REPORT</string>
     <string name="community_reported">Reported – thank you!</string>
     <string name="community_copy">COPY TO EDITOR</string>
@@ -934,6 +937,18 @@
     <string name="err_not_found">Not found – it may have been removed.</string>
     <string name="err_play_first">Play this level first.</string>
     <string name="err_own_level">This is your level.</string>
+    <string name="err_share_limit">Daily level link limit reached – try again tomorrow.</string>
+    <string name="err_device_untrusted">This phone runs a modified system – stars are disabled on it.</string>
+    <!-- Level links -->
+    <string name="share_text">Play the level “%1$s” in Fishing Party! %2$s</string>
+    <string name="share_text_own">Play my level “%1$s” in Fishing Party! %2$s</string>
+    <string name="share_title">SHARE WITH FRIENDS</string>
+    <string name="share_info_draft">Send your friends a link to this level – no need to publish it or beat it first. Only people with the link can play it (no points or coins).</string>
+    <string name="share_info_published">A link to your published level #%d – stars and points count as usual.</string>
+    <string name="share_go">SHARE LINK</string>
+    <string name="shared_badge">SHARED LEVEL</string>
+    <string name="shared_no_author">custom level</string>
+    <string name="shared_rules">This level isn\'t published – no points or coins, no power-ups or continues.</string>
     <string name="err_design_taken">This design is already on the market – another player listed it.</string>
     <string name="err_market_limit">You already have the most designs on the market.</string>
     <string name="err_name_length">The name needs 3–20 characters.</string>

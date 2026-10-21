@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.net.URI
 import java.util.Properties
 
 plugins {
@@ -14,6 +15,11 @@ fun localProp(name: String, fallback: String = ""): String =
     (localProps.getProperty(name) ?: System.getenv(name.replace('.', '_').uppercase()) ?: fallback)
         .replace("\\", "\\\\").replace("\"", "\\\"")
 
+val apiUrl = localProp("fp.apiUrl", "https://fp.wojtoteka.ovh/api/v1")
+
+// Linki do poziomów (https://<host>/l/<numer>, /s/<kod>) otwierają grę – domyślnie host serwera z fp.apiUrl.
+val linkHost = localProp("fp.linkHost", URI(apiUrl).host ?: "fp.wojtoteka.ovh")
+
 android {
     namespace = "wojtoteka.ovh.fishingparty"
     compileSdk = 37
@@ -25,8 +31,10 @@ android {
         versionCode = 13
         versionName = "2.4"
 
-        buildConfigField("String", "FP_API_URL", "\"${localProp("fp.apiUrl", "https://fp.wojtoteka.ovh/api/v1")}\"")
+        buildConfigField("String", "FP_API_URL", "\"$apiUrl\"")
         buildConfigField("String", "FP_HMAC_SECRET", "\"${localProp("fp.hmacSecret")}\"")
+        buildConfigField("String", "FP_LINK_HOST", "\"$linkHost\"")
+        manifestPlaceholders["fpLinkHost"] = linkHost
     }
 
     buildTypes {

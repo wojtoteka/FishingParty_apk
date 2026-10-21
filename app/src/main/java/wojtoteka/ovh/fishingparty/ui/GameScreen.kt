@@ -91,13 +91,18 @@ sealed interface GameExit {
 
 private class Outcome(val result: RunResult, val reason: LoseReason?)
 
-/** Poziom z kreatora w grze: test autora, przejście przed publikacją albo poziom gracza z serwera. */
-enum class CustomMode { TEST, VERIFY, PLAY }
+/**
+ * Poziom z kreatora w grze: test autora, przejście przed publikacją, poziom gracza z serwera albo poziom
+ * z linku bez publikacji ([SHARED] – bez punktów, monet i statystyk).
+ */
+enum class CustomMode { TEST, VERIFY, PLAY, SHARED }
 
 /**
  * @param fromStage test od wybranego etapu (tylko [CustomMode.TEST])
  * @param draftId szkic, z którego pochodzi poziom (test i przejście przed publikacją)
  * @param onlineId numer poziomu na serwerze ([CustomMode.PLAY])
+ * @param starred czy ten gracz dał już gwiazdkę ([CustomMode.PLAY])
+ * @param shareCode kod linku ([CustomMode.SHARED]) – po grze wraca okno tego poziomu
  */
 class CustomRun(
     val level: UserLevel,
@@ -106,6 +111,8 @@ class CustomRun(
     val fromStage: Int = 0,
     val draftId: String? = null,
     val onlineId: Int = 0,
+    val starred: Boolean = false,
+    val shareCode: String? = null,
 )
 
 @Composable
@@ -168,6 +175,8 @@ fun GameScreen(
                     playAt = repo.save.userLevelQueue.lastOrNull()?.at
                     services.online.flushPlays()
                 }
+                // Poziom z linku nie jest opublikowany – bez punktów, monet i wysyłki wyniku.
+                CustomMode.SHARED -> Unit
             }
             challenge != null -> reward = repo.progress.applyChallenge(result, plan, challenge)
             else -> reward = repo.progress.applyRun(result, plan)
@@ -610,14 +619,14 @@ private fun LosePanel(
             }
             VSpace(4)
         }
-        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge, backText = customBack(custom))
+        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
     }
 }
 
-/** Napis przycisku powrotu z poziomu z kreatora: do kreatora albo do poziomów graczy. */
+/** Napis przycisku powrotu z poziomu z kreatora: do kreatora albo do poziomów graczy (poziom z linku wraca przez MENU). */
 @Composable
 private fun customBack(custom: CustomRun?): String? = when (custom?.mode) {
-    null -> null
+    null, CustomMode.SHARED -> null
     CustomMode.PLAY -> stringResource(R.string.menu_community)
     else -> stringResource(R.string.editor_back)
 }
@@ -640,7 +649,7 @@ private fun PausePanel(
     Overlay(onDismiss = onResume) {
         PixelText(stringResource(R.string.paused), size = 5)
         PixelText(
-            if (tutorial) stringResource(R.string.tutorial_badge) else "$title · " + typeName(world.spec.type),
+            if (tutorial) stringResource(R.string.tutorial_badge) else "$title · " + if (custom?.mode == CustomMode.SHARED) stringResource(R.string.shared_badge) else typeName(world.spec.type),
             size = 2,
             color = Pal.Outline,
             outline = null,
@@ -680,7 +689,7 @@ private fun PausePanel(
         VSpace(8)
         PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
-        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge, backText = customBack(custom))
+        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
     }
 }
 
@@ -689,7 +698,8 @@ private const val CUSTOM_TAG = 14
 
 /**
  * Wygrana w poziomie z kreatora. Test – wynik i powrót do kreatora, przejście przed publikacją – potwierdzenie,
- * poziom gracza – odpowiedź serwera (monety za pierwsze ukończenie, punkty rankingu) i głos na poziom.
+ * poziom gracza – odpowiedź serwera (monety za pierwsze ukończenie, punkty rankingu) i gwiazdka dla poziomu,
+ * poziom z linku – sam wynik (bez nagród).
  */
 @Composable
 private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, reward: Reward?, playAt: Long?, onExit: (GameExit) -> Unit) {
@@ -706,7 +716,8 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
         }
     }
     val scope = rememberCoroutineScope()
-    var vote by remember { mutableIntStateOf(0) }
+    var starred by remember { mutableStateOf(custom.starred) }
+    var starring by remember { mutableStateOf(false) }
     Overlay {
         PixelText(stringResource(R.string.result_win), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         PixelText(title, size = 2, color = Pal.Outline, outline = null)
@@ -717,9 +728,14 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                     CustomMode.TEST -> R.string.editor_test_badge
                     CustomMode.VERIFY -> R.string.editor_verify_badge
                     CustomMode.PLAY -> R.string.type_custom
+                    CustomMode.SHARED -> R.string.shared_badge
                 },
             ),
-            color = if (custom.mode == CustomMode.PLAY) ButtonStyle.GREEN else ButtonStyle.ORANGE,
+            color = when (custom.mode) {
+                CustomMode.PLAY -> ButtonStyle.GREEN
+                CustomMode.SHARED -> ButtonStyle.PURPLE
+                else -> ButtonStyle.ORANGE
+            },
         )
         VSpace(6)
         Plate { StarRow(shownStars, scale = 4, gap = 4) }
@@ -780,27 +796,45 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                         Modifier.fillMaxWidth(),
                     )
                 }
-                // Głos tylko na cudzy poziom.
-                if (answer?.own != true) ButtonRow(Modifier.padding(top = px(4)), gap = 3) {
-                    for ((value, label) in listOf(1 to R.string.community_like, -1 to R.string.community_dislike)) {
-                        PixelButton(
-                            stringResource(label),
-                            onClick = {
-                                val target = if (vote == value) 0 else value
-                                scope.launch { if (online.community.vote(custom.onlineId, target) is Net.Ok) vote = target }
-                            },
-                            style = if (vote == value) ButtonStyle.GREEN else ButtonStyle.SEA,
-                            size = 1,
-                        )
-                    }
+                // Gwiazdka tylko dla cudzego poziomu i dopiero, gdy serwer zapisał przejazd (wcześniej odpowiedziałby „najpierw zagraj”).
+                if (answer != null && !answer.own) {
+                    VSpace(4)
+                    PixelButton(
+                        stringResource(if (starred) R.string.community_unstar else R.string.community_star),
+                        onClick = {
+                            if (!starring) {
+                                starring = true
+                                scope.launch {
+                                    val res = online.community.star(custom.onlineId, !starred)
+                                    if (res is Net.Ok) {
+                                        starred = res.value.starred
+                                        if (starred) services.audio.play(Sfx.STAR)
+                                    }
+                                    starring = false
+                                }
+                            }
+                        },
+                        enabled = !starring,
+                        style = if (starred) ButtonStyle.GREEN else ButtonStyle.SAND,
+                        size = 2,
+                        icon = "fishscore_gold",
+                    )
                 }
             }
+            CustomMode.SHARED -> PixelText(
+                stringResource(R.string.shared_rules),
+                size = 1,
+                color = Pal.WoodDark,
+                outline = null,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
         VSpace(8)
         if (custom.mode == CustomMode.VERIFY) {
             PixelButton(stringResource(R.string.editor_back), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.GREEN, size = 3, modifier = Modifier.keyPrimary().fillMaxWidth())
         } else {
-            ExitButtons(stringResource(R.string.retry), UserLevels.LEVEL_NUMBER, onExit, backText = customBack(custom))
+            ExitButtons(stringResource(R.string.retry), UserLevels.LEVEL_NUMBER, onExit, showMap = custom.mode != CustomMode.SHARED, backText = customBack(custom))
         }
     }
 }

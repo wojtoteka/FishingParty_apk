@@ -231,6 +231,8 @@ fun onlineErrorText(f: OnlineResult.Failed): String = when (f.code) {
     "not_found" -> stringResource(R.string.err_not_found)
     "play_first" -> stringResource(R.string.err_play_first)
     "own_level" -> stringResource(R.string.err_own_level)
+    "share_limit" -> stringResource(R.string.err_share_limit)
+    "device_untrusted" -> stringResource(R.string.err_device_untrusted)
     "design_taken" -> stringResource(R.string.err_design_taken)
     "market_limit" -> stringResource(R.string.err_market_limit)
     "name_length" -> stringResource(R.string.err_name_length)

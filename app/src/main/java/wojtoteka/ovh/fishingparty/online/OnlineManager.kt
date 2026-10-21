@@ -271,6 +271,9 @@ class OnlineManager(
     /** Identyfikator tej instalacji gry (gracz na poziomach graczy i kupujący na targu, także bez konta). */
     internal val deviceId: String get() = store.deviceId
 
+    /** Skrót stałego identyfikatora telefonu (gwiazdki: jedna na telefon także po ponownej instalacji) albo pusty. */
+    internal val phoneId: String by lazy { PhoneId.of(appContext) }
+
     internal fun failureOf(e: Exception): OnlineResult.Failed = failure(e)
 
     /** Odpowiedź z profilem konta (np. po ukończeniu poziomu gracza) – odświeża punkty na ekranach. */

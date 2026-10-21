@@ -26,6 +26,7 @@ import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
 import wojtoteka.ovh.fishingparty.level.UserLevels
+import wojtoteka.ovh.fishingparty.online.LevelLink
 
 private sealed interface Screen {
     data object Menu : Screen
@@ -98,6 +99,8 @@ private fun AppContent() {
 
     // Lista poziomów graczy zostaje taka sama po zagraniu w poziom.
     val communityBrowser = remember { CommunityBrowser() }
+    // Okno poziomu z linku bez publikacji (kod z /s/<kod>) – nad bieżącym ekranem.
+    var sharedOpen by remember { mutableStateOf<String?>(null) }
 
     /** Poziom z kreatora – bez wzmocnień (liczy się sama umiejętność). */
     fun startCustom(run: CustomRun) {
@@ -119,9 +122,31 @@ private fun AppContent() {
     // Ogłoszenie z panelu serwera (pierwsze z niezamkniętych) – poza rozgrywką i po wyborze sterowania.
     val announcement = services.online.announcements.firstOrNull()
 
+    // Gra otwarta linkiem do poziomu (albo link przyszedł w trakcie): poza rozgrywką i po wyborze sterowania
+    // opublikowany poziom otwiera się w POZIOMACH GRACZY, a poziom bez publikacji – w okienku nad bieżącym ekranem.
+    val link = services.online.community.pendingLink
+    LaunchedEffect(link, screen, chooseControls) {
+        if (link == null || screen is Screen.Game || chooseControls) return@LaunchedEffect
+        services.online.community.pendingLink = null
+        intro = null
+        challengeDialog = null
+        when (link) {
+            is LevelLink.Published -> {
+                sharedOpen = null
+                communityBrowser.open = link.id
+                screen = Screen.Community
+            }
+            is LevelLink.Shared -> sharedOpen = link.code
+        }
+    }
+
     // Po wejściu do menu: najpierw oferta odzyskania przerwanej passy, potem nagroda dzienna (obie po ogłoszeniach).
-    LaunchedEffect(screen, showRepair, chooseControls, announcement) {
-        if (screen != Screen.Menu || showRepair || chooseControls || announcement != null || (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)) return@LaunchedEffect
+    LaunchedEffect(screen, showRepair, chooseControls, announcement, sharedOpen, link) {
+        if (screen != Screen.Menu || showRepair || chooseControls || announcement != null || sharedOpen != null || link != null ||
+            (!repo.save.tutorialDone && repo.progress.highestUnlocked() == 1)
+        ) {
+            return@LaunchedEffect
+        }
         if (!repairOffered && repo.progress.streakRepair() != null) {
             repairOffered = true
             delay(600)
@@ -133,7 +158,7 @@ private fun AppContent() {
         }
     }
 
-    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null) {
+    BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null && sharedOpen == null) {
         screen = Screen.Menu
     }
 
@@ -172,7 +197,7 @@ private fun AppContent() {
             Screen.Community -> CommunityScreen(
                 communityBrowser,
                 onBack = { screen = Screen.Menu },
-                onPlay = { d -> startCustom(CustomRun(d.data, CustomMode.PLAY, d.level.title, onlineId = d.level.id)) },
+                onPlay = { d -> startCustom(CustomRun(d.data, CustomMode.PLAY, d.level.title, onlineId = d.level.id, starred = d.me?.starred == true)) },
                 onCopied = { },
             )
             Screen.Creator -> CreatorScreen(onBack = { screen = Screen.Menu }, onEdit = { screen = Screen.Editor(it) })
@@ -195,7 +220,11 @@ private fun AppContent() {
                 if (custom != null) {
                     when (exit) {
                         GameExit.ToMap -> screen = if (custom.mode == CustomMode.PLAY || custom.draftId == null) Screen.Community else Screen.Editor(custom.draftId)
-                        GameExit.ToMenu -> screen = Screen.Menu
+                        // Poziom z linku: menu z okienkiem tego poziomu (można zagrać jeszcze raz albo je zamknąć).
+                        GameExit.ToMenu -> {
+                            screen = Screen.Menu
+                            if (custom.mode == CustomMode.SHARED) sharedOpen = custom.shareCode
+                        }
                         is GameExit.Retry, is GameExit.Next -> startCustom(custom)
                     }
                     return@GameScreen
@@ -225,6 +254,19 @@ private fun AppContent() {
         if (showRepair) StreakRepairDialog(onClose = { showRepair = false })
         challengeDialog?.let { kind ->
             ChallengeDialog(kind, onPlay = { challenge, selection -> start(Challenges.LEVEL_NUMBER, selection, challenge) }, onClose = { challengeDialog = null })
+        }
+        // Poziom z linku – nad nagrodą dnia i innymi okienkami menu (gracz otworzył go sam).
+        if (screen !is Screen.Game) {
+            sharedOpen?.let { code ->
+                SharedLevelDialog(
+                    code,
+                    onPlay = { s ->
+                        sharedOpen = null
+                        startCustom(CustomRun(s.data, CustomMode.SHARED, s.title, shareCode = s.code))
+                    },
+                    onClose = { sharedOpen = null },
+                )
+            }
         }
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
         if (announcement != null && screen !is Screen.Game && !chooseControls) {

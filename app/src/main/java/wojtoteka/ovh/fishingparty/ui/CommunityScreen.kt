@@ -1,5 +1,8 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +21,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -25,29 +29,35 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.game.Sfx
+import wojtoteka.ovh.fishingparty.level.UserLevelRating
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.online.COMMUNITY_MIN_PLAYERS
 import wojtoteka.ovh.fishingparty.online.LevelDetails
 import wojtoteka.ovh.fishingparty.online.Net
 import wojtoteka.ovh.fishingparty.online.OnlineLevel
 import wojtoteka.ovh.fishingparty.online.OnlineResult
-import wojtoteka.ovh.fishingparty.online.PlayerState
+import wojtoteka.ovh.fishingparty.online.SharedLevel
 
-/** Sposoby sortowania listy poziomów graczy (jak zakładki poziomów online w Geometry Dash). */
-enum class LevelSort(val id: String) { FEATURED("featured"), RECENT("recent"), POPULAR("popular"), HARD("hard") }
+/**
+ * Sposoby sortowania listy poziomów graczy (jak zakładki poziomów online w Geometry Dash).
+ * NAJLEPSZE – według gwiazdek od graczy: im więcej gwiazdek, tym wyżej.
+ */
+enum class LevelSort(val id: String) { FEATURED("featured"), STARS("stars"), RECENT("recent"), HARD("hard") }
 
 /**
  * Stan przeglądarki poziomów graczy – trzymany poza ekranem, żeby po zagraniu w poziom
  * lista, zakładka i wyszukiwanie zostały takie same.
  */
 class CommunityBrowser {
-    var sort by mutableStateOf(LevelSort.RECENT)
+    var sort by mutableStateOf(LevelSort.STARS)
     var query by mutableStateOf("")
     val levels = mutableStateListOf<OnlineLevel>()
     var page by mutableStateOf(0)
@@ -106,8 +116,8 @@ fun CommunityScreen(browser: CommunityBrowser, onBack: () -> Unit, onPlay: (Leve
                                 stringResource(
                                     when (sort) {
                                         LevelSort.FEATURED -> R.string.community_featured
+                                        LevelSort.STARS -> R.string.community_top
                                         LevelSort.RECENT -> R.string.community_recent
-                                        LevelSort.POPULAR -> R.string.community_popular
                                         LevelSort.HARD -> R.string.community_hard
                                     },
                                 ),
@@ -190,7 +200,7 @@ fun CommunityScreen(browser: CommunityBrowser, onBack: () -> Unit, onPlay: (Leve
     }
 }
 
-/** Karta poziomu gracza: stopień trudności, nazwa, autor, liczby i punkty za ukończenie. */
+/** Karta poziomu gracza: stopień trudności, nazwa, autor, gwiazdki, liczby i punkty za ukończenie. */
 @Composable
 fun OnlineLevelCard(level: OnlineLevel, done: Boolean, modifier: Modifier = Modifier, extra: (@Composable ColumnScope.() -> Unit)? = null) {
     DarkCard(modifier, highlight = level.featured) {
@@ -203,14 +213,14 @@ fun OnlineLevelCard(level: OnlineLevel, done: Boolean, modifier: Modifier = Modi
                     PixelText("#${level.id} · " + stringResource(R.string.community_by, level.creator), size = 1, color = Pal.Foam, maxLines = 1)
                     PixelText(
                         stringResource(R.string.intro_stages, level.stages) + " · " + stringResource(R.string.community_players) + " " + level.players +
-                            (level.completionRate?.let { " · " + stringResource(R.string.community_rate) + " $it%" } ?: "") +
-                            " · " + stringResource(R.string.community_likes) + " " + level.likes,
+                            (level.completionRate?.let { " · " + stringResource(R.string.community_rate) + " $it%" } ?: ""),
                         size = 1,
                         color = Pal.SeaLight,
                     )
                 }
                 HSpace(3)
                 Column(horizontalAlignment = Alignment.End) {
+                    StarCount(level.stars)
                     PixelText(tierName(level.tier), size = 1, color = tierColor(level.tier))
                     PixelText(
                         if (level.rated) stringResource(R.string.community_points, level.points) else stringResource(R.string.community_unrated),
@@ -238,7 +248,9 @@ private fun LevelDetailDialog(
     var details by remember(id) { mutableStateOf<LevelDetails?>(null) }
     var error by remember(id) { mutableStateOf<OnlineResult.Failed?>(null) }
     var info by remember(id) { mutableStateOf<String?>(null) }
+    var starring by remember(id) { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val share = rememberLinkShare()
     LaunchedEffect(id) {
         when (val res = online.community.level(id)) {
             is Net.Ok -> details = res.value
@@ -261,7 +273,7 @@ private fun LevelDetailDialog(
         Box(Modifier.fillMaxWidth()) {
             PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
             Column(Modifier.align(Alignment.TopCenter).padding(horizontal = px(18)), horizontalAlignment = Alignment.CenterHorizontally) {
-                PixelText(level.title, size = 3, align = TextAlign.Center)
+                PixelText(level.title, size = dialogTitleSize(level.title), align = TextAlign.Center)
                 PixelText("#${level.id} · " + stringResource(R.string.community_by, level.creator), size = 1, color = Pal.WoodDark, outline = null)
             }
         }
@@ -286,9 +298,9 @@ private fun LevelDetailDialog(
                 }
                 VSpace(3)
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                    StatTile(stringResource(R.string.community_stars), level.stars.toString(), Modifier.weight(1f), icon = "fishscore_gold")
                     StatTile(stringResource(R.string.community_players), level.players.toString(), Modifier.weight(1f))
                     StatTile(stringResource(R.string.community_rate), level.completionRate?.let { "$it%" } ?: "-", Modifier.weight(1f))
-                    StatTile(stringResource(R.string.community_likes), level.likes.toString(), Modifier.weight(1f))
                 }
                 VSpace(2)
                 PixelText(stringResource(R.string.intro_stages, level.stages) + " · " + typeDescription(plan.spec.type), size = 1, color = Pal.SeaLight)
@@ -321,28 +333,46 @@ private fun LevelDetailDialog(
         VSpace(6)
         PixelButton(stringResource(R.string.play), onClick = { onPlay(d) }, style = ButtonStyle.GREEN, size = 5, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
-        val canVote = me != null && me.attempts > 0 && !me.creator
-        ButtonRow(gap = 3) {
-            for ((value, label) in listOf(1 to R.string.community_like, -1 to R.string.community_dislike)) {
-                PixelButton(
-                    stringResource(label),
-                    onClick = {
-                        scope.launch {
-                            val target = if (me?.vote == value) 0 else value
-                            when (val res = online.community.vote(level.id, target)) {
-                                is Net.Ok -> {
-                                    details = LevelDetails(res.value, d.data, me?.withVote(target))
-                                    onChanged(res.value)
-                                }
-                                is Net.Err -> error = res.failure
+        val starred = me?.starred == true
+        // Gwiazdka: po zagraniu na tym telefonie i nie dla własnego poziomu; drugie dotknięcie ją cofa.
+        PixelButton(
+            stringResource(if (starred) R.string.community_unstar else R.string.community_star),
+            onClick = {
+                if (!starring && me != null) {
+                    starring = true
+                    error = null
+                    scope.launch {
+                        when (val res = online.community.star(level.id, !starred)) {
+                            is Net.Ok -> {
+                                details = LevelDetails(res.value.level, d.data, me.withStar(res.value.starred))
+                                onChanged(res.value.level)
+                                if (res.value.starred) services.audio.play(Sfx.STAR)
                             }
+                            is Net.Err -> error = res.failure
                         }
-                    },
-                    enabled = canVote,
-                    style = if (me?.vote == value) ButtonStyle.GREEN else ButtonStyle.SEA,
-                    size = 1,
-                )
-            }
+                        starring = false
+                    }
+                }
+            },
+            enabled = me?.canStar == true && !starring,
+            style = if (starred) ButtonStyle.GREEN else ButtonStyle.SAND,
+            size = 2,
+            icon = "fishscore_gold",
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (me != null && me.attempts == 0 && !me.creator) {
+            VSpace(2)
+            PixelText(stringResource(R.string.community_star_hint), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+        VSpace(3)
+        ButtonRow(gap = 3) {
+            PixelButton(
+                stringResource(R.string.community_share),
+                onClick = { share.share(level.title, own = me?.creator == true) { lang -> online.community.shareLink(level.id, lang) } },
+                enabled = !share.busy,
+                style = ButtonStyle.SEA,
+                size = 1,
+            )
             PixelButton(
                 stringResource(R.string.community_report),
                 onClick = {
@@ -376,20 +406,161 @@ private fun LevelDetailDialog(
             VSpace(3)
             PixelText(it, size = 1, color = Pal.GreenDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
-        error?.let {
+        (error ?: share.error)?.let {
             VSpace(3)
             PixelText(onlineErrorText(it), size = 1, color = Pal.RedDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
-/** Ten sam stan gracza z innym głosem. */
-private fun PlayerState.withVote(vote: Int) = PlayerState(attempts, completed, best, vote, reported, creator)
+/** Nazwa poziomu w okienku łamie się na spacjach – za długie słowo (np. kod seeda) dostaje mniejszą czcionkę, żeby nie wchodziło pod przycisk X. */
+private fun dialogTitleSize(title: String): Int = if (title.split(' ').maxOf { it.length } > LONG_TITLE_WORD) 2 else 3
 
+private const val LONG_TITLE_WORD = 12
+
+/** Liczba gwiazdek od graczy ze złotą rybką (gwiazdki w grze to rybki). */
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier) {
-    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
-        PixelText(label, size = 1, color = Pal.Foam, maxLines = 1)
-        PixelText(value, size = 3, color = Pal.White)
+fun StarCount(stars: Int, size: Int = 1) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SpriteImage("fishscore_gold", size)
+        HSpace(2)
+        PixelText(stars.toString(), size = size, color = Pal.Gold)
     }
 }
+
+@Composable
+private fun StatTile(label: String, value: String, modifier: Modifier, icon: String? = null) {
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
+        PixelText(label, size = 1, color = Pal.Foam, maxLines = 1)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (icon != null) {
+                SpriteImage(icon, 2)
+                HSpace(2)
+            }
+            PixelText(value, size = 3, color = Pal.White)
+        }
+    }
+}
+
+/**
+ * Udostępnianie linku do poziomu: prosi serwer o link (opublikowany poziom albo zapis z kreatora) i otwiera
+ * systemowe okno „Udostępnij” (Messenger, Discord, SMS…). Link jest w języku gry – podgląd w komunikatorze też.
+ */
+class LinkShare internal constructor(private val scope: CoroutineScope, private val context: Context) {
+    var busy by mutableStateOf(false)
+        private set
+    var error by mutableStateOf<OnlineResult.Failed?>(null)
+        private set
+
+    private val lang: String get() = if (context.resources.configuration.locales[0].language == "pl") "pl" else "en"
+
+    fun share(title: String, own: Boolean, request: suspend (lang: String) -> Net<String>) {
+        if (busy) return
+        busy = true
+        error = null
+        scope.launch {
+            when (val res = request(lang)) {
+                is Net.Ok -> {
+                    val text = context.getString(if (own) R.string.share_text_own else R.string.share_text, title, res.value)
+                    val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, text)
+                    try {
+                        context.startActivity(Intent.createChooser(send, null))
+                    } catch (_: ActivityNotFoundException) {
+                        error = OnlineResult.Failed("unknown")
+                    }
+                }
+                is Net.Err -> error = res.failure
+            }
+            busy = false
+        }
+    }
+}
+
+@Composable
+fun rememberLinkShare(): LinkShare {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    return remember(scope, context) { LinkShare(scope, context) }
+}
+
+/**
+ * Poziom z linku bez publikacji (/s/<kod>): nazwa, autor, trudność policzona w grze i cele gwiazdek.
+ * Gra się w niego jak w poziom gracza (bez wzmocnień i kontynuacji), ale bez punktów, monet i statystyk.
+ */
+@Composable
+fun SharedLevelDialog(code: String, onPlay: (SharedLevel) -> Unit, onClose: () -> Unit) {
+    val online = LocalServices.current.online
+    var shared by remember(code) { mutableStateOf(sharedCache[code]) }
+    var error by remember(code) { mutableStateOf<OnlineResult.Failed?>(null) }
+    var retry by remember(code) { mutableIntStateOf(0) }
+    val (isOnline, recheck) = rememberOnline()
+    LaunchedEffect(code, retry, isOnline) {
+        if (shared != null || !isOnline) return@LaunchedEffect
+        error = null
+        when (val res = online.community.shared(code)) {
+            is Net.Ok -> {
+                sharedCache[code] = res.value
+                while (sharedCache.size > 8) sharedCache.remove(sharedCache.keys.first())
+                shared = res.value
+            }
+            is Net.Err -> error = res.failure
+        }
+    }
+    Overlay(onDismiss = onClose) {
+        val s = shared
+        if (s == null) {
+            val failure = error ?: if (!isOnline) OnlineResult.Failed("offline") else null
+            PixelText(failure?.let { onlineErrorText(it) } ?: stringResource(R.string.online_loading), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            VSpace(6)
+            if (failure != null && failure.code != "not_found") {
+                PixelButton(stringResource(R.string.online_retry), onClick = {
+                    recheck()
+                    retry++
+                }, style = ButtonStyle.GREEN, size = 2, modifier = Modifier.fillMaxWidth())
+                VSpace(3)
+            }
+            PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
+            return@Overlay
+        }
+        val plan = remember(s) { UserLevels.build(s.data).plan }
+        val tier = remember(s) { UserLevelRating.estimate(s.data).tier }
+        Box(Modifier.fillMaxWidth()) {
+            PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
+            Column(Modifier.align(Alignment.TopCenter).padding(horizontal = px(18)), horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelText(s.title.ifBlank { "?" }, size = dialogTitleSize(s.title), align = TextAlign.Center)
+                PixelText(s.creator?.let { stringResource(R.string.community_by, it) } ?: stringResource(R.string.shared_no_author), size = 1, color = Pal.WoodDark, outline = null)
+            }
+        }
+        VSpace(6)
+        Badge(stringResource(R.string.shared_badge), color = ButtonStyle.PURPLE)
+        VSpace(3)
+        DarkCard(Modifier.fillMaxWidth()) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TierIcon(tier, 2)
+                    HSpace(4)
+                    PixelText(tierName(tier), size = 3, color = tierColor(tier))
+                }
+                VSpace(2)
+                PixelText(stringResource(R.string.intro_stages, s.data.stages.size) + " · " + typeDescription(plan.spec.type), size = 1, color = Pal.SeaLight)
+            }
+        }
+        VSpace(4)
+        for (goal in goalTexts(plan.spec)) {
+            Row(Modifier.fillMaxWidth().padding(vertical = px(1)), verticalAlignment = Alignment.CenterVertically) {
+                Plate(pad = 1) { SpriteImage("fishscore_grey", 2) }
+                HSpace(4)
+                PixelText(goal, size = 2, color = Pal.Outline, outline = null)
+            }
+        }
+        VSpace(4)
+        PixelText(stringResource(R.string.shared_rules), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(6)
+        PixelButton(stringResource(R.string.play), onClick = { onPlay(s) }, style = ButtonStyle.GREEN, size = 5, modifier = Modifier.keyPrimary().fillMaxWidth())
+        VSpace(3)
+        PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** Pobrane poziomy z linków – po zagraniu okno pokazuje się od razu, bez ponownego pobierania. */
+private val sharedCache = LinkedHashMap<String, SharedLevel>()
