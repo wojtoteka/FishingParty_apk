@@ -102,6 +102,25 @@ class UserLevelEditsTest {
     }
 
     @Test
+    fun movingStageThereAndBackKeepsSandAtStart() {
+        // Etap 2 z wyspą 3×3 na dole, na środku – na starcie (etap 1) te pola są zawsze wodą.
+        val c = UserLevels.START_COL
+        val two = UserLevelEdits.addStage(start.copy(stages = listOf(start.stages[0].copy(door = 2))), 1)!!
+        val rows = two.stages[1].rows
+        val island = (rows - 3 until rows).flatMap { r -> (c - 1..c + 1).map { it to r } }
+        val raw = UserLevels.normalize(UserLevelEdits.paint(two, 1, island, UserLevels.SAND))
+        assertEquals(UserLevels.SAND, raw.stages[1].cell(c, rows - 2))
+        val down = UserLevelEdits.moveStage(raw, 1, up = false)!!
+        val shown = UserLevels.normalize(down)
+        assertEquals(UserLevels.SEA, shown.stages[0].cell(c, rows - 2))
+        // Zmiana w innym etapie nie gubi ukrytego piasku – po powrocie wyspa jest na miejscu.
+        val edited = UserLevelEdits.keepLocked(UserLevelEdits.setQuota(shown, 1, 2), shown, down)
+        val back = UserLevels.normalize(UserLevelEdits.moveStage(edited, 0, up = true)!!)
+        assertTrue(island.all { (col, row) -> back.stages[1].cell(col, row) == UserLevels.SAND })
+        assertEquals(2, back.stages[0].quota)
+    }
+
+    @Test
     fun saveKeepsUserLevelProgress() {
         val d = SaveData()
         d.userLevelsDone += listOf(5, 9, 12)

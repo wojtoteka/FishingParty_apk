@@ -217,6 +217,29 @@ object UserLevelEdits {
         return level.copy(stages = list)
     }
 
+    /**
+     * Pola zawsze z wodą (przy wrotach i na starcie – [UserLevels.locked] w [shown]) bierze z [raw]: zmiana
+     * zrobiona na poziomie po poprawkach nie gubi piasku, który wróci po przesunięciu etapu w inne miejsce.
+     */
+    fun keepLocked(edited: UserLevel, shown: UserLevel, raw: UserLevel): UserLevel {
+        if (edited.stages.size != shown.stages.size || raw.stages.size != shown.stages.size) return edited
+        return edited.copy(
+            stages = edited.stages.mapIndexed { k, s ->
+                val r = raw.stages[k]
+                if (s.rows != r.rows || s.rows != shown.stages[k].rows) return@mapIndexed s
+                var cells: ByteArray? = null
+                for (row in 0 until s.rows) for (col in 0 until WIDTH) {
+                    val i = row * WIDTH + col
+                    // Pole z postacią zostaje wodą – inaczej postać zniknęłaby przy poprawkach.
+                    if (r.cells[i] != s.cells[i] && UserLevels.locked(shown, k, col, row) && pieceAt(edited, k, col, row) == null) {
+                        (cells ?: s.cells.copyOf().also { cells = it })[i] = r.cells[i]
+                    }
+                }
+                cells?.let { s.copy(cells = it) } ?: s
+            },
+        )
+    }
+
     /** Lustrzane odbicie etapu lewo–prawo (z wrotami, postaciami, kierunkami i prądem). */
     fun mirrorStage(level: UserLevel, k: Int): UserLevel = level.withStage(k) { s ->
         val m = WIDTH - 1

@@ -9,9 +9,11 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -135,16 +138,40 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
     private var stroke = false
     private var strokeStart: UserLevel? = null
 
+    /**
+     * Poziom przed poprawkami: pamięta piasek na polach zawsze z wodą (przy wrotach i na starcie), więc
+     * przesunięcie etapu tam i z powrotem niczego nie gubi. Historia cofania trzyma takie poziomy.
+     */
+    private var raw: UserLevel = initial.level
+
     val level: UserLevel get() = draft.level
 
-    fun set(next: UserLevel?, record: Boolean = true) {
-        if (next == null) return
+    /** Zmiana zrobiona na poziomie po poprawkach ([level]) – malowanie, postacie, ustawienia. */
+    fun set(next: UserLevel?): Boolean = apply(next?.let { UserLevelEdits.keepLocked(it, level, raw) })
+
+    /** Jak [set], ale na bieżącym poziomie – szybkie stuknięcia nie liczą od starej wersji. */
+    fun edit(change: (UserLevel) -> UserLevel?): Boolean = set(change(level))
+
+    /**
+     * Zmiana etapów (kolejność, liczba, rzędy, odbicie) – na poziomie przed poprawkami. Po zmianie
+     * kreator wybiera etap [focus] i przewija do niego planszę.
+     */
+    fun reshape(focus: Int? = null, change: (UserLevel) -> UserLevel?): Boolean {
+        if (!apply(change(raw))) return false
+        if (focus != null) focusStage(focus)
+        return true
+    }
+
+    private fun apply(next: UserLevel?): Boolean {
+        if (next == null) return false
         val normal = UserLevels.normalize(next)
-        if (UserLevels.encode(normal) == UserLevels.encode(level)) return
-        if (record && !stroke) push(level)
+        if (UserLevels.encode(normal) == UserLevels.encode(level)) return false
+        if (!stroke) push(raw)
+        raw = next
         draft = draft.with(level = normal, updatedAt = System.currentTimeMillis())
         rebuild()
         if (!stroke) drafts.save(draft)
+        return true
     }
 
     private fun push(previous: UserLevel) {
@@ -165,14 +192,14 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
 
     fun beginStroke() {
         stroke = true
-        strokeStart = level
+        strokeStart = raw
     }
 
     fun endStroke() {
         stroke = false
         val start = strokeStart ?: return
         strokeStart = null
-        if (UserLevels.encode(start) != UserLevels.encode(level)) {
+        if (UserLevels.encode(start) != UserLevels.encode(raw)) {
             push(start)
             drafts.save(draft)
         }
@@ -181,28 +208,33 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
 
     fun undo() {
         val previous = undo.removeLastOrNull() ?: return
-        redo += level
+        redo += raw
         replace(previous)
     }
 
     fun redo() {
         val next = redo.removeLastOrNull() ?: return
-        undo += level
+        undo += raw
         replace(next)
     }
 
     private fun replace(next: UserLevel) {
-        draft = draft.with(level = next, updatedAt = System.currentTimeMillis())
+        val stages = level.stages.size
+        raw = next
+        draft = draft.with(level = UserLevels.normalize(next), updatedAt = System.currentTimeMillis())
         selected = null
         rebuild()
         canUndo = undo.isNotEmpty()
         canRedo = redo.isNotEmpty()
         drafts.save(draft)
+        // Cofnięta zmiana etapów przesuwa planszę – pokazujemy wybrany etap.
+        if (level.stages.size != stages) focusStage(active)
     }
 
     /** Powrót z gry: szkic mógł zostać zweryfikowany – bierzemy zapisaną wersję (historia cofania zostaje). */
     fun reload(stored: LevelDraft) {
         if (stored === draft) return
+        if (UserLevels.encode(stored.level) != UserLevels.encode(level)) raw = stored.level
         draft = stored
         rebuild()
     }
@@ -230,6 +262,18 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
     private fun updateActiveFromView() {
         val center = ((scroll + viewHeight / scale / 2f) / TILE).toInt()
         stageAt(center)?.let { active = it }
+    }
+
+    /** Wybiera etap [k] i przewija planszę tak, żeby był widoczny (wysoki – od dołu, skąd wpływa łódź). */
+    fun focusStage(k: Int) {
+        active = k.coerceIn(0, level.stages.lastIndex)
+        if (scroll < 0f) return
+        val s = built.layout.stages[active]
+        val view = viewHeight / scale
+        val top = s.gateRow * TILE.toFloat()
+        val bottom = (s.bottomRow + 2) * TILE.toFloat()
+        scroll = if (bottom - top <= view) (top + bottom - view) / 2f else bottom - view
+        clampScroll()
     }
 
     fun worldX(px: Float) = (px - offsetX) / scale
@@ -360,7 +404,8 @@ fun EditorScreen(draftId: String, onBack: () -> Unit, onPlay: (LevelDraft, Edito
             EditorDialog.DELETE_STAGE -> ConfirmDialog(
                 stringResource(R.string.editor_delete_stage_confirm, model.active + 1),
                 onConfirm = {
-                    model.set(UserLevelEdits.deleteStage(model.level, model.active))
+                    val k = model.active
+                    model.reshape(focus = (k - 1).coerceAtLeast(0)) { UserLevelEdits.deleteStage(it, k) }
                     dialog = null
                 },
                 onCancel = { dialog = EditorDialog.STAGE },
@@ -623,15 +668,28 @@ private fun EditorBottomPanel(model: EditorModel, onStageMenu: () -> Unit) {
     ) {
         PixelText(toolHint(model.tool), size = 1, color = Pal.Foam, maxLines = 3, modifier = Modifier.fillMaxWidth())
         VSpace(3)
+        // Wybór etapu strzałkami – plansza sama przewija się do wybranego etapu.
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            StageArrow(up = false, enabled = k > 0, modifier = Modifier.fillMaxHeight()) { model.focusStage(k - 1) }
+            PixelText(
+                stringResource(R.string.hud_stage, k + 1, level.stages.size),
+                size = 2,
+                color = Pal.Gold,
+                align = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.weight(1f),
+            )
+            StageArrow(up = true, enabled = k < level.stages.lastIndex, modifier = Modifier.fillMaxHeight()) { model.focusStage(k + 1) }
+            PixelButton(stringResource(R.string.editor_stage_menu), onClick = onStageMenu, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+        }
+        VSpace(3)
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelText(stringResource(R.string.hud_stage, k + 1, level.stages.size), size = 2, color = Pal.Gold)
             Stepper(stringResource(R.string.editor_rows), stage.rows.toString(), Modifier.weight(1f),
-                onMinus = { model.set(UserLevelEdits.setRows(level, k, stage.rows - 1)) },
-                onPlus = { model.set(UserLevelEdits.setRows(level, k, stage.rows + 1)) })
+                onMinus = { model.reshape { UserLevelEdits.setRows(it, k, it.stages[k].rows - 1) } },
+                onPlus = { model.reshape { UserLevelEdits.setRows(it, k, it.stages[k].rows + 1) } })
             Stepper(stringResource(R.string.editor_quota), "${stage.quota}/${stage.fishTotal}", Modifier.weight(1f),
-                onMinus = { model.set(UserLevelEdits.setQuota(level, k, stage.quota - 1)) },
-                onPlus = { model.set(UserLevelEdits.setQuota(level, k, stage.quota + 1)) })
-            PixelButton(stringResource(R.string.editor_stage_menu), onClick = onStageMenu, style = ButtonStyle.WOOD, size = 1)
+                onMinus = { model.edit { UserLevelEdits.setQuota(it, k, it.stages[k].quota - 1) } },
+                onPlus = { model.edit { UserLevelEdits.setQuota(it, k, it.stages[k].quota + 1) } })
         }
         VSpace(3)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(px(2))) {
@@ -651,6 +709,14 @@ private fun EditorBottomPanel(model: EditorModel, onStageMenu: () -> Unit) {
         }
         VSpace(2)
         PixelText(stringResource(R.string.editor_pan_hint), size = 1, color = Pal.SeaLight, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** Strzałka wyboru etapu: w górę – bliżej mety. */
+@Composable
+private fun StageArrow(up: Boolean, enabled: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    PixelButton("", onClick = onClick, style = ButtonStyle.SEA, enabled = enabled, modifier = modifier) {
+        SpriteImage("arrowup", 1, Modifier.rotate(if (up) 0f else 180f))
     }
 }
 
@@ -814,19 +880,19 @@ private fun LevelSettingsDialog(model: EditorModel, onClose: () -> Unit) {
                 VSpace(4)
                 PixelText(stringResource(R.string.editor_palette), size = 1, color = Pal.Foam)
                 VSpace(2)
-                PalettePicker(level.theme, withSame = false) { model.set(level.copy(theme = it)) }
+                PalettePicker(level.theme, withSame = false) { t -> model.edit { it.copy(theme = t) } }
                 VSpace(4)
                 SettingStepper(stringResource(R.string.editor_speed), "${level.speed}%",
-                    onMinus = { model.set(level.copy(speed = (level.speed - 10).coerceAtLeast(UserLevels.MIN_SPEED))) },
-                    onPlus = { model.set(level.copy(speed = (level.speed + 10).coerceAtMost(UserLevels.MAX_SPEED))) })
+                    onMinus = { model.edit { it.copy(speed = (it.speed - 10).coerceAtLeast(UserLevels.MIN_SPEED)) } },
+                    onPlus = { model.edit { it.copy(speed = (it.speed + 10).coerceAtMost(UserLevels.MAX_SPEED)) } })
                 VSpace(2)
                 val par = model.built.plan.spec.parSeconds
                 SettingStepper(
                     stringResource(R.string.editor_time),
                     if (level.time == 0) stringResource(R.string.editor_time_off) else formatTime(level.time),
-                    onMinus = { model.set(level.copy(time = if (level.time <= UserLevels.MIN_TIME) 0 else level.time - 10)) },
+                    onMinus = { model.edit { it.copy(time = if (it.time <= UserLevels.MIN_TIME) 0 else it.time - 10) } },
                     onPlus = {
-                        model.set(level.copy(time = if (level.time == 0) maxOf(UserLevels.MIN_TIME, (par * 135 + 99) / 100 / 10 * 10) else (level.time + 10).coerceAtMost(UserLevels.MAX_TIME)))
+                        model.edit { it.copy(time = if (it.time == 0) maxOf(UserLevels.MIN_TIME, (par * 135 + 99) / 100 / 10 * 10) else (it.time + 10).coerceAtMost(UserLevels.MAX_TIME)) }
                     },
                 )
                 PixelText(stringResource(R.string.editor_par, formatTime(par)), size = 1, color = Pal.SeaLight)
@@ -840,7 +906,7 @@ private fun LevelSettingsDialog(model: EditorModel, onClose: () -> Unit) {
                 Choice(
                     listOf(SecondGoal.NO_DAMAGE to stringResource(R.string.editor_goal_nodamage), SecondGoal.ALL_FISH to stringResource(R.string.editor_goal_allfish)),
                     level.secondGoal,
-                ) { model.set(level.copy(secondGoal = it)) }
+                ) { g -> model.edit { it.copy(secondGoal = g) } }
                 VSpace(4)
                 PixelText(stringResource(R.string.editor_goal3), size = 1, color = Pal.Foam)
                 VSpace(2)
@@ -852,12 +918,12 @@ private fun LevelSettingsDialog(model: EditorModel, onClose: () -> Unit) {
                         ThirdGoal.COMBO to stringResource(R.string.editor_goal_combo),
                     ),
                     level.thirdGoal,
-                ) { model.set(level.copy(thirdGoal = it)) }
+                ) { g -> model.edit { it.copy(thirdGoal = g) } }
                 if (level.thirdGoal == ThirdGoal.COMBO) {
                     VSpace(2)
                     SettingStepper(stringResource(R.string.editor_combo), "x${level.combo}",
-                        onMinus = { model.set(level.copy(combo = (level.combo - 1).coerceAtLeast(2))) },
-                        onPlus = { model.set(level.copy(combo = (level.combo + 1).coerceAtMost(5))) })
+                        onMinus = { model.edit { it.copy(combo = (it.combo - 1).coerceAtLeast(2)) } },
+                        onPlus = { model.edit { it.copy(combo = (it.combo + 1).coerceAtMost(5)) } })
                 }
                 VSpace(3)
                 for (goal in goalTexts(model.built.plan.spec)) PixelText("· $goal", size = 1, color = Pal.SeaLight)
@@ -908,51 +974,78 @@ private fun StageDialog(model: EditorModel, onDelete: () -> Unit, onClose: () ->
             Column(Modifier.fillMaxWidth()) {
                 PixelText(stringResource(R.string.editor_stage_palette), size = 1, color = Pal.Foam)
                 VSpace(2)
-                PalettePicker(stage.theme, withSame = true) { model.set(UserLevelEdits.setStage(level, k) { s -> s.copy(theme = it) }) }
+                PalettePicker(stage.theme, withSame = true) { t -> model.edit { UserLevelEdits.setStage(it, k) { s -> s.copy(theme = t) } } }
                 VSpace(4)
                 PixelText(stringResource(R.string.editor_current), size = 1, color = Pal.Foam)
                 VSpace(2)
                 SettingStepper(stringResource(R.string.editor_current_x), stage.currentX.toString(),
-                    onMinus = { model.set(UserLevelEdits.setStage(level, k) { it.copy(currentX = (it.currentX - 5).coerceAtLeast(-UserLevels.MAX_CURRENT)) }) },
-                    onPlus = { model.set(UserLevelEdits.setStage(level, k) { it.copy(currentX = (it.currentX + 5).coerceAtMost(UserLevels.MAX_CURRENT)) }) })
+                    onMinus = { model.set(UserLevelEdits.setStage(model.level, k) { it.copy(currentX = (it.currentX - 5).coerceAtLeast(-UserLevels.MAX_CURRENT)) }) },
+                    onPlus = { model.set(UserLevelEdits.setStage(model.level, k) { it.copy(currentX = (it.currentX + 5).coerceAtMost(UserLevels.MAX_CURRENT)) }) })
                 VSpace(2)
                 SettingStepper(stringResource(R.string.editor_current_y), stage.currentY.toString(),
-                    onMinus = { model.set(UserLevelEdits.setStage(level, k) { it.copy(currentY = (it.currentY - 5).coerceAtLeast(-UserLevels.MAX_CURRENT)) }) },
-                    onPlus = { model.set(UserLevelEdits.setStage(level, k) { it.copy(currentY = (it.currentY + 5).coerceAtMost(UserLevels.MAX_CURRENT)) }) })
+                    onMinus = { model.set(UserLevelEdits.setStage(model.level, k) { it.copy(currentY = (it.currentY - 5).coerceAtLeast(-UserLevels.MAX_CURRENT)) }) },
+                    onPlus = { model.set(UserLevelEdits.setStage(model.level, k) { it.copy(currentY = (it.currentY + 5).coerceAtMost(UserLevels.MAX_CURRENT)) }) })
             }
         }
         VSpace(4)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            PixelButton(stringResource(R.string.editor_add_above), onClick = {
-                model.set(UserLevelEdits.addStage(level, k + 1))
-                model.active = k + 1
-            }, enabled = room, style = ButtonStyle.GREEN, size = 1, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_add_below), onClick = { model.set(UserLevelEdits.addStage(level, k)) }, enabled = room, style = ButtonStyle.GREEN, size = 1, modifier = Modifier.weight(1f))
+        // Każda zmiana liczy od bieżącego etapu (model.active) i przewija planszę do etapu, który się zmienił.
+        StageButtons(
+            ButtonStyle.GREEN,
+            R.string.editor_add_below to room,
+            R.string.editor_add_above to room,
+        ) { i ->
+            val at = model.active
+            if (i == 0) model.reshape(focus = at) { UserLevelEdits.addStage(it, at) }
+            else model.reshape(focus = at + 1) { UserLevelEdits.addStage(it, at + 1) }
         }
         VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            PixelButton(stringResource(R.string.editor_duplicate), onClick = {
-                model.set(UserLevelEdits.duplicateStage(level, k))
-                model.active = k + 1
-            }, enabled = room, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_mirror), onClick = { model.set(UserLevelEdits.mirrorStage(level, k)) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_clear), onClick = { model.set(UserLevelEdits.clearStage(level, k)) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
+        StageButtons(
+            ButtonStyle.SEA,
+            R.string.editor_duplicate to room,
+            R.string.editor_mirror to true,
+            R.string.editor_clear to true,
+        ) { i ->
+            val at = model.active
+            when (i) {
+                0 -> model.reshape(focus = at + 1) { UserLevelEdits.duplicateStage(it, at) }
+                // Odbijamy etap po poprawkach: ukryty piasek z pól przy wrotach nie może wyjść w innym miejscu.
+                1 -> model.reshape(focus = at) { raw ->
+                    raw.copy(stages = raw.stages.toMutableList().also { it[at] = UserLevelEdits.mirrorStage(model.level, at).stages[at] })
+                }
+                else -> model.reshape(focus = at) { UserLevelEdits.clearStage(it, at) }
+            }
         }
         VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            PixelButton(stringResource(R.string.editor_move_up), onClick = {
-                model.set(UserLevelEdits.moveStage(level, k, up = true))
-                model.active = k + 1
-            }, enabled = k < level.stages.lastIndex, style = ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_move_down), onClick = {
-                model.set(UserLevelEdits.moveStage(level, k, up = false))
-                model.active = k - 1
-            }, enabled = k > 0, style = ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f))
+        StageButtons(
+            ButtonStyle.WOOD,
+            R.string.editor_move_down to (k > 0),
+            R.string.editor_move_up to (k < level.stages.lastIndex),
+        ) { i ->
+            val at = model.active
+            val up = i == 1
+            model.reshape(focus = if (up) at + 1 else at - 1) { UserLevelEdits.moveStage(it, at, up) }
         }
         VSpace(3)
         PixelButton(stringResource(R.string.editor_delete_stage), onClick = onDelete, enabled = many, style = ButtonStyle.RED, size = 2, modifier = Modifier.fillMaxWidth())
         VSpace(6)
         PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.GREEN, size = 3, modifier = Modifier.keyPrimary().fillMaxWidth())
+    }
+}
+
+/** Rząd przycisków okna etapu o równej wysokości: napis i czy przycisk działa; [onClick] dostaje numer przycisku. */
+@Composable
+private fun StageButtons(style: ButtonStyle, vararg buttons: Pair<Int, Boolean>, onClick: (Int) -> Unit) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        for ((i, button) in buttons.withIndex()) {
+            PixelButton(
+                stringResource(button.first),
+                onClick = { onClick(i) },
+                enabled = button.second,
+                style = style,
+                size = 1,
+                modifier = Modifier.weight(1f).fillMaxHeight(),
+            )
+        }
     }
 }
 
@@ -974,15 +1067,15 @@ private fun PieceDialog(model: EditorModel, onClose: () -> Unit) {
                 Choice(
                     listOf(false to stringResource(R.string.editor_fish_common), true to stringResource(R.string.editor_fish_blue)),
                     fish.blue,
-                ) { model.set(UserLevelEdits.setFishBlue(level, ref, it)) }
+                ) { model.set(UserLevelEdits.setFishBlue(model.level, ref, it)) }
             }
             Piece.GOLDEN -> {
                 val g = stage.golden.getOrNull(ref.index) ?: return@Overlay
                 SpriteImage("fishgold1", 4)
                 VSpace(4)
                 SettingStepper(stringResource(R.string.editor_delay), stringResource(R.string.editor_seconds, g.delay),
-                    onMinus = { model.set(UserLevelEdits.setGoldenDelay(level, ref, g.delay - 1)) },
-                    onPlus = { model.set(UserLevelEdits.setGoldenDelay(level, ref, g.delay + 1)) })
+                    onMinus = { model.edit { UserLevelEdits.setGoldenDelay(it, ref, it.stages[ref.stage].golden[ref.index].delay - 1) } },
+                    onPlus = { model.edit { UserLevelEdits.setGoldenDelay(it, ref, it.stages[ref.stage].golden[ref.index].delay + 1) } })
             }
             Piece.ENEMY -> {
                 val e = stage.enemies.getOrNull(ref.index) ?: return@Overlay
@@ -1006,14 +1099,14 @@ private fun PieceDialog(model: EditorModel, onClose: () -> Unit) {
                         }
                     }
                 }
-                Choice(options, e.dir) { model.set(UserLevelEdits.setEnemyDir(level, ref, it)) }
+                Choice(options, e.dir) { model.set(UserLevelEdits.setEnemyDir(model.level, ref, it)) }
             }
             Piece.CRAB -> SpriteImage(Sprites.tiles(Worlds.theme(level.theme)).crab.let { rememberSprite(it) }, 4)
         }
         VSpace(6)
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
             PixelButton(stringResource(R.string.creator_delete), onClick = {
-                model.set(UserLevelEdits.remove(level, ref))
+                model.set(UserLevelEdits.remove(model.level, ref))
                 onClose()
             }, style = ButtonStyle.RED, size = 2, modifier = Modifier.weight(1f))
             PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.GREEN, size = 2, modifier = Modifier.keyPrimary().weight(1f))
