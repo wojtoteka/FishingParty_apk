@@ -2,13 +2,10 @@ package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -155,9 +152,9 @@ private fun SeedCard(onCreate: (UserLevel) -> Unit) {
             VSpace(4)
             PixelText(stringResource(R.string.creator_seed_difficulty), size = 1, color = Pal.Foam)
             VSpace(2)
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+            ButtonRow(gap = 2) {
                 for ((d, tier) in listOf(UserLevelSeeds.Difficulty.EASY to 1, UserLevelSeeds.Difficulty.NORMAL to 2, UserLevelSeeds.Difficulty.HARD to 3)) {
-                    PixelButton(tierName(tier), onClick = { difficulty = d }, style = if (difficulty == d) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
+                    PixelButton(tierName(tier), onClick = { difficulty = d }, style = if (difficulty == d) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1)
                 }
             }
             VSpace(4)
@@ -195,9 +192,9 @@ private fun DraftCard(draft: LevelDraft, onEdit: () -> Unit, onCopy: () -> Unit,
                 PixelButton(stringResource(R.string.creator_edit), onClick = onEdit, style = ButtonStyle.GREEN, size = 2)
             }
             VSpace(3)
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-                PixelButton(stringResource(R.string.creator_copy), onClick = onCopy, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
-                PixelButton(stringResource(R.string.creator_delete), onClick = onDelete, style = ButtonStyle.RED, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
+            ButtonRow(gap = 3) {
+                PixelButton(stringResource(R.string.creator_copy), onClick = onCopy, style = ButtonStyle.SEA, size = 1)
+                PixelButton(stringResource(R.string.creator_delete), onClick = onDelete, style = ButtonStyle.RED, size = 1)
             }
         }
     }

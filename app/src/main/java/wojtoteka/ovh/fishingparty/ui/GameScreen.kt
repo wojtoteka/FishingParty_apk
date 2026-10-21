@@ -1,7 +1,5 @@
 package wojtoteka.ovh.fishingparty.ui
 
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import wojtoteka.ovh.fishingparty.game.TutorialStep
@@ -540,14 +538,14 @@ private fun RewardTile(label: String, amount: Int, icon: String, labelColor: Col
  */
 @Composable
 private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit, showMap: Boolean = true, backText: String? = null) {
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-        PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+    ButtonRow(gap = 3) {
+        PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2)
         if (backText != null) {
-            PixelButton(backText, onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(backText, onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2)
         } else if (showMap) {
-            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2)
         }
-        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2)
     }
 }
 
@@ -783,7 +781,7 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                     )
                 }
                 // Głos tylko na cudzy poziom.
-                if (answer?.own != true) Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(top = px(4)), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                if (answer?.own != true) ButtonRow(Modifier.padding(top = px(4)), gap = 3) {
                     for ((value, label) in listOf(1 to R.string.community_like, -1 to R.string.community_dislike)) {
                         PixelButton(
                             stringResource(label),
@@ -793,7 +791,6 @@ private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, 
                             },
                             style = if (vote == value) ButtonStyle.GREEN else ButtonStyle.SEA,
                             size = 1,
-                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                 }

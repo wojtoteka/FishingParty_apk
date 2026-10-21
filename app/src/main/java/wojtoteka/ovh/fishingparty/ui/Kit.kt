@@ -434,6 +434,54 @@ fun PixelButton(
     }
 }
 
+/**
+ * Rząd przycisków o równej szerokości i wysokości. Gdy napis któregoś nie mieści się w jednej linii,
+ * przyciski przechodzą do kilku rzędów (jak najmniej, po równo w każdym) – zamiast łamać napisy
+ * i rozjeżdżać wysokości. Wszystkie przyciski mają wysokość najwyższego. [gap] – odstęp w pikselach interfejsu.
+ */
+@Composable
+fun ButtonRow(modifier: Modifier = Modifier, gap: Int = 3, content: @Composable () -> Unit) {
+    val gapPx = gap * LocalUnit.current
+    Layout(content, modifier) { measurables, constraints ->
+        val n = measurables.size
+        if (n == 0) return@Layout layout(constraints.minWidth, constraints.minHeight) {}
+        val wanted = measurables.map { it.maxIntrinsicWidth(Constraints.Infinity) }
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else wanted.sum() + gapPx * (n - 1)
+        val slot = { cols: Int -> max(0, (width - gapPx * (cols - 1)) / cols) }
+        // Liczba przycisków w kolejnych rzędach: najmniej rzędów, w których każdy napis mieści się w jednej linii.
+        var counts = List(n) { 1 }
+        for (rows in 1..n) {
+            val c = List(rows) { r -> n / rows + if (r < n % rows) 1 else 0 }
+            var i = 0
+            val fits = c.all { cols -> (0 until cols).all { wanted[i++] <= slot(cols) } }
+            if (fits) {
+                counts = c
+                break
+            }
+        }
+        val widths = IntArray(n)
+        var i = 0
+        for (cols in counts) {
+            val base = slot(cols)
+            val extra = width - gapPx * (cols - 1) - base * cols
+            for (k in 0 until cols) widths[i++] = base + if (k < extra) 1 else 0
+        }
+        val h = measurables.indices.maxOf { measurables[it].minIntrinsicHeight(widths[it]) }
+        val placeables = measurables.mapIndexed { k, m -> m.measure(Constraints.fixed(widths[k], h)) }
+        val total = counts.size * h + gapPx * (counts.size - 1)
+        layout(width, max(constraints.minHeight, total)) {
+            var k = 0
+            for ((r, cols) in counts.withIndex()) {
+                var x = 0
+                for (c in 0 until cols) {
+                    placeables[k].place(x, r * (h + gapPx))
+                    x += widths[k++] + gapPx
+                }
+            }
+        }
+    }
+}
+
 /** Panel jak tabliczka z piasku – tło to oryginalny kafelek piasku. */
 @Composable
 fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {

@@ -3,11 +3,9 @@ package wojtoteka.ovh.fishingparty.ui
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.width
@@ -103,14 +101,14 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
         return
     }
     Hint(stringResource(R.string.market_info, SELLER_SHARE), Pal.Foam)
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+    ButtonRow(gap = 2) {
         for ((value, label) in listOf(null to R.string.market_all, ItemKind.BOAT to R.string.shop_boats, ItemKind.SAIL to R.string.shop_sails)) {
-            PixelButton(stringResource(label), onClick = { kind = value }, style = if (kind == value) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(label), onClick = { kind = value }, style = if (kind == value) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1)
         }
     }
-    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+    ButtonRow(gap = 2) {
         for ((value, label) in listOf("popular" to R.string.community_popular, "recent" to R.string.community_recent)) {
-            PixelButton(stringResource(label), onClick = { sort = value }, style = if (sort == value) ButtonStyle.ORANGE else ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(label), onClick = { sort = value }, style = if (sort == value) ButtonStyle.ORANGE else ButtonStyle.WOOD, size = 1)
         }
     }
     error?.let { Hint(onlineErrorText(it), Pal.RedLight) }

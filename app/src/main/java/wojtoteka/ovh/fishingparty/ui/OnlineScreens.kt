@@ -9,11 +9,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -179,9 +177,9 @@ private fun PolicyBlock(accepted: Boolean, onToggle: () -> Unit) {
             VSpace(2)
             PixelText(stringResource(R.string.policy_summary), size = 1, color = Pal.Foam)
             VSpace(4)
-            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-                PixelButton(stringResource(R.string.policy_open_privacy), onClick = { openUrl(context, OnlineManager.PRIVACY_URL) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
-                PixelButton(stringResource(R.string.policy_open_terms), onClick = { openUrl(context, OnlineManager.TERMS_URL) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
+            ButtonRow(gap = 3) {
+                PixelButton(stringResource(R.string.policy_open_privacy), onClick = { openUrl(context, OnlineManager.PRIVACY_URL) }, style = ButtonStyle.SEA, size = 1)
+                PixelButton(stringResource(R.string.policy_open_terms), onClick = { openUrl(context, OnlineManager.TERMS_URL) }, style = ButtonStyle.SEA, size = 1)
             }
             VSpace(4)
             PixelCheck(accepted, stringResource(R.string.policy_accept), onToggle)

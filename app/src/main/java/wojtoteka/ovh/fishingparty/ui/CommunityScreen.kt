@@ -4,14 +4,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
@@ -103,7 +100,7 @@ fun CommunityScreen(browser: CommunityBrowser, onBack: () -> Unit, onPlay: (Leve
             !isOnline -> Column(Modifier.fillMaxSize().padding(px(10)), horizontalAlignment = Alignment.CenterHorizontally) { OfflineCard(recheck) }
             else -> Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
                 Column(Modifier.fillMaxWidth().padding(horizontal = px(6)), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).widthIn(max = px(360)), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+                    ButtonRow(Modifier.widthIn(max = px(360)), gap = 2) {
                         for (sort in LevelSort.entries) {
                             PixelButton(
                                 stringResource(
@@ -122,7 +119,6 @@ fun CommunityScreen(browser: CommunityBrowser, onBack: () -> Unit, onPlay: (Leve
                                 },
                                 style = if (browser.sort == sort) ButtonStyle.GREEN else ButtonStyle.SEA,
                                 size = 1,
-                                modifier = Modifier.weight(1f).fillMaxHeight(),
                             )
                         }
                     }
@@ -326,7 +322,7 @@ private fun LevelDetailDialog(
         PixelButton(stringResource(R.string.play), onClick = { onPlay(d) }, style = ButtonStyle.GREEN, size = 5, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
         val canVote = me != null && me.attempts > 0 && !me.creator
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        ButtonRow(gap = 3) {
             for ((value, label) in listOf(1 to R.string.community_like, -1 to R.string.community_dislike)) {
                 PixelButton(
                     stringResource(label),
@@ -345,7 +341,6 @@ private fun LevelDetailDialog(
                     enabled = canVote,
                     style = if (me?.vote == value) ButtonStyle.GREEN else ButtonStyle.SEA,
                     size = 1,
-                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 )
             }
             PixelButton(
@@ -361,7 +356,6 @@ private fun LevelDetailDialog(
                 enabled = me?.reported != true && me?.creator != true && info == null,
                 style = ButtonStyle.WOOD,
                 size = 1,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
         if (level.copyable) {

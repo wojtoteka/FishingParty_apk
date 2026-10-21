@@ -5,14 +5,11 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -82,9 +79,9 @@ fun ConfirmDialog(message: String, onConfirm: () -> Unit, onCancel: () -> Unit) 
     Overlay(onDismiss = onCancel) {
         PixelText(message, size = 3, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         VSpace(10)
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(6))) {
-            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA, modifier = Modifier.weight(1f).fillMaxHeight())
-            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED, modifier = Modifier.weight(1f).fillMaxHeight())
+        ButtonRow(gap = 6) {
+            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA)
+            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED)
         }
     }
 }
