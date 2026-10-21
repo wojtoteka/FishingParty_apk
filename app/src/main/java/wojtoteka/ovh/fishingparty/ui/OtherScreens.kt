@@ -228,7 +228,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                             color = Pal.Foam,
                         )
                         VSpace(3)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                             for (hour in StreakReminderSlots.HOURS) {
                                 PixelButton(
                                     hour.toString(),
@@ -237,7 +237,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                                         repo.changed()
                                     },
                                     style = if (hour == save.reminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
-                                    modifier = Modifier.weight(1f),
+                                    modifier = Modifier.weight(1f).fillMaxHeight(),
                                 )
                             }
                         }
@@ -302,20 +302,20 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                     VSpace(4)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                         PixelButton(
                             stringResource(R.string.set_privacy),
                             onClick = { openLink(context, OnlineManager.PRIVACY_URL) },
                             style = ButtonStyle.SEA,
                             size = 1,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                         PixelButton(
                             stringResource(R.string.set_terms),
                             onClick = { openLink(context, OnlineManager.TERMS_URL) },
                             style = ButtonStyle.SEA,
                             size = 1,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).fillMaxHeight(),
                         )
                     }
                 }
@@ -404,7 +404,7 @@ private fun ChallengeReminderSettings() {
         color = Pal.Foam,
     )
     VSpace(3)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
         for (hour in ChallengeReminderPlan.HOURS) {
             PixelButton(
                 hour.toString(),
@@ -413,7 +413,7 @@ private fun ChallengeReminderSettings() {
                     changed()
                 },
                 style = if (hour == save.challengeReminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
     }
@@ -464,14 +464,14 @@ private fun LanguagePicker() {
         Column(Modifier.fillMaxWidth()) {
             PixelText(stringResource(R.string.set_language), size = 2, color = Pal.Gold)
             VSpace(4)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
                 for (language in Language.entries) {
                     val selected = language == current
                     PixelButton(
                         text = "",
                         onClick = { context.findActivity()?.let { AppLanguage.set(it, language) } },
                         style = if (selected) ButtonStyle.GREEN else ButtonStyle.SEA,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             val flag = if (language == Language.AUTO) {

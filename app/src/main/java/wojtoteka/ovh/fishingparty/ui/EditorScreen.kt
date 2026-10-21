@@ -473,16 +473,16 @@ private fun EditorTopBar(model: EditorModel, onBack: () -> Unit, onDialog: (Edit
             PixelButton(stringResource(R.string.editor_test), onClick = { onDialog(EditorDialog.TEST) }, style = ButtonStyle.GREEN, size = 3)
         }
         VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-            PixelButton(stringResource(R.string.editor_undo), onClick = { model.undo() }, style = ButtonStyle.SEA, size = 1, enabled = model.canUndo, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_redo), onClick = { model.redo() }, style = ButtonStyle.SEA, size = 1, enabled = model.canRedo, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.editor_settings), onClick = { onDialog(EditorDialog.LEVEL) }, style = ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f))
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            PixelButton(stringResource(R.string.editor_undo), onClick = { model.undo() }, style = ButtonStyle.SEA, size = 1, enabled = model.canUndo, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(R.string.editor_redo), onClick = { model.redo() }, style = ButtonStyle.SEA, size = 1, enabled = model.canRedo, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(R.string.editor_settings), onClick = { onDialog(EditorDialog.LEVEL) }, style = ButtonStyle.WOOD, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
             PixelButton(
                 stringResource(R.string.editor_publish),
                 onClick = { onDialog(EditorDialog.PUBLISH) },
                 style = if (model.problems.any { it.error }) ButtonStyle.RED else ButtonStyle.ORANGE,
                 size = 1,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
         }
     }
@@ -853,9 +853,9 @@ private fun SettingStepper(label: String, value: String, onMinus: () -> Unit, on
 /** Rząd przycisków wyboru jednej z opcji. */
 @Composable
 private fun <T> Choice(options: List<Pair<T, String>>, current: T, onPick: (T) -> Unit) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+    Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(2))) {
         for ((value, label) in options) {
-            PixelButton(label, onClick = { onPick(value) }, style = if (value == current) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
+            PixelButton(label, onClick = { onPick(value) }, style = if (value == current) ButtonStyle.GREEN else ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f).fillMaxHeight())
         }
     }
 }
@@ -1104,12 +1104,12 @@ private fun PieceDialog(model: EditorModel, onClose: () -> Unit) {
             Piece.CRAB -> SpriteImage(Sprites.tiles(Worlds.theme(level.theme)).crab.let { rememberSprite(it) }, 4)
         }
         VSpace(6)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(4))) {
             PixelButton(stringResource(R.string.creator_delete), onClick = {
                 model.set(UserLevelEdits.remove(model.level, ref))
                 onClose()
-            }, style = ButtonStyle.RED, size = 2, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.GREEN, size = 2, modifier = Modifier.keyPrimary().weight(1f))
+            }, style = ButtonStyle.RED, size = 2, modifier = Modifier.weight(1f).fillMaxHeight())
+            PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.GREEN, size = 2, modifier = Modifier.keyPrimary().weight(1f).fillMaxHeight())
         }
     }
 }
