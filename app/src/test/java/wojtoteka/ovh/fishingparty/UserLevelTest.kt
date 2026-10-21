@@ -239,6 +239,19 @@ class UserLevelTest {
     }
 
     @Test
+    fun stageWithoutFishOpensGateAtOnce() {
+        val start = UserLevels.starter("Bez ryb")
+        val empty = UserLevels.blankStage(quota = 0)
+        val level = UserLevels.normalize(start.copy(stages = listOf(empty, start.stages[0])))
+        assertEquals(0, level.stages[0].quota)
+        assertTrue(UserLevels.check(level).none { it.error && it.stage == 0 })
+        assertEquals(UserLevels.encode(level), UserLevels.decode(UserLevels.encode(level))?.let { UserLevels.encode(it) })
+        val world = GameWorld(UserLevels.build(level).layout, Loadout(), tutorial = false, listener = Recorder())
+        assertTrue(world.isDoorOpen(0))
+        assertFalse(world.isDoorOpen(1))
+    }
+
+    @Test
     fun stageCurrentPushesBoat() {
         val start = UserLevels.starter("Prąd")
         val pushed = start.copy(stages = listOf(start.stages[0].copy(currentX = 30)))

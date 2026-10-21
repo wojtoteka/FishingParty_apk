@@ -155,7 +155,7 @@ object UserLevelEdits {
 
     fun setDoor(level: UserLevel, k: Int, door: Int): UserLevel = level.withStage(k) { it.copy(door = door.coerceIn(1, WIDTH - 2)) }
 
-    fun setQuota(level: UserLevel, k: Int, quota: Int): UserLevel = level.withStage(k) { it.copy(quota = quota.coerceIn(1, UserLevels.MAX_QUOTA)) }
+    fun setQuota(level: UserLevel, k: Int, quota: Int): UserLevel = level.withStage(k) { it.copy(quota = quota.coerceIn(0, UserLevels.MAX_QUOTA)) }
 
     fun setStage(level: UserLevel, k: Int, change: (UserStage) -> UserStage): UserLevel = level.withStage(k, change)
 

@@ -163,6 +163,12 @@ class GameWorld(
         // Wielki Finał zaczyna się od własnego napisu, polecenie łowienia pojawia się po nim.
         message = if (spec.type == LevelType.FINALE) GameMessage(MessageKind.FINALE, 0, 0)
         else GameMessage(MessageKind.GO, stages[0].quota, 0)
+        openEmptyGate()
+    }
+
+    /** Etap bez ryb do złowienia (poziomy z kreatora) – brama otwiera się od razu po wpłynięciu. */
+    private fun openEmptyGate() {
+        if (!cleared[stageIndex] && stages[stageIndex].quota <= 0) openGate(stageIndex)
     }
 
     fun setViewport(width: Float, height: Float) {
@@ -576,6 +582,7 @@ class GameWorld(
         showGateArrow = false
         message = GameMessage(MessageKind.STAGE, stageIndex + 1, stages.size)
         listener.onSound(Sfx.STAGE)
+        openEmptyGate()
     }
 
     private fun win() {

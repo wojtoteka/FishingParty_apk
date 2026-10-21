@@ -34,7 +34,7 @@ data class UserCrab(val col: Int, val row: Int)
 /**
  * Etap poziomu z kreatora.
  * @param door środkowa kolumna trzypolowych wrót bramy nad etapem
- * @param quota ile ryb trzeba złowić, żeby brama się otworzyła
+ * @param quota ile ryb trzeba złowić, żeby brama się otworzyła (0 – brama otwarta od razu)
  * @param theme paleta etapu: [UserLevels.SAME_THEME] – jak cały poziom, [Worlds.FINALE] – złota, 0..9 – palety światów
  * @param currentX prąd morski w etapie (jednostki świata na sekundę), w prawo dodatni
  * @param currentY prąd w dół dodatni (pod prąd)
@@ -285,7 +285,7 @@ object UserLevels {
                 golden = golden,
                 enemies = enemies,
                 crabs = crabs,
-                quota = stage.quota.coerceIn(1, MAX_QUOTA),
+                quota = stage.quota.coerceIn(0, MAX_QUOTA),
             )
         }
         return level.copy(stages = stages)
@@ -580,7 +580,7 @@ object UserLevels {
         val door = o.getInt("door")
         require(door in 1..WIDTH - 2)
         val quota = o.getInt("quota")
-        require(quota in 1..MAX_QUOTA)
+        require(quota in 0..MAX_QUOTA)
         val theme = o.getInt("theme")
         require(theme == SAME_THEME || theme in Worlds.FINALE..9)
         val cx = o.getInt("cx")
