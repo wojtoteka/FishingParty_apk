@@ -125,7 +125,7 @@ class Community internal constructor(private val online: OnlineManager, private 
 
     /** Link z intencji (App Links albo przycisk ZAGRAJ na stronie poziomu); false – to nie link do poziomu. */
     fun openLink(link: String?): Boolean {
-        val parsed = LevelLinks.parse(link, BuildConfig.FP_LINK_HOST) ?: return false
+        val parsed = LevelLinks.parse(link, BuildConfig.FP_LINK_HOST, BuildConfig.FP_LINK_PREFIX) ?: return false
         pendingLink = parsed
         return true
     }

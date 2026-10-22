@@ -43,6 +43,16 @@ class LevelLinksTest {
     }
 
     @Test
+    fun betaLinksOnlyInDebugBuild() {
+        // Wersja debug (beta serwera) otwiera tylko linki z /beta, oficjalna gra – tylko bez niego.
+        assertEquals(LevelLink.Published(42), LevelLinks.parse("https://fp.example.org/beta/l/42", host, "/beta"))
+        assertEquals(LevelLink.Shared("k3J9xQ2mPa"), LevelLinks.parse("https://fp.example.org/beta/s/k3J9xQ2mPa?lang=en", host, "/beta"))
+        assertNull(LevelLinks.parse("https://fp.example.org/l/42", host, "/beta"))
+        assertNull(LevelLinks.parse("https://fp.example.org/betal/42", host, "/beta"))
+        assertNull(LevelLinks.parse("https://fp.example.org/beta/l/42", host))
+    }
+
+    @Test
     fun phoneIdIsStableHash() {
         val a = PhoneId.hash("9774d56d682e549c")
         assertEquals(64, a.length)

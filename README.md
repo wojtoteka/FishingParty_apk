@@ -61,7 +61,10 @@ Ranking online wymaga w `local.properties` (plik poza repozytorium) sekretu podp
 fp.hmacSecret=...
 fp.apiUrl=https://fp.wojtoteka.ovh/api/v1   # opcjonalnie, to wartość domyślna
 fp.linkHost=fp.wojtoteka.ovh                # opcjonalnie: host linków do poziomów (domyślnie host z fp.apiUrl)
+fp.betaApiUrl=https://fp.wojtoteka.ovh/beta/api/v1   # opcjonalnie: serwer wersji debug (domyślnie beta serwera z fp.apiUrl)
 ```
+
+**Wersja debug gra na becie serwera.** Gra zbudowana jako debug (Android Studio) łączy się z `…/beta/api/v1`: wszystko działa jak w oficjalnej grze, ale konta, ranking, poziomy graczy i targ są w osobnej bazie serwera, a linki do poziomów mają `/beta/` po domenie (debug otwiera tylko takie, wersja z Google Play – tylko bez `/beta/`). Na serwerze: `BETA_DB_NAME` i SHA-256 klucza debug w `BETA_APP_CERTS` (README serwera, „Beta”). Wersja release (np. podpisana kluczem przesyłania przed wydaniem) łączy się z oficjalnym serwerem – jej certyfikat można dopuścić na czas testów (najwyżej 24 h) w panelu: *Urządzenia → Tymczasowo dozwolone certyfikaty*. Debug na serwerze gry: `fp.betaApiUrl` = `fp.apiUrl` (wtedy klucz debug musi być w `ALLOWED_APP_CERTS`).
 
 Bez `fp.hmacSecret` gra działa, a ekrany konta i rankingu pokazują, że ranking jest niedostępny. Po zmianie generatora poziomów trzeba odświeżyć limity na serwerze: `./gradlew testDebugUnitTest --tests "*LevelLimitsExportTest*"` i skopiować `app/build/level-limits.json` do `Top_FishingParty/data/`. Zmiana `SeedLevels` (albo reguł `ChallengeKind`) wymaga tej samej zmiany w kodzie serwera – próbki `app/build/endless-sample.json` i `app/build/challenge-sample.json` z tego samego testu służą serwerowi do sprawdzenia, że obie strony liczą poziomy 1001+ oraz poziomy dnia i tygodnia tak samo.
 
