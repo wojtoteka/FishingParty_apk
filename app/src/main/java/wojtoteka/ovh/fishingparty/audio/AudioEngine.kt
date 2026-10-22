@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import wojtoteka.ovh.fishingparty.game.Rumble
 import wojtoteka.ovh.fishingparty.game.Sfx
 import java.io.DataOutputStream
 import java.io.File
@@ -143,16 +144,29 @@ class AudioEngine(context: Context) {
         pool.play(id, SFX_VOLUME, SFX_VOLUME, 1, 0, 1f)
     }
 
+    /** Krótki impuls wibracji (trafienie, ryba, meta…). */
+    fun vibrate(millis: Long) = vibrate(VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE))
+
+    /** Wibracja z rytmem; telefon bez regulacji siły drgań gra sam rytm. */
+    fun rumble(rumble: Rumble) = vibrate(VibrationEffect.createWaveform(rumble.timings, rumble.amplitudes, -1))
+
+    /** Przerywa wibrację gry (np. melodyjkę przegranej po kontynuacji albo wyjściu z poziomu). */
+    fun stopVibration() {
+        try {
+            vibrator?.cancel()
+        } catch (_: Exception) {
+        }
+    }
+
     /**
      * Wibracja gry. Krótki impuls bez atrybutów Android uznaje za wibrację dotyku i wycisza ją, gdy w telefonie
      * wyłączono wibracje przy dotknięciu (częste na Samsungach) – dlatego gra wibruje jako multimedia, jak jej dźwięk.
      */
-    fun vibrate(millis: Long) {
+    private fun vibrate(effect: VibrationEffect) {
         if (!vibrationEnabled) return
         val v = vibrator ?: return
         if (!v.hasVibrator()) return
         try {
-            val effect = VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE)
             if (Build.VERSION.SDK_INT >= 33) {
                 v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA))
             } else {

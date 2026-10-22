@@ -62,6 +62,7 @@ import wojtoteka.ovh.fishingparty.game.HudStrings
 import wojtoteka.ovh.fishingparty.game.KeyboardSteer
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
+import wojtoteka.ovh.fishingparty.game.Rumble
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TouchStick
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
@@ -188,6 +189,7 @@ fun GameScreen(
         object : GameListener {
             override fun onSound(sfx: Sfx) = audio.play(sfx)
             override fun onVibrate(millis: Long) = audio.vibrate(millis)
+            override fun onRumble(rumble: Rumble) = audio.rumble(rumble)
             override fun onFinished(result: RunResult, reason: LoseReason?) {
                 outcome = Outcome(result, reason)
                 // Przegrana w poziomie gracza też trafia do jego statystyk (kontynuacji tam nie ma).
@@ -300,7 +302,11 @@ fun GameScreen(
             if (event == Lifecycle.Event.ON_PAUSE && outcome == null) paused = true
         }
         lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycle.removeObserver(observer)
+            // Nowa próba albo wyjście z poziomu ucina melodyjkę wibracji (wygranej albo przegranej).
+            audio.stopVibration()
+        }
     }
     BackHandler(enabled = outcome == null && !welcome) { paused = !paused }
     // Po zakończeniu poziomu „wstecz” wraca na mapę (a nie zamyka gry).
@@ -390,6 +396,7 @@ fun GameScreen(
                 outcome = current,
                 onRevive = {
                     outcome = null
+                    audio.stopVibration()
                     world.revive()
                 },
                 onExit = { exit ->

@@ -59,6 +59,7 @@ import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
 import wojtoteka.ovh.fishingparty.data.Metric
+import wojtoteka.ovh.fishingparty.game.Rumbles
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.Worlds
@@ -207,7 +208,8 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                     ToggleRow(stringResource(R.string.set_vibration), save.vibration) {
                         save.vibration = it
                         services.audio.vibrationEnabled = it
-                        if (it) services.audio.vibrate(40)
+                        // Po włączeniu – próbka: melodyjka wygranej.
+                        if (it) services.audio.rumble(Rumbles.WON)
                         repo.changed()
                     }
                 }

@@ -27,6 +27,9 @@ import kotlin.math.sqrt
 interface GameListener {
     fun onSound(sfx: Sfx)
     fun onVibrate(millis: Long)
+
+    /** Wibracja z rytmem (melodyjka wygranej i przegranej); bez obsługi – jeden impuls tej samej długości. */
+    fun onRumble(rumble: Rumble) = onVibrate(rumble.millis)
     fun onFinished(result: RunResult, reason: LoseReason?)
 }
 
@@ -595,7 +598,7 @@ class GameWorld(
         phase = Phase.WINNING
         phaseTimer = 1.4f
         listener.onSound(Sfx.WIN)
-        listener.onVibrate(40)
+        listener.onRumble(Rumbles.WON)
     }
 
     private fun checkTime() {
@@ -615,7 +618,7 @@ class GameWorld(
         phaseTimer = 1.1f
         hitFlash = 1f
         listener.onSound(Sfx.LOST)
-        listener.onVibrate(220)
+        listener.onRumble(Rumbles.LOST)
     }
 
     // ================================================================ wrogowie
