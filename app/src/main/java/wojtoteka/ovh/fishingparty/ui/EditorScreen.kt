@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -43,6 +44,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.pointer.pointerInput
@@ -1263,18 +1265,40 @@ private fun PublishDialog(model: EditorModel, onVerify: () -> Unit, onAccount: (
     }
 }
 
-/** Pole wyboru na piaskowym panelu (jak akceptacja regulaminu). */
+/**
+ * Pole wyboru na piaskowym panelu: cały wiersz to ciemna tabliczka (jak [DarkCard]) wysokości przycisku,
+ * po zaznaczeniu ze złotą krawędzią i zielonym polem z ptaszkiem.
+ */
 @Composable
 fun CheckRow(checked: Boolean, label: String, onToggle: () -> Unit) {
     val u = LocalUnit.current.toFloat()
-    Row(Modifier.fillMaxWidth().noRippleClick(onToggle).padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
-        Box(
-            Modifier.size(px(12)).drawBehind {
-                pixelBox(u, Pal.SeaDark, Pal.Navy, Pal.Outline, shadow = 0f)
-                if (checked) drawRect(Pal.Gold, Offset(3 * u, 3 * u), Size(size.width - 6 * u, size.height - 6 * u))
-            },
-        )
-        HSpace(4)
-        PixelText(label, size = 1, color = Pal.WoodDark, outline = null, modifier = Modifier.weight(1f))
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .noRippleClick(onToggle)
+            .drawBehind {
+                pixelBox(u, if (checked) Pal.Navy else Pal.SeaDark, if (checked) Pal.Gold else Pal.Sea, Pal.Outline, shadow = 1f)
+            }
+            .heightIn(min = px(MIN_BUTTON))
+            .padding(horizontal = px(6), vertical = px(4)),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(px(14)).drawBehind { checkBox(u, checked) })
+        HSpace(5)
+        PixelText(label, size = 1, color = if (checked) Pal.Gold else Pal.Foam, modifier = Modifier.weight(1f))
     }
+}
+
+/** Ptaszek w polu 14×14 – kratki 2×2 (lewy górny róg, w pikselach interfejsu). */
+private val CHECK_MARK = listOf(3 to 6, 4 to 7, 5 to 8, 6 to 7, 7 to 6, 8 to 5, 9 to 4, 10 to 3)
+
+private fun DrawScope.checkBox(u: Float, checked: Boolean) {
+    if (!checked) {
+        // Puste pole „wciśnięte” w tabliczkę: ciemniejsza krawędź u góry zamiast jasnej.
+        pixelBox(u, Pal.Foam, Pal.GreyLight, Pal.Foam, shadow = 0f)
+        return
+    }
+    pixelBox(u, Pal.Green, Pal.GreenLight, Pal.GreenDark, shadow = 1f)
+    for ((x, y) in CHECK_MARK) drawRect(Pal.GreenDark, Offset(x * u, (y + 1) * u), Size(2 * u, 2 * u))
+    for ((x, y) in CHECK_MARK) drawRect(Pal.White, Offset(x * u, y * u), Size(2 * u, 2 * u))
 }
