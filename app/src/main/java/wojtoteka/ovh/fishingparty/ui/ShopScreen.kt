@@ -135,6 +135,9 @@ fun ShopScreen(onBack: () -> Unit) {
     var workshopOpen by remember { mutableStateOf(false) }
     var boatPick by remember { mutableStateOf(Workshop.DEFAULT_BOAT) }
     var sailDraft by remember { mutableStateOf(SailDraft()) }
+    // Wystawianie na targ – okienko poza przewijaną listą.
+    var selling by remember { mutableStateOf<ShopItem?>(null) }
+    var sold by remember { mutableIntStateOf(0) }
     val equipped = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val look = when (preview?.kind) {
         ItemKind.BOAT -> equipped.copy(boat = preview!!.id)
@@ -236,7 +239,7 @@ fun ShopScreen(onBack: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
                 // Targ: projekty innych graczy i stoisko gracza (zamiast kart sklepu).
-                if (tab == ShopTab.MARKET) MarketPanel(preview?.key, onPreview = { preview = it }, onEquip = equip)
+                if (tab == ShopTab.MARKET) MarketPanel(preview?.key, onPreview = { preview = it }, onEquip = equip, onSell = { selling = it }, sold = sold)
                 // Własne łodzie i żagle dochodzą na koniec ostatniej sekcji, w tych samych rzędach.
                 CardRows(if (flags.isEmpty()) items + creations else items, gap, card)
                 if (flags.isNotEmpty()) {
@@ -287,6 +290,12 @@ fun ShopScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+        selling?.let { item ->
+            MarketSellDialog(item, onClose = { selling = null }) {
+                selling = null
+                sold++
             }
         }
     }

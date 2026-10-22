@@ -48,7 +48,7 @@ private const val MARKET_MAX_PRICE = 20_000
  * a na dole stoisko gracza z kontem – zarobek do odebrania, wystawione projekty i wystawianie nowych.
  */
 @Composable
-fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (ShopItem) -> Unit) {
+fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (ShopItem) -> Unit, onSell: (ShopItem) -> Unit, sold: Int) {
     val services = LocalServices.current
     val online = services.online
     val repo = services.repo
@@ -63,7 +63,6 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
     var error by remember { mutableStateOf<OnlineResult.Failed?>(null) }
     var stall by remember { mutableStateOf<MyMarket?>(null) }
     var refresh by remember { mutableIntStateOf(0) }
-    var selling by remember { mutableStateOf<ShopItem?>(null) }
     var info by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
     val claimedText = stringResource(R.string.market_claimed)
@@ -86,8 +85,8 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
             loading = false
         }
     }
-    LaunchedEffect(kind, sort, isOnline, refresh) { if (isOnline && online.configured) load(next = false) }
-    LaunchedEffect(online.loggedIn, isOnline, refresh) {
+    LaunchedEffect(kind, sort, isOnline, refresh, sold) { if (isOnline && online.configured) load(next = false) }
+    LaunchedEffect(online.loggedIn, isOnline, refresh, sold) {
         stall = null
         if (online.loggedIn && isOnline) (online.community.myMarket() as? Net.Ok)?.let { stall = it.value }
     }
@@ -216,20 +215,23 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
                 DesignPreview(item.kind, item.id, Modifier.width(px(40)))
                 HSpace(4)
                 PixelText(itemName(item), size = 2, modifier = Modifier.weight(1f))
-                PixelButton(stringResource(R.string.market_sell), onClick = { selling = item }, style = ButtonStyle.ORANGE, size = 1)
+                PixelButton(stringResource(R.string.market_sell), onClick = { onSell(item) }, style = ButtonStyle.ORANGE, size = 1)
             }
         }
     }
-    selling?.let { item ->
-        SellDialog(item, onClose = { selling = null }) { name, price ->
-            when (val res = online.community.sell(item, name, price)) {
-                is Net.Ok -> {
-                    selling = null
-                    refresh++
-                    null
-                }
-                is Net.Err -> res.failure
+}
+
+/** Wystawienie projektu na targ – okienko nad całym sklepem (Overlay w przewijanej liście wywraca grę). */
+@Composable
+fun MarketSellDialog(item: ShopItem, onClose: () -> Unit, onSold: () -> Unit) {
+    val online = LocalServices.current.online
+    SellDialog(item, onClose) { name, price ->
+        when (val res = online.community.sell(item, name, price)) {
+            is Net.Ok -> {
+                onSold()
+                null
             }
+            is Net.Err -> res.failure
         }
     }
 }

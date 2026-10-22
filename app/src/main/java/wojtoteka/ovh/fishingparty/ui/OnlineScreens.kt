@@ -686,6 +686,8 @@ fun AccountScreen(onBack: () -> Unit) {
     var mode by remember { mutableStateOf(AccountMode.MENU) }
     var pendingEmail by remember { mutableStateOf("") }
     val loggedIn = online.loggedIn
+    // Potwierdzenie wylogowania poza przewijaną kolumną (Overlay w niej wywraca grę).
+    var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(loggedIn) { mode = AccountMode.MENU }
     LaunchedEffect(loggedIn, isOnline) { if (loggedIn && isOnline) online.refreshProfile() }
 
@@ -711,7 +713,7 @@ fun AccountScreen(onBack: () -> Unit) {
                         AccountMode.CHANGE_PASSWORD -> ChangePasswordForm { mode = AccountMode.MENU }
                         AccountMode.SET_PASSWORD -> SetPasswordForm { mode = AccountMode.MENU }
                         AccountMode.DELETE -> DeleteAccountForm()
-                        else -> AccountProfile { mode = it }
+                        else -> AccountProfile(onPick = { mode = it }, onLogout = { confirmLogout = true })
                     }
                 }
                 if (mode != AccountMode.MENU && isOnline) {
@@ -719,6 +721,16 @@ fun AccountScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+    if (confirmLogout && loggedIn) {
+        ConfirmDialog(
+            message = stringResource(if (online.account?.hasPassword != false) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
+            onConfirm = {
+                confirmLogout = false
+                online.logout()
+            },
+            onCancel = { confirmLogout = false },
+        )
     }
 }
 
@@ -868,11 +880,10 @@ private fun ResetCodeForm(email: String) {
 }
 
 @Composable
-private fun AccountProfile(onPick: (AccountMode) -> Unit) {
+private fun AccountProfile(onPick: (AccountMode) -> Unit, onLogout: () -> Unit) {
     val online = LocalServices.current.online
     val context = LocalContext.current
     val account = online.account ?: return
-    var confirmLogout by remember { mutableStateOf(false) }
     DarkCard(Modifier.fillMaxWidth(), highlight = true) {
         Column(Modifier.fillMaxWidth()) {
             ProfileRow(stringResource(R.string.account_nick), account.nick)
@@ -917,19 +928,9 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
         }
         PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     }
-    PixelButton(stringResource(R.string.account_logout), onClick = { confirmLogout = true }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
+    PixelButton(stringResource(R.string.account_logout), onClick = onLogout, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     VSpace(4)
     PixelButton(stringResource(R.string.account_delete), onClick = { onPick(AccountMode.DELETE) }, style = ButtonStyle.RED, size = 2, modifier = Modifier.fillMaxWidth())
-    if (confirmLogout) {
-        ConfirmDialog(
-            message = stringResource(if (account.hasPassword) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
-            onConfirm = {
-                confirmLogout = false
-                online.logout()
-            },
-            onCancel = { confirmLogout = false },
-        )
-    }
 }
 
 @Composable
