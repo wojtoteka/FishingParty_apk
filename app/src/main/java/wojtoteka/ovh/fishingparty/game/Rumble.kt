@@ -20,6 +20,20 @@ object Rumbles {
         note(150, 230); note(130, 150); note(110, 80)
     }
 
+    /**
+     * Trafienie, które zabiera życie: podwójne, mocne „bzz-BZZZ” – inne niż pojedyncze, lekkie stuknięcie
+     * po złowieniu ryby, żeby gracz rozpoznawał je samym dotykiem.
+     */
+    val HIT: Rumble = rumble {
+        note(80, 255); rest(70)
+        note(130, 255)
+    }
+
+    /** Trafienie zatrzymane przez tarczę: jedno dłuższe, średnie brzęczenie (bez utraty życia). */
+    val SHIELD: Rumble = rumble {
+        note(160, 170)
+    }
+
     /** Wygrana: radosne „ta-ta-ta-TAAAM” (ok. 0,7 s) – trzy krótkie nuty i mocne, długie zakończenie. */
     val WON: Rumble = rumble {
         note(60, 200); rest(60)

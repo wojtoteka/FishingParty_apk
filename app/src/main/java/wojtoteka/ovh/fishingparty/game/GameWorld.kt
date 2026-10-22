@@ -28,7 +28,7 @@ interface GameListener {
     fun onSound(sfx: Sfx)
     fun onVibrate(millis: Long)
 
-    /** Wibracja z rytmem (melodyjka wygranej i przegranej); bez obsługi – jeden impuls tej samej długości. */
+    /** Wibracja z rytmem (trafienie, tarcza, melodyjka wygranej i przegranej); bez obsługi – jeden impuls tej samej długości. */
     fun onRumble(rumble: Rumble) = onVibrate(rumble.millis)
     fun onFinished(result: RunResult, reason: LoseReason?)
 }
@@ -867,7 +867,7 @@ class GameWorld(
             invulnerable = 1.5f
             message = GameMessage(MessageKind.SHIELD, 0, 0)
             listener.onSound(Sfx.SHIELD)
-            listener.onVibrate(40)
+            listener.onRumble(Rumbles.SHIELD)
             return
         }
         lives--
@@ -875,7 +875,7 @@ class GameWorld(
         invulnerable = 2f
         hitFlash = 1f
         listener.onSound(Sfx.HIT)
-        listener.onVibrate(70)
+        listener.onRumble(Rumbles.HIT)
         if (lives <= 0) lose(LoseReason.CAUGHT)
         else if (lives == 1) message = GameMessage(MessageKind.LAST_LIFE, 0, 0)
     }
