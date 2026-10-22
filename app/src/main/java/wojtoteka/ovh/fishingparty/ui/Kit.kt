@@ -83,6 +83,8 @@ object Pal {
     val Sea = Color(0xFF0097E3)
     val SeaLight = Color(0xFF7FCBF1)
     val SeaDark = Color(0xFF004C72)
+    /** Cień niebieskich przycisków – [SeaDark] to tło ciemnych kart, więc taki cień zlewał się z kartą. */
+    val SeaShade = Color(0xFF0070AA)
     val Foam = Color(0xFFE3ECFF)
     val Sand = Color(0xFFFFB31C)
     val SandLight = Color(0xFFFFD071)
@@ -320,7 +322,7 @@ fun DrawScope.drawTiled(image: ImageBitmap, k: Float, alpha: Float = 1f) {
 enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val text: Color = Pal.White) {
     GREEN(Pal.Green, Pal.GreenLight, Pal.GreenDark),
     SAND(Pal.Sand, Pal.SandLight, Pal.SandDark),
-    SEA(Pal.Sea, Pal.SeaLight, Pal.SeaDark),
+    SEA(Pal.Sea, Pal.SeaLight, Pal.SeaShade),
     WOOD(Pal.Wood, Pal.WoodLight, Pal.WoodDark),
     RED(Pal.Red, Pal.RedLight, Pal.RedDark),
     GREY(Pal.Grey, Pal.GreyLight, Pal.GreyDark),
