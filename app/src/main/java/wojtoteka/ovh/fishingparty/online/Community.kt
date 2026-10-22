@@ -78,7 +78,10 @@ class PlayOutcome(
     val level: OnlineLevel,
 )
 
-/** Projekt na targu: [design] to id rzeczy z kreatora (np. „own-1E90FF”). */
+/**
+ * Projekt na targu: [design] to id rzeczy z kreatora (np. „own-1E90FF”). [stars] – gwiazdki od graczy
+ * (jak przy poziomach), [starred] – ten telefon dał gwiazdkę.
+ */
 class MarketItem(
     val id: Int,
     val kind: ItemKind,
@@ -90,7 +93,12 @@ class MarketItem(
     val seller: String,
     val active: Boolean = true,
     val earned: Long = 0,
+    val stars: Int = 0,
+    val starred: Boolean = false,
 ) {
+    /** Punkty projektu (zakładka NAJLEPSZE): sprzedaże + gwiazdki. */
+    val points: Int get() = sales + stars
+
     /** Rzecz z kreatora, którą projekt daje kupującemu. */
     val item: ShopItem? get() = Workshop.find("${kind.name.lowercase()}:$design")
 }
@@ -309,9 +317,19 @@ class Community internal constructor(private val online: OnlineManager, private 
             ItemKind.SAIL -> "&kind=sail"
             else -> ""
         }
-        val res = online.call("GET", "/market?sort=$sort&page=$page$k", auth = false, device = false)
+        // Telefon (device, phone) – serwer zaznacza projekty, którym ten telefon dał gwiazdkę.
+        val phone = online.phoneId.takeIf { it.isNotEmpty() }?.let { "&phone=$it" }.orEmpty()
+        val res = online.call("GET", "/market?sort=$sort&page=$page$k&device=${online.deviceId}$phone", auth = false, device = false)
         val list = res.getJSONArray("items")
         MarketPage(List(list.length()) { parseItem(list.getJSONObject(it)) }.filter { it.item != null }, res.optInt("page"), res.optBoolean("more"))
+    }
+
+    /** Gwiazdka dla projektu ([star] = true) albo jej cofnięcie. Jedna na telefon i jedna na konto (pilnuje serwer). */
+    suspend fun starDesign(id: Int, star: Boolean): Net<MarketItem> = request {
+        val body = JSONObject().put("deviceId", online.deviceId).put("star", star)
+        online.phoneId.takeIf { it.isNotEmpty() }?.let { body.put("phone", it) }
+        val res = online.call("POST", "/market/$id/star", body, auth = online.loggedIn)
+        parseItem(res.getJSONObject("item"), starred = res.optBoolean("starred", star))
     }
 
     suspend fun myMarket(): Net<MyMarket> = request {
@@ -369,7 +387,7 @@ class Community internal constructor(private val online: OnlineManager, private 
         if (repo.save.marketClaim.isNotEmpty() && online.loggedIn) claim()
     }
 
-    private fun parseItem(o: JSONObject): MarketItem {
+    private fun parseItem(o: JSONObject, starred: Boolean = o.optBoolean("starred")): MarketItem {
         val seller = o.getJSONObject("seller")
         return MarketItem(
             id = o.getInt("id"),
@@ -382,6 +400,8 @@ class Community internal constructor(private val online: OnlineManager, private 
             seller = seller.getString("nick"),
             active = o.optBoolean("active", true),
             earned = o.optLong("earned"),
+            stars = o.optInt("stars"),
+            starred = starred,
         )
     }
 }

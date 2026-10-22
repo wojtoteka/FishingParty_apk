@@ -923,7 +923,7 @@
     <string name="community_own">To twój poziom – za własne poziomy nie ma punktów ani monet.</string>
 
     <string name="shop_market">TARG</string>
-    <string name="market_info">Kolory łodzi i żagle zaprojektowane przez graczy. Kupisz je także bez konta – autor dostaje %d%% ceny.</string>
+    <string name="market_info">Kolory łodzi i żagle zaprojektowane przez graczy. Kupisz je także bez konta – autor dostaje %d%% ceny. Daj gwiazdkę projektom, które ci się podobają: NAJLEPSZE to najwięcej punktów (sprzedaże + gwiazdki).</string>
     <string name="market_all">WSZYSTKO</string>
     <string name="market_sales">SPRZEDANO: %d</string>
     <string name="market_stall">TWOJE STOISKO</string>
@@ -942,6 +942,8 @@
     <string name="market_empty">Na targu nic jeszcze nie ma.</string>
     <string name="market_yours">TWÓJ</string>
     <string name="market_listed">Wystawiono na targu!</string>
+    <string name="market_offers">OFERTY</string>
+    <string name="market_points">PUNKTY: %d</string>
     <string name="err_level_exists">Taki poziom jest już opublikowany.</string>
     <string name="err_level_problems">Poziom ma błędy – popraw je i przejdź go jeszcze raz.</string>
     <string name="err_verify_rejected">Serwer nie przyjął przejścia poziomu – przejdź go jeszcze raz.</string>
