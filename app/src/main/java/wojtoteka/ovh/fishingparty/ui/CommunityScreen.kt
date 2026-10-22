@@ -429,7 +429,7 @@ fun StarCount(stars: Int, size: Int = 1) {
 }
 
 @Composable
-private fun StatTile(label: String, value: String, modifier: Modifier, icon: String? = null) {
+internal fun StatTile(label: String, value: String, modifier: Modifier, icon: String? = null) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         PixelText(label, size = 1, color = Pal.Foam, maxLines = 1)
         Row(verticalAlignment = Alignment.CenterVertically) {

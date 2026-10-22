@@ -200,7 +200,14 @@ private fun AppContent() {
                 onPlay = { d -> startCustom(CustomRun(d.data, CustomMode.PLAY, d.level.title, onlineId = d.level.id, starred = d.me?.starred == true)) },
                 onCopied = { },
             )
-            Screen.Creator -> CreatorScreen(onBack = { screen = Screen.Menu }, onEdit = { screen = Screen.Editor(it) })
+            Screen.Creator -> CreatorScreen(
+                onBack = { screen = Screen.Menu },
+                onEdit = { screen = Screen.Editor(it) },
+                onView = { id ->
+                    communityBrowser.open = id
+                    screen = Screen.Community
+                },
+            )
             is Screen.Editor -> EditorScreen(
                 s.draftId,
                 onBack = { screen = Screen.Creator },

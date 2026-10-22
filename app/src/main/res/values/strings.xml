@@ -777,6 +777,13 @@
     <string name="creator_unpublish_confirm">Remove “%s” from the server? Players lose the points they got for beating it.</string>
     <string name="creator_hidden">HIDDEN BY ADMIN: %s</string>
     <string name="creator_limit">This phone holds at most %d levels – delete one first.</string>
+    <string name="creator_manage">MANAGE</string>
+    <string name="manage_counts">Attempts: %1$d · Completions: %2$d</string>
+    <string name="manage_saved">Changes saved.</string>
+    <string name="manage_view">VIEW</string>
+    <string name="manage_open_draft">OPEN IN EDITOR</string>
+    <string name="manage_download">DOWNLOAD TO EDITOR</string>
+    <string name="manage_edit_info">A changed board is published as a new level – this one keeps its players and stars. Change the name and copying here.</string>
 
     <string name="editor_untitled">My level</string>
     <string name="editor_undo">UNDO</string>

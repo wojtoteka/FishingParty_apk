@@ -785,6 +785,13 @@
     <string name="creator_unpublish_confirm">Usunąć poziom „%s” z serwera? Gracze stracą punkty za jego ukończenie.</string>
     <string name="creator_hidden">UKRYTY PRZEZ ADMINA: %s</string>
     <string name="creator_limit">Na telefonie mieści się najwyżej %d poziomów – usuń któryś.</string>
+    <string name="creator_manage">ZARZĄDZAJ</string>
+    <string name="manage_counts">Próby: %1$d · Ukończenia: %2$d</string>
+    <string name="manage_saved">Zapisano zmiany.</string>
+    <string name="manage_view">ZOBACZ</string>
+    <string name="manage_open_draft">OTWÓRZ W KREATORZE</string>
+    <string name="manage_download">POBIERZ DO KREATORA</string>
+    <string name="manage_edit_info">Zmienioną planszę publikujesz jako nowy poziom – ten zostaje z graczami i gwiazdkami. Nazwę i kopiowanie zmienisz tutaj.</string>
 
     <string name="editor_untitled">Mój poziom</string>
     <string name="editor_undo">COFNIJ</string>

@@ -1,6 +1,7 @@
 package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -39,14 +40,23 @@ import wojtoteka.ovh.fishingparty.online.OnlineLevel
 import wojtoteka.ovh.fishingparty.online.OnlineManager
 import wojtoteka.ovh.fishingparty.online.OnlineResult
 
-/** Kreator poziomów: szkice na tym telefonie i poziomy opublikowane z konta (ze statystykami). */
+/**
+ * Kreator poziomów: szkice na tym telefonie i poziomy opublikowane z konta (ze statystykami).
+ * [onView] – opublikowany poziom w POZIOMACH GRACZY (szczegóły i ZAGRAJ).
+ */
 @Composable
-fun CreatorScreen(onBack: () -> Unit, onEdit: (String) -> Unit) {
+fun CreatorScreen(onBack: () -> Unit, onEdit: (String) -> Unit, onView: (Int) -> Unit) {
     val services = LocalServices.current
     val drafts = services.drafts
+    val online = services.online
     val untitled = stringResource(R.string.editor_untitled)
     var deleting by remember { mutableStateOf<LevelDraft?>(null) }
     var full by remember { mutableStateOf(false) }
+    // Okienka opublikowanych poziomów są poza przewijaną listą – Overlay w przewijanej kolumnie wywraca grę.
+    val published = remember { PublishedLevels() }
+    var removing by remember { mutableStateOf<OnlineLevel?>(null) }
+    var managing by remember { mutableStateOf<OnlineLevel?>(null) }
+    val scope = rememberCoroutineScope()
     ScreenFrame(stringResource(R.string.creator_title), onBack) {
         val scroll = rememberScrollState()
         Column(
@@ -95,7 +105,7 @@ fun CreatorScreen(onBack: () -> Unit, onEdit: (String) -> Unit) {
                     onDelete = { deleting = draft },
                 )
             }
-            PublishedSection()
+            PublishedSection(published, onManage = { managing = it }, onRemove = { removing = it })
         }
     }
     deleting?.let { d ->
@@ -106,6 +116,42 @@ fun CreatorScreen(onBack: () -> Unit, onEdit: (String) -> Unit) {
                 deleting = null
             },
             onCancel = { deleting = null },
+        )
+    }
+    removing?.let { level ->
+        ConfirmDialog(
+            stringResource(R.string.creator_unpublish_confirm, level.title),
+            onConfirm = {
+                removing = null
+                scope.launch {
+                    when (val res = online.community.delete(level.id)) {
+                        is Net.Ok -> {
+                            unlinkDrafts(drafts, level.id)
+                            published.refresh++
+                        }
+                        is Net.Err -> published.error = res.failure
+                    }
+                }
+            },
+            onCancel = { removing = null },
+        )
+    }
+    managing?.let { level ->
+        ManageLevelDialog(
+            level,
+            onChanged = { changed ->
+                published.replace(changed)
+                managing = changed
+            },
+            onView = {
+                managing = null
+                onView(level.id)
+            },
+            onEdit = {
+                managing = null
+                onEdit(it)
+            },
+            onClose = { managing = null },
         )
     }
 }
@@ -226,54 +272,242 @@ fun shareDraft(share: LinkShare, online: OnlineManager, draft: LevelDraft) {
     }
 }
 
+/** Poziomy opublikowane z konta – trzymane w ekranie kreatora, żeby okienka zmieniały je poza przewijaną listą. */
+private class PublishedLevels {
+    var levels by mutableStateOf<List<OnlineLevel>?>(null)
+    var error by mutableStateOf<OnlineResult.Failed?>(null)
+    var refresh by mutableIntStateOf(0)
+
+    fun replace(level: OnlineLevel) {
+        levels = levels?.map { if (it.id == level.id) level else it }
+    }
+}
+
 /** Poziomy opublikowane z konta: ocena, punkty i liczby graczy. */
 @Composable
-private fun PublishedSection() {
+private fun PublishedSection(state: PublishedLevels, onManage: (OnlineLevel) -> Unit, onRemove: (OnlineLevel) -> Unit) {
     val online = LocalServices.current.online
-    var levels by remember { mutableStateOf<List<OnlineLevel>?>(null) }
-    var error by remember { mutableStateOf<OnlineResult.Failed?>(null) }
-    var refresh by remember { mutableIntStateOf(0) }
-    var removing by remember { mutableStateOf<OnlineLevel?>(null) }
-    val scope = rememberCoroutineScope()
     val loggedIn = online.loggedIn
-    LaunchedEffect(loggedIn, refresh) {
+    LaunchedEffect(loggedIn, state.refresh) {
         if (!loggedIn || !online.configured) return@LaunchedEffect
         when (val res = online.community.mine()) {
             is Net.Ok -> {
-                levels = res.value
-                error = null
+                state.levels = res.value
+                state.error = null
             }
-            is Net.Err -> error = res.failure
+            is Net.Err -> state.error = res.failure
         }
     }
+    val levels = state.levels
+    val error = state.error
     VSpace(4)
     PixelText(stringResource(R.string.creator_published), size = 3, color = Pal.Gold)
     when {
         !loggedIn -> Hint(stringResource(R.string.creator_published_login), Pal.Foam)
-        error != null -> Hint(onlineErrorText(error!!), Pal.RedLight)
+        error != null -> Hint(onlineErrorText(error), Pal.RedLight)
         levels == null -> Hint(stringResource(R.string.online_loading), Pal.Gold)
-        levels!!.isEmpty() -> Hint(stringResource(R.string.creator_published_empty), Pal.Foam)
-        else -> for (level in levels!!) {
+        levels.isEmpty() -> Hint(stringResource(R.string.creator_published_empty), Pal.Foam)
+        else -> for (level in levels) {
             OnlineLevelCard(level, done = false, modifier = Modifier.fillMaxWidth().widthIn(max = px(340))) {
                 if (level.hidden) PixelText(stringResource(R.string.creator_hidden, level.hiddenReason ?: "-"), size = 1, color = Pal.RedLight)
-                VSpace(2)
-                PixelButton(stringResource(R.string.creator_unpublish), onClick = { removing = level }, style = ButtonStyle.RED, size = 1, modifier = Modifier.fillMaxWidth())
+                VSpace(3)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                    PixelButton(stringResource(R.string.creator_manage), onClick = { onManage(level) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
+                    PixelButton(stringResource(R.string.creator_unpublish), onClick = { onRemove(level) }, style = ButtonStyle.RED, size = 1, modifier = Modifier.weight(1f))
+                }
             }
         }
     }
-    removing?.let { level ->
-        ConfirmDialog(
-            stringResource(R.string.creator_unpublish_confirm, level.title),
-            onConfirm = {
-                removing = null
-                scope.launch {
-                    when (val res = online.community.delete(level.id)) {
-                        is Net.Ok -> refresh++
+}
+
+/** Szkic opublikowanego poziomu na tym telefonie (ta sama plansza i nazwa co na serwerze). */
+private fun publishedDraft(drafts: LevelDrafts, id: Int): LevelDraft? = drafts.drafts.firstOrNull { it.publishedId == id && it.published }
+
+/** Poziom usunięty z serwera – jego szkice znów można opublikować. */
+private fun unlinkDrafts(drafts: LevelDrafts, id: Int) {
+    for (d in drafts.drafts.filter { it.publishedId == id }) drafts.save(d.with(publishedId = null, publishedHash = null))
+}
+
+/** Nowa nazwa opublikowanego poziomu także w jego szkicu – plansza ta sama, więc szkic dalej jest opublikowany i przejechany. */
+private fun renameDraft(drafts: LevelDrafts, id: Int, title: String) {
+    val d = publishedDraft(drafts, id) ?: return
+    if (d.level.title == title) return
+    val level = UserLevels.normalize(d.level.copy(title = title))
+    val hash = UserLevels.hashOf(level)
+    drafts.save(d.with(level = level, publishedHash = hash, verifiedHash = if (d.verified) hash else d.verifiedHash))
+}
+
+/**
+ * Zarządzanie opublikowanym poziomem: statystyki, nazwa i zgoda na kopiowanie (zmienia je serwer – plansza, gracze
+ * i gwiazdki zostają), link, podgląd w POZIOMACH GRACZY i szkic w kreatorze (pobrany z serwera, gdy go nie ma na telefonie).
+ */
+@Composable
+private fun ManageLevelDialog(
+    level: OnlineLevel,
+    onChanged: (OnlineLevel) -> Unit,
+    onView: () -> Unit,
+    onEdit: (String) -> Unit,
+    onClose: () -> Unit,
+) {
+    val services = LocalServices.current
+    val online = services.online
+    val drafts = services.drafts
+    var title by remember(level.id) { mutableStateOf(level.title) }
+    var copyable by remember(level.id) { mutableStateOf(level.copyable) }
+    var busy by remember(level.id) { mutableStateOf(false) }
+    var saved by remember(level.id) { mutableStateOf(false) }
+    var full by remember(level.id) { mutableStateOf(false) }
+    var error by remember(level.id) { mutableStateOf<OnlineResult.Failed?>(null) }
+    val scope = rememberCoroutineScope()
+    val share = rememberLinkShare()
+    val clean = UserLevels.normalizeTitle(title).filter { UserLevels.titleAllowed(it.toString()) }.take(UserLevels.TITLE_MAX)
+    val newTitle = clean.takeIf { it != level.title }
+    val newCopyable = copyable.takeIf { it != level.copyable }
+    val draft = publishedDraft(drafts, level.id)
+    fun run(block: suspend () -> Unit) {
+        if (busy) return
+        busy = true
+        saved = false
+        error = null
+        scope.launch {
+            block()
+            busy = false
+        }
+    }
+    Overlay(onDismiss = onClose) {
+        Box(Modifier.fillMaxWidth()) {
+            PixelButton("X", onClick = onClose, style = ButtonStyle.RED, size = 3, modifier = Modifier.align(Alignment.TopEnd))
+            Column(Modifier.align(Alignment.TopCenter).padding(horizontal = px(18)), horizontalAlignment = Alignment.CenterHorizontally) {
+                PixelText(level.title, size = 3, align = TextAlign.Center)
+                PixelText("#${level.id}", size = 1, color = Pal.WoodDark, outline = null)
+            }
+        }
+        VSpace(5)
+        DarkCard(Modifier.fillMaxWidth(), highlight = level.featured) {
+            Column(Modifier.fillMaxWidth()) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TierIcon(level.tier, 2)
+                    HSpace(4)
+                    Column(Modifier.weight(1f)) {
+                        PixelText(tierName(level.tier), size = 2, color = tierColor(level.tier))
+                        PixelText(
+                            if (level.rated) stringResource(R.string.community_points, level.points) else stringResource(R.string.community_unrated),
+                            size = 1,
+                            color = if (level.rated) Pal.Gold else Pal.GreyLight,
+                        )
+                    }
+                }
+                VSpace(3)
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                    StatTile(stringResource(R.string.community_stars), level.stars.toString(), Modifier.weight(1f), icon = "fishscore_gold")
+                    StatTile(stringResource(R.string.community_players), level.players.toString(), Modifier.weight(1f))
+                    StatTile(stringResource(R.string.community_rate), level.completionRate?.let { "$it%" } ?: "-", Modifier.weight(1f))
+                }
+                VSpace(2)
+                PixelText(stringResource(R.string.manage_counts, level.attempts, level.completions), size = 1, color = Pal.SeaLight)
+                if (level.hidden) {
+                    VSpace(2)
+                    PixelText(stringResource(R.string.creator_hidden, level.hiddenReason ?: "-"), size = 1, color = Pal.RedLight)
+                }
+            }
+        }
+        VSpace(4)
+        DarkCard(Modifier.fillMaxWidth()) {
+            PixelTextField(
+                title,
+                {
+                    title = it
+                    saved = false
+                },
+                stringResource(R.string.editor_name),
+                maxLength = UserLevels.TITLE_MAX,
+                imeAction = ImeAction.Done,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        VSpace(3)
+        CheckRow(copyable, stringResource(R.string.editor_copyable)) {
+            copyable = !copyable
+            saved = false
+        }
+        VSpace(3)
+        PixelButton(
+            stringResource(R.string.save_button),
+            onClick = {
+                run {
+                    when (val res = online.community.updateLevel(level.id, newTitle, newCopyable)) {
+                        is Net.Ok -> {
+                            if (newTitle != null) renameDraft(drafts, level.id, res.value.title)
+                            title = res.value.title
+                            copyable = res.value.copyable
+                            saved = true
+                            onChanged(res.value)
+                        }
                         is Net.Err -> error = res.failure
                     }
                 }
             },
-            onCancel = { removing = null },
+            enabled = !busy && (newTitle != null || newCopyable != null) && clean.length >= UserLevels.TITLE_MIN,
+            style = ButtonStyle.GREEN,
+            size = 2,
+            modifier = Modifier.keyPrimary().fillMaxWidth(),
         )
+        VSpace(4)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            // Ukryty przez admina poziom nie ma linku ani strony w POZIOMACH GRACZY.
+            PixelButton(
+                stringResource(R.string.community_share),
+                onClick = { share.share(level.title, own = true) { lang -> online.community.shareLink(level.id, lang) } },
+                enabled = !share.busy && !level.hidden,
+                style = ButtonStyle.ORANGE,
+                size = 1,
+                modifier = Modifier.weight(1f),
+            )
+            PixelButton(stringResource(R.string.manage_view), onClick = onView, enabled = !level.hidden, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
+        }
+        VSpace(3)
+        if (draft != null) {
+            PixelButton(stringResource(R.string.manage_open_draft), onClick = { onEdit(draft.id) }, style = ButtonStyle.SAND, size = 2, modifier = Modifier.fillMaxWidth())
+        } else {
+            PixelButton(
+                stringResource(R.string.manage_download),
+                onClick = {
+                    if (drafts.drafts.size >= LevelDrafts.MAX_DRAFTS) {
+                        full = true
+                    } else {
+                        run {
+                            when (val res = online.community.level(level.id)) {
+                                is Net.Ok -> {
+                                    val created = drafts.create(res.value.data)
+                                    drafts.save(created.with(publishedId = level.id, publishedHash = created.hash))
+                                    onEdit(created.id)
+                                }
+                                is Net.Err -> error = res.failure
+                            }
+                        }
+                    }
+                },
+                enabled = !busy && !level.hidden,
+                style = ButtonStyle.SAND,
+                size = 2,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        VSpace(2)
+        PixelText(stringResource(R.string.manage_edit_info), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        val failure = error ?: share.error
+        val message = when {
+            full -> stringResource(R.string.creator_limit, LevelDrafts.MAX_DRAFTS)
+            failure != null -> onlineErrorText(failure)
+            busy -> stringResource(R.string.online_loading)
+            saved -> stringResource(R.string.manage_saved)
+            else -> null
+        }
+        message?.let {
+            VSpace(3)
+            PixelText(it, size = 1, color = if (saved && !full) Pal.GreenDark else Pal.RedDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
+        VSpace(4)
+        PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     }
 }

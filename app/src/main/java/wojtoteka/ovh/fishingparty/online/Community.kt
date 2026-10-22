@@ -177,6 +177,14 @@ class Community internal constructor(private val online: OnlineManager, private 
         parseLevel(online.call("POST", "/levels", body).getJSONObject("level"))
     }
 
+    /** Autor zmienia nazwę ([title]) albo zgodę na kopiowanie ([copyable]) – null zostawia bez zmian. */
+    suspend fun updateLevel(id: Int, title: String?, copyable: Boolean?): Net<OnlineLevel> = request {
+        val body = JSONObject()
+        title?.let { body.put("title", it) }
+        copyable?.let { body.put("copyable", it) }
+        parseLevel(online.call("POST", "/levels/$id/settings", body).getJSONObject("level"))
+    }
+
     suspend fun delete(id: Int): Net<Unit> = request {
         online.applyProfileOf(online.call("POST", "/levels/$id/delete"))
     }
