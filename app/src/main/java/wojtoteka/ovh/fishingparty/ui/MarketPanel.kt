@@ -72,6 +72,7 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
     var starring by remember { mutableStateOf<Int?>(null) }
     val scope = rememberCoroutineScope()
     val claimedText = stringResource(R.string.market_claimed)
+    val listedText = stringResource(R.string.market_listed)
 
     fun load(next: Boolean) {
         if (loading) return
@@ -92,6 +93,8 @@ fun MarketPanel(previewKey: String?, onPreview: (ShopItem) -> Unit, onEquip: (Sh
         }
     }
     LaunchedEffect(kind, sort, isOnline, refresh, sold) { if (isOnline && online.configured) load(next = false) }
+    // Projekt właśnie trafił na targ (okienko wystawiania jest w sklepie).
+    LaunchedEffect(sold) { if (sold > 0) info = listedText }
     LaunchedEffect(online.loggedIn, isOnline, refresh, sold) {
         stall = null
         if (online.loggedIn && isOnline) (online.community.myMarket() as? Net.Ok)?.let { stall = it.value }
