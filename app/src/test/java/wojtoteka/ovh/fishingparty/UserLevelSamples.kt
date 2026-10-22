@@ -47,6 +47,13 @@ object UserLevelSamples {
             val r = rng.range(0, rows - 2)
             sand(c, r); sand(c + 1, r); sand(c, r + 1); sand(c + 1, r + 1)
         }
+        // Część wysp w piasku innej palety (kilka kolorów piasku w etapie).
+        repeat(rng.range(0, 3)) {
+            val code = UserLevels.sandCode(rng.range(-1, 9))
+            val c = rng.range(1, WIDTH - 3)
+            val r = rng.range(0, rows - 2)
+            for ((dc, dr) in listOf(0 to 0, 1 to 0, 0 to 1, 1 to 1)) cells[(r + dr) * WIDTH + c + dc] = code
+        }
         repeat(rng.range(0, 8)) {
             val i = rng.nextInt(cells.size)
             if (cells[i] == UserLevels.SEA) cells[i] = UserLevels.ROCK

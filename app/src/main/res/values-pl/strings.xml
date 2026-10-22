@@ -803,7 +803,8 @@
     <string name="editor_quota">RYBY DO BRAMY</string>
     <string name="editor_stage_menu">ETAP…</string>
     <string name="editor_tool_move">Przesuwaj planszę palcem. Dotknij postaci, żeby ją ustawić, albo przeciągnij ją w inne miejsce.</string>
-    <string name="editor_tool_sand">Piasek 2×2 – brzegi i wyspy. Pasy piasku węższe niż 2 pola znikają.</string>
+    <string name="editor_tool_sand">Piasek 2×2 – brzegi i wyspy. Kolor: %1$s (wybierz niżej, w etapie może być kilka). Pasy piasku węższe niż 2 pola znikają.</string>
+    <string name="editor_sand_stage">barwy etapu</string>
     <string name="editor_tool_rock">Skała – pojedynczy kamień w wodzie.</string>
     <string name="editor_tool_erase">Woda – usuwa piasek, skały i postacie.</string>
     <string name="editor_tool_fish">Ryba – 10 pkt. Dotknij wody, żeby postawić, a ryby – żeby ją usunąć.</string>

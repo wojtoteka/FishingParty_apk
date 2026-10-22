@@ -94,7 +94,7 @@ object UserLevelEdits {
     fun place(level: UserLevel, k: Int, col: Int, row: Int, what: Placement): UserLevel? {
         val stage = level.stages[k]
         val cell = stage.cell(col, row)
-        if (what == Placement.Crab && cell != UserLevels.SAND) return null
+        if (what == Placement.Crab && !UserLevels.isSand(cell)) return null
         if (what != Placement.Crab && cell != UserLevels.SEA) return null
         val existing = pieceAt(level, k, col, row)
         if (existing != null && same(level, existing, what)) return remove(level, existing)
@@ -115,7 +115,7 @@ object UserLevelEdits {
     fun move(level: UserLevel, ref: PieceRef, k: Int, col: Int, row: Int): UserLevel? {
         val target = level.stages.getOrNull(k) ?: return null
         val cell = target.cell(col, row)
-        if (ref.piece == Piece.CRAB && cell != UserLevels.SAND) return null
+        if (ref.piece == Piece.CRAB && !UserLevels.isSand(cell)) return null
         if (ref.piece != Piece.CRAB && cell != UserLevels.SEA) return null
         if (pieceAt(level, k, col, row) != null) return null
         val s = level.stages[ref.stage]

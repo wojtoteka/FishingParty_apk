@@ -38,7 +38,8 @@ data class UserCrab(val col: Int, val row: Int)
  * @param theme paleta etapu: [UserLevels.SAME_THEME] – jak cały poziom, [Worlds.FINALE] – złota, 0..9 – palety światów
  * @param currentX prąd morski w etapie (jednostki świata na sekundę), w prawo dodatni
  * @param currentY prąd w dół dodatni (pod prąd)
- * @param cells kafelki wierszami od góry: [UserLevels.SEA], [UserLevels.SAND] albo [UserLevels.ROCK]
+ * @param cells kafelki wierszami od góry: [UserLevels.SEA], [UserLevels.SAND] (piasek w barwach etapu), piasek
+ *   w kolorze innej palety ([UserLevels.sandCode]) albo [UserLevels.ROCK]
  */
 data class UserStage(
     val rows: Int,
@@ -112,6 +113,19 @@ object UserLevels {
     const val SAND: Byte = 1
     const val ROCK: Byte = 2
 
+    /** Piasek w kolorze palety p ([Worlds.FINALE]..9) ma kod p + [SAND_SHIFT] (3..13) – etap może mieć kilka kolorów piasku. */
+    private const val SAND_SHIFT = 4
+    private const val FIRST_SAND_COLOR = Worlds.FINALE + SAND_SHIFT
+    private const val LAST_SAND_COLOR = 9 + SAND_SHIFT
+
+    /** Kod piasku w kolorze palety [palette]; [SAME_THEME] – piasek w barwach etapu ([SAND]). */
+    fun sandCode(palette: Int): Byte = if (palette == SAME_THEME) SAND else (palette + SAND_SHIFT).toByte()
+
+    fun isSand(code: Byte): Boolean = code == SAND || code in FIRST_SAND_COLOR..LAST_SAND_COLOR
+
+    /** Paleta piasku z kodu pola: [SAME_THEME] – barwy etapu. */
+    fun sandPalette(code: Byte): Int = if (code in FIRST_SAND_COLOR..LAST_SAND_COLOR) code - SAND_SHIFT else SAME_THEME
+
     /** Paleta etapu taka jak całego poziomu. */
     const val SAME_THEME = -2
 
@@ -166,14 +180,14 @@ object UserLevels {
         fun top(k: Int) = gateRows[k] + 1
     }
 
-    private fun tileOf(code: Byte): Tile = when (code) {
-        SAND -> Tile.SAND
-        ROCK -> Tile.ROCK
+    private fun tileOf(code: Byte): Tile = when {
+        isSand(code) -> Tile.SAND
+        code == ROCK -> Tile.ROCK
         else -> Tile.SEA
     }
 
-    private fun codeOf(tile: Tile): Byte = when (tile) {
-        Tile.SAND -> SAND
+    private fun codeOf(tile: Tile, sand: Int): Byte = when (tile) {
+        Tile.SAND -> sandCode(sand)
         Tile.ROCK -> ROCK
         else -> SEA
     }
@@ -182,6 +196,7 @@ object UserLevels {
      * Składa planszę jak [LevelGenerator.generate]: mur, port na mecie, etapy od góry, bramy z wrotami.
      * Wokół wrót i startu zawsze jest woda, a piasek bez pasującego kafelka znika ([LevelGenerator.fixSand]).
      * Pole bramy, któremu po tej poprawce zabrakło piasku nad i pod sobą, wraca do muru – brama nie ma dziur.
+     * Piasek w bramie ma kolor piasku pod nią (pierwszego rzędu etapu).
      */
     fun assemble(stages: List<UserStage>, startCol: Int = START_COL): Assembled {
         val n = stages.size
@@ -205,7 +220,11 @@ object UserLevels {
         }
         for ((k, stage) in stages.withIndex()) {
             val top = gateRows[k] + 1
-            for (r in 0 until stage.rows) for (c in 0 until WIDTH) grid[c, top + r] = tileOf(stage.cell(c, r))
+            for (r in 0 until stage.rows) for (c in 0 until WIDTH) {
+                val code = stage.cell(c, r)
+                grid[c, top + r] = tileOf(code)
+                grid.setSandColor(c, top + r, sandPalette(code))
+            }
         }
         for ((k, stage) in stages.withIndex()) {
             val g = gateRows[k]
@@ -216,6 +235,7 @@ object UserLevels {
                     grid[c, g - 1] == Tile.SAND && grid[c, g + 1] == Tile.SAND -> Tile.SAND
                     else -> Tile.WALL
                 }
+                grid.setSandColor(c, g, grid.sandColor(c, g + 1))
             }
         }
         for ((k, stage) in stages.withIndex()) {
@@ -266,7 +286,7 @@ object UserLevels {
         val a = assemble(level.stages)
         val stages = level.stages.mapIndexed { k, stage ->
             val top = a.top(k)
-            val cells = ByteArray(stage.rows * WIDTH) { i -> codeOf(a.grid[i % WIDTH, top + i / WIDTH]) }
+            val cells = ByteArray(stage.rows * WIDTH) { i -> (top + i / WIDTH).let { r -> codeOf(a.grid[i % WIDTH, r], a.grid.sandColor(i % WIDTH, r)) } }
             val taken = HashSet<Int>()
             fun free(col: Int, row: Int): Boolean =
                 col in 0 until WIDTH && row in 0 until stage.rows && cells[row * WIDTH + col] == SEA && taken.add(row * WIDTH + col)
@@ -277,7 +297,7 @@ object UserLevels {
                 .map { it.copy(dir = validDir(it.kind, it.dir)) }
             val crabCells = HashSet<Int>()
             val crabs = stage.crabs.filter {
-                it.col in 0 until WIDTH && it.row in 0 until stage.rows && cells[it.row * WIDTH + it.col] == SAND && crabCells.add(it.row * WIDTH + it.col)
+                it.col in 0 until WIDTH && it.row in 0 until stage.rows && isSand(cells[it.row * WIDTH + it.col]) && crabCells.add(it.row * WIDTH + it.col)
             }.take(MAX_CRABS)
             stage.copy(
                 cells = cells,
@@ -455,7 +475,8 @@ object UserLevels {
 
     /**
      * Zapis w stałej kolejności pól (ten sam tekst daje ten sam skrót na telefonie i na serwerze).
-     * Kafelki etapu to jeden napis: „.” woda, „s” piasek, „r” skała.
+     * Kafelki etapu to jeden napis: „.” woda, „s” piasek, „r” skała, „0”–„9” piasek w kolorze palety świata,
+     * „f” – w złotej palecie finału.
      */
     fun encode(level: UserLevel): String = buildString {
         append("{\"v\":").append(FORMAT)
@@ -476,7 +497,7 @@ object UserLevels {
             append(",\"cx\":").append(s.currentX)
             append(",\"cy\":").append(s.currentY)
             append(",\"cells\":\"")
-            for (b in s.cells) append(if (b == SAND) 's' else if (b == ROCK) 'r' else '.')
+            for (b in s.cells) append(cellChar(b))
             append('"')
             append(",\"fish\":[").append(s.fish.joinToString(",") { "[${if (it.blue) 1 else 0},${it.col},${it.row}]" }).append(']')
             append(",\"golden\":[").append(s.golden.joinToString(",") { "[${it.delay},${it.col},${it.row}]" }).append(']')
@@ -485,6 +506,13 @@ object UserLevels {
             append('}')
         }
         append("]}")
+    }
+
+    private fun cellChar(code: Byte): Char = when {
+        code == SAND -> 's'
+        code == ROCK -> 'r'
+        isSand(code) -> sandPalette(code).let { if (it == Worlds.FINALE) 'f' else '0' + it }
+        else -> '.'
     }
 
     private fun StringBuilder.appendJson(text: String): StringBuilder {
@@ -539,10 +567,12 @@ object UserLevels {
         val text = o.getString("cells")
         require(text.length == rows * WIDTH)
         val cells = ByteArray(text.length) { i ->
-            when (text[i]) {
+            when (val ch = text[i]) {
                 '.' -> SEA
                 's' -> SAND
                 'r' -> ROCK
+                'f' -> sandCode(Worlds.FINALE)
+                in '0'..'9' -> sandCode(ch - '0')
                 else -> throw IllegalArgumentException("pole")
             }
         }

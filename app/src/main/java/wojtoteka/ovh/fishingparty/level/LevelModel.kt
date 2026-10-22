@@ -26,7 +26,29 @@ class TileGrid(val width: Int, val height: Int) {
     /** Siatka zawinięta w pionie (nieskończenie przewijane tło menu). */
     var wrapRows = false
 
+    /** Kolory piasku pól (poziomy z kreatora); null – cały piasek w palecie wiersza. */
+    private var sand: ByteArray? = null
+
     fun wrap(row: Int): Int = if (wrapRows) Math.floorMod(row, height) else row
+
+    /**
+     * Paleta piasku pola (jak numer świata) albo [DEFAULT_SAND] – piasek w palecie wiersza. Poza kolumnami
+     * piasek ciągnie się w kolorze brzegu.
+     */
+    fun sandColor(col: Int, row: Int): Int {
+        val r = wrap(row)
+        val colors = sand ?: return DEFAULT_SAND
+        if (r !in 0 until height) return DEFAULT_SAND
+        val c = col.coerceIn(0, width - 1)
+        if (c != col && cells[r * width + c] != Tile.SAND) return DEFAULT_SAND
+        return colors[r * width + c].toInt()
+    }
+
+    fun setSandColor(col: Int, row: Int, palette: Int) {
+        if (!inside(col, row)) return
+        val colors = sand ?: if (palette == DEFAULT_SAND) return else ByteArray(width * height) { DEFAULT_SAND.toByte() }.also { sand = it }
+        colors[row * width + col] = palette.toByte()
+    }
 
     operator fun get(col: Int, row: Int): Tile {
         val r = wrap(row)
@@ -45,6 +67,11 @@ class TileGrid(val width: Int, val height: Int) {
     }
 
     fun inside(col: Int, row: Int) = col in 0 until width && row in 0 until height
+
+    companion object {
+        /** Piasek w palecie wiersza (jak [UserLevels.SAME_THEME]). */
+        const val DEFAULT_SAND = -2
+    }
 }
 
 enum class LevelType {

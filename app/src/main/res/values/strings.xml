@@ -795,7 +795,8 @@
     <string name="editor_quota">FISH FOR GATE</string>
     <string name="editor_stage_menu">STAGE…</string>
     <string name="editor_tool_move">Drag to scroll. Tap a character to set it up or drag it somewhere else.</string>
-    <string name="editor_tool_sand">Sand 2×2 – shores and islands. Strips of sand thinner than 2 tiles disappear.</string>
+    <string name="editor_tool_sand">Sand 2×2 – shores and islands. Colour: %1$s (pick below, a stage can have several). Strips of sand thinner than 2 tiles disappear.</string>
+    <string name="editor_sand_stage">stage colours</string>
     <string name="editor_tool_rock">Rock – a single stone in the water.</string>
     <string name="editor_tool_erase">Water – removes sand, rocks and characters.</string>
     <string name="editor_tool_fish">Fish – 10 pts. Tap water to place one, tap a fish to remove it.</string>

@@ -18,6 +18,7 @@ import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.Tile
+import wojtoteka.ovh.fishingparty.level.TileGrid
 import wojtoteka.ovh.fishingparty.level.UserCrab
 import wojtoteka.ovh.fishingparty.level.UserEnemy
 import wojtoteka.ovh.fishingparty.level.UserFish
@@ -26,6 +27,7 @@ import wojtoteka.ovh.fishingparty.level.UserLevel
 import wojtoteka.ovh.fishingparty.level.UserLevelProblem
 import wojtoteka.ovh.fishingparty.level.UserLevelRating
 import wojtoteka.ovh.fishingparty.level.UserLevels
+import wojtoteka.ovh.fishingparty.level.Worlds
 
 class UserLevelTest {
 
@@ -56,6 +58,7 @@ class UserLevelTest {
         assertNull(UserLevels.decode(text.replace("\"speed\":100", "\"speed\":500")))
         assertNull(UserLevels.decode(text.replace("[0,3,4]", "[0,3,40]")))
         assertNull(UserLevels.decode(text.replaceFirst("ss", "sx")))
+        assertNull(UserLevels.decode(text.replaceFirst("ss", "sg")))
         assertNull(UserLevels.decode("{nie json"))
     }
 
@@ -140,6 +143,52 @@ class UserLevelTest {
             assertEquals(LevelConstants.FINISH_ROWS, built.layout.stages.last().gateRow)
             assertTrue(LevelGenerator.maxScore(built.plan) > 0)
         }
+    }
+
+    @Test
+    fun sandColorsAreKept() {
+        val base = UserLevels.blankStage()
+        val cells = base.cells.copyOf()
+        // Wyspa 2×2 w złotym piasku finału, obok – w piasku Mroźnego Fiordu; brzegi w barwach etapu.
+        for ((c, r) in listOf(3 to 6, 4 to 6, 3 to 7, 4 to 7)) cells[r * WIDTH + c] = UserLevels.sandCode(Worlds.FINALE)
+        for ((c, r) in listOf(6 to 9, 7 to 9, 6 to 10, 7 to 10)) cells[r * WIDTH + c] = UserLevels.sandCode(3)
+        // Kawałek lewego brzegu w piasku Morza o Północy.
+        for ((c, r) in listOf(0 to 2, 1 to 2, 0 to 3, 1 to 3)) cells[r * WIDTH + c] = UserLevels.sandCode(7)
+        // Pojedynczy kolorowy pas znika jak zwykły piasek.
+        for (c in 2..8) cells[13 * WIDTH + c] = UserLevels.sandCode(5)
+        val stage = base.copy(cells = cells, crabs = listOf(UserCrab(3, 6), UserCrab(7, 10)))
+        val level = UserLevels.normalize(UserLevels.starter("Tęcza").copy(stages = listOf(stage)))
+        val s = level.stages[0]
+        assertEquals(UserLevels.sandCode(Worlds.FINALE), s.cell(3, 6))
+        assertEquals(UserLevels.sandCode(3), s.cell(7, 10))
+        assertEquals(UserLevels.SAND, s.cell(0, 6))
+        assertEquals(UserLevels.SEA, s.cell(3, 13))
+        assertEquals(listOf(UserCrab(3, 6), UserCrab(7, 10)), s.crabs)
+        assertTrue(UserLevels.isSand(s.cell(3, 6)) && !UserLevels.isSand(UserLevels.ROCK))
+        assertEquals(3, UserLevels.sandPalette(s.cell(6, 9)))
+        assertEquals(UserLevels.SAME_THEME, UserLevels.sandPalette(UserLevels.SAND))
+        // Zapis: cyfra to paleta świata, „f” – złota paleta finału.
+        val text = UserLevels.encode(level)
+        assertTrue(text.contains("ff") && text.contains("33"))
+        assertEquals(text, UserLevels.encode(UserLevels.decode(text)!!))
+        // Na planszy gry piasek ma swój kolor, a zwykły – barwy wiersza.
+        val layout = UserLevels.build(level).layout
+        val top = layout.stages[0].topRow
+        assertEquals(Tile.SAND, layout.grid[3, top + 6])
+        assertEquals(Worlds.FINALE, layout.grid.sandColor(3, top + 6))
+        assertEquals(3, layout.grid.sandColor(6, top + 9))
+        assertEquals(TileGrid.DEFAULT_SAND, layout.grid.sandColor(0, top + 6))
+        // Poza planszą piasek ciągnie się w kolorze brzegu.
+        assertEquals(7, layout.grid.sandColor(-1, top + 2))
+        assertEquals(TileGrid.DEFAULT_SAND, layout.grid.sandColor(-1, top + 6))
+    }
+
+    @Test
+    fun plainSandKeepsOldFormat() {
+        // Poziomy bez kolorowego piasku zapisują się jak dotąd (ten sam skrót na telefonie i na serwerze).
+        val text = UserLevels.encode(UserLevels.starter("Stary"))
+        assertTrue(text.contains("\"cells\":\"ss.......ss"))
+        assertFalse(Regex("\"cells\":\"[^\"]*[0-9f]").containsMatchIn(text))
     }
 
     @Test

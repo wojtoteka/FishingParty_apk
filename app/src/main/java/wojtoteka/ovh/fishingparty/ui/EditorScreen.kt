@@ -124,6 +124,9 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
     var canRedo by mutableStateOf(false)
         private set
     var tool by mutableStateOf(EditorTool.SAND)
+
+    /** Kolor piasku do malowania: paleta świata albo [UserLevels.SAME_THEME] – barwy etapu. */
+    var sandColor by mutableIntStateOf(UserLevels.SAME_THEME)
     var scroll by mutableFloatStateOf(-1f)
     var active by mutableIntStateOf(0)
     var selected by mutableStateOf<PieceRef?>(null)
@@ -311,7 +314,7 @@ private class EditorModel(initial: LevelDraft, private val drafts: LevelDrafts) 
         active = k
         brush = cells.map { (c, r) -> top(k) + r to c }
         val code = when (tool) {
-            EditorTool.SAND -> UserLevels.SAND
+            EditorTool.SAND -> UserLevels.sandCode(sandColor)
             EditorTool.ROCK -> UserLevels.ROCK
             else -> UserLevels.SEA
         }
@@ -626,10 +629,10 @@ private fun pieceSprite(level: UserLevel, ref: PieceRef): android.graphics.Bitma
     }
 }
 
-/** Ścieżka sprite'a ikony narzędzia (kafelki w barwach poziomu). */
-private fun toolIcon(tool: EditorTool, theme: String): String = when (tool) {
+/** Ścieżka sprite'a ikony narzędzia (kafelki w barwach etapu, piasek – w wybranym kolorze). */
+private fun toolIcon(tool: EditorTool, theme: String, sand: Int): String = when (tool) {
     EditorTool.MOVE -> "sprites/doigt"
-    EditorTool.SAND -> "tiles/$theme/sandfull"
+    EditorTool.SAND -> "tiles/${sandTheme(theme, sand)}/sandfull"
     EditorTool.ROCK -> "tiles/$theme/rock0"
     EditorTool.ERASE -> "tiles/$theme/wave0"
     EditorTool.FISH -> "sprites/fish1"
@@ -640,10 +643,20 @@ private fun toolIcon(tool: EditorTool, theme: String): String = when (tool) {
     else -> "sprites/" + enemyIcon(tool.enemy!!)
 }
 
+/** Kafelki piasku w kolorze [sand] przy wodzie palety [theme] (ścieżka jak w [Sprites.get]). */
+private fun sandTheme(theme: String, sand: Int): String =
+    if (sand == UserLevels.SAME_THEME) theme else Worlds.theme(sand).let { if (it == theme) theme else "$theme+$it" }
+
+/** Kolory piasku w kreatorze: barwy etapu, złoty piasek finału i piasek każdego świata. */
+private val SAND_COLORS = listOf(UserLevels.SAME_THEME, Worlds.FINALE) + (0..9)
+
 @Composable
-private fun toolHint(tool: EditorTool): String = when (tool) {
+private fun toolHint(tool: EditorTool, sand: Int): String = when (tool) {
     EditorTool.MOVE -> stringResource(R.string.editor_tool_move)
-    EditorTool.SAND -> stringResource(R.string.editor_tool_sand)
+    EditorTool.SAND -> stringResource(
+        R.string.editor_tool_sand,
+        if (sand == UserLevels.SAME_THEME) stringResource(R.string.editor_sand_stage) else rememberWorldNames()(sand),
+    )
     EditorTool.ROCK -> stringResource(R.string.editor_tool_rock)
     EditorTool.ERASE -> stringResource(R.string.editor_tool_erase)
     EditorTool.FISH -> stringResource(R.string.editor_tool_fish)
@@ -667,7 +680,7 @@ private fun EditorBottomPanel(model: EditorModel, onStageMenu: () -> Unit) {
             .windowInsetsPadding(WindowInsets.navigationBars)
             .padding(horizontal = px(4), vertical = px(3)),
     ) {
-        PixelText(toolHint(model.tool), size = 1, color = Pal.Foam, maxLines = 3, modifier = Modifier.fillMaxWidth())
+        PixelText(toolHint(model.tool, model.sandColor), size = 1, color = Pal.Foam, maxLines = 3, modifier = Modifier.fillMaxWidth())
         VSpace(3)
         // Wybór etapu strzałkami – plansza sama przewija się do wybranego etapu.
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(px(3))) {
@@ -695,7 +708,7 @@ private fun EditorBottomPanel(model: EditorModel, onStageMenu: () -> Unit) {
         VSpace(3)
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(px(2))) {
             for (tool in EditorTool.entries) {
-                val image = rememberSprite(toolIcon(tool, theme))
+                val image = rememberSprite(toolIcon(tool, theme, model.sandColor))
                 PixelButton(
                     text = "",
                     onClick = { model.tool = tool },
@@ -705,6 +718,21 @@ private fun EditorBottomPanel(model: EditorModel, onStageMenu: () -> Unit) {
                     Box(Modifier.size(px(20)), contentAlignment = Alignment.Center) {
                         SpriteImage(image, if (image.width > 16) 1 else if (image.width > 9) 1 else 2)
                     }
+                }
+            }
+        }
+        if (model.tool == EditorTool.SAND) {
+            // Kolor piasku: w jednym etapie może być kilka (brzeg przy wodzie etapu – tak jak w grze).
+            VSpace(2)
+            Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(px(2))) {
+                for (sand in SAND_COLORS) {
+                    TileSwatch(
+                        seaTiles = theme,
+                        sandTiles = sandTheme(theme, sand),
+                        selected = sand == model.sandColor,
+                        label = if (sand == UserLevels.SAME_THEME) "=" else null,
+                        modifier = Modifier.size(px(TOOL_SIZE), px(SWATCH_H)),
+                    ) { model.sandColor = sand }
                 }
             }
         }
@@ -805,14 +833,22 @@ private fun PalettePicker(current: Int, withSame: Boolean, onPick: (Int) -> Unit
 
 @Composable
 private fun PaletteSwatch(theme: Int, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    val name = if (theme == UserLevels.SAME_THEME) null else Worlds.theme(theme)
+    TileSwatch(name, name, selected, if (theme == UserLevels.SAME_THEME) "=" else null, modifier.height(px(SWATCH_H)), onClick)
+}
+
+/**
+ * Próbka barw: brzeg piasku z kafelków [sandTiles] („paleta” albo „paleta+piasek”) przy wodzie palety [seaTiles];
+ * null – ciemne pole (np. „jak poziom”).
+ */
+@Composable
+private fun TileSwatch(seaTiles: String?, sandTiles: String?, selected: Boolean, label: String?, modifier: Modifier, onClick: () -> Unit) {
     val u = LocalUnit.current.toFloat()
     val audio = LocalServices.current.audio
-    val name = if (theme == UserLevels.SAME_THEME) null else Worlds.theme(theme)
-    val sea = name?.let { rememberSprite("tiles/$it/sea") }
-    val sand = name?.let { rememberSprite("tiles/$it/sandleft0") }
+    val sea = seaTiles?.let { rememberSprite("tiles/$it/sea") }
+    val sand = sandTiles?.let { rememberSprite("tiles/$it/sandleft0") }
     Box(
         modifier
-            .height(px(30))
             .drawBehind {
                 drawRect(if (selected) Pal.Gold else Pal.Outline)
                 val b = if (selected) 2 * u else u
@@ -836,9 +872,11 @@ private fun PaletteSwatch(theme: Int, selected: Boolean, modifier: Modifier, onC
             },
         contentAlignment = Alignment.Center,
     ) {
-        if (theme == UserLevels.SAME_THEME) PixelText("=", size = 2)
+        label?.let { PixelText(it, size = 2) }
     }
 }
+
+private const val SWATCH_H = 30
 
 /** Wiersz z etykietą i małym licznikiem. */
 @Composable
