@@ -510,13 +510,12 @@ class GameWorld(
         popups += Popup(f.x, f.y - 6f, points, f.kind == FishKind.GOLDEN)
         caught += CaughtFish(f.x, f.y, CAUGHT_ANIM)
         when {
-            f.kind == FishKind.GOLDEN -> {
-                listener.onSound(Sfx.FISH_GOLD)
-                listener.onVibrate(20)
-            }
+            f.kind == FishKind.GOLDEN -> listener.onSound(Sfx.FISH_GOLD)
             combo >= 2 -> listener.onSound(Sfx.COMBO)
             else -> listener.onSound(Sfx.FISH)
         }
+        // Każda złowiona ryba – krótki impuls, złota – trochę dłuższy.
+        listener.onVibrate(if (f.kind == FishKind.GOLDEN) GOLDEN_BUZZ else FISH_BUZZ)
         if (combo >= 3) message = GameMessage(MessageKind.COMBO, combo, 0)
         if (f.stage == stageIndex && !cleared[stageIndex] && caughtInStage[stageIndex] >= stages[stageIndex].quota) {
             openGate(stageIndex)
@@ -979,6 +978,10 @@ class GameWorld(
     companion object {
         const val STEP = 1f / 120f
         private const val MAX_STEPS = 12
+
+        /** Wibracja po złowieniu ryby (ms) – zwykłej i złotej. */
+        private const val FISH_BUZZ = 30L
+        private const val GOLDEN_BUZZ = 50L
         const val SHIP_SPEED = 72f
         const val SHIP_RADIUS = 5f
         /** Jak daleko od wody może wpłynąć na piasek środek łodzi (kafelek ma 16). */

@@ -11,6 +11,8 @@ import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.MessageKind
 import wojtoteka.ovh.fishingparty.game.Phase
+import wojtoteka.ovh.fishingparty.game.Rumble
+import wojtoteka.ovh.fishingparty.game.Rumbles
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import wojtoteka.ovh.fishingparty.game.TutorialStep
@@ -42,8 +44,18 @@ class GameSimulationTest {
     private class Recorder : GameListener {
         var result: RunResult? = null
         var reason: LoseReason? = null
-        override fun onSound(sfx: Sfx) = Unit
-        override fun onVibrate(millis: Long) = Unit
+
+        /** Dźwięki i wibracje po kolei (wibracja – długość w ms albo melodyjka). */
+        val events = ArrayList<Any>()
+        override fun onSound(sfx: Sfx) {
+            events += sfx
+        }
+        override fun onVibrate(millis: Long) {
+            events += millis
+        }
+        override fun onRumble(rumble: Rumble) {
+            events += rumble
+        }
         override fun onFinished(result: RunResult, reason: LoseReason?) {
             this.result = result
             this.reason = reason
@@ -68,10 +80,10 @@ class GameSimulationTest {
         source: LevelLayout,
         tutorial: Boolean,
         loadout: Loadout = Loadout(),
+        recorder: Recorder = Recorder(),
         onFrame: (GameWorld) -> Unit = {},
     ): Pair<RunResult?, GameWorld> {
         val layout = withoutEnemies(source)
-        val recorder = Recorder()
         val world = GameWorld(layout, loadout, tutorial = tutorial, listener = recorder)
         world.setViewport(180f, 390f)
         val frame = 1f / 60f
@@ -200,6 +212,29 @@ class GameSimulationTest {
         val vx = dx / d * world.maxSpeed - (stage.currentX ?: world.spec.currentX)
         val vy = dy / d * world.maxSpeed - (stage.currentY ?: world.spec.currentY)
         world.setInput(true, atan2(vy, vx))
+    }
+
+    @Test
+    fun caughtFishAndFinishVibrate() {
+        // Poziom ze złotymi rybami: każda złowiona ryba to krótki impuls (złota – dłuższy), meta – melodyjka.
+        val n = (1..80).first { LevelGenerator.generate(it).goldenCount > 0 }
+        val recorder = Recorder()
+        val (result, _) = play(LevelGenerator.generate(n), tutorial = false, recorder = recorder)
+        assertTrue(result?.completed == true)
+        val events = recorder.events
+        var fish = 0
+        for ((i, e) in events.withIndex()) {
+            val buzz = when (e) {
+                Sfx.FISH, Sfx.COMBO -> 30L
+                Sfx.FISH_GOLD -> 50L
+                else -> continue
+            }
+            assertEquals("ryba #$fish", buzz, events.getOrNull(i + 1))
+            fish++
+        }
+        assertEquals(result!!.commonCaught + result.blueCaught + result.goldenCaught, fish)
+        assertTrue(events.contains(Rumbles.WON))
+        assertFalse(events.contains(Rumbles.LOST))
     }
 
     @Test
