@@ -503,8 +503,8 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             boostLeft += b.width * k + 2 * p1
         }
 
-        // Prawa strona (miejsce na przycisk pauzy zostaje): wynik i licznik ryb etapu.
-        val right = width - margin - 40 * p1
+        // Prawa strona (miejsce na przycisk pauzy – MIN_BUTTON interfejsu i odstęp – zostaje): wynik i licznik ryb etapu.
+        val right = width - margin - 48 * p1
         icon(canvas, scoreIcon, right - scoreIcon.width * p1 * 1.5f, top, p1 * 1.5f)
         val scoreRight = right - scoreIcon.width * p1 * 1.5f - 2 * p1
         text.draw(canvas, scoreText.get(world.score), scoreRight, top, p3, PixelText.WHITE, align = 1)

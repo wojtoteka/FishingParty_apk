@@ -143,7 +143,7 @@ fun PixelTextField(
 @Composable
 private fun PixelCheck(checked: Boolean, label: String, onToggle: () -> Unit) {
     val u = LocalUnit.current.toFloat()
-    Row(Modifier.fillMaxWidth().noRippleClick(onToggle).padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = px(MIN_BUTTON)).noRippleClick(onToggle).padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(px(12)).drawBehind {
                 pixelBox(u, Pal.SeaDark, Pal.Navy, Pal.Outline, shadow = 0f)

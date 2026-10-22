@@ -721,7 +721,7 @@ private fun StageArrow(up: Boolean, enabled: Boolean, modifier: Modifier = Modif
     }
 }
 
-private const val TOOL_SIZE = 34
+private const val TOOL_SIZE = MIN_BUTTON
 
 /** Dłuższe nazwy poziomu w pasku kreatora mniejszą czcionką (cała nazwa ma się zmieścić). */
 private const val LONG_EDITOR_TITLE = 13
@@ -812,7 +812,7 @@ private fun PaletteSwatch(theme: Int, selected: Boolean, modifier: Modifier, onC
     val sand = name?.let { rememberSprite("tiles/$it/sandleft0") }
     Box(
         modifier
-            .height(px(22))
+            .height(px(30))
             .drawBehind {
                 drawRect(if (selected) Pal.Gold else Pal.Outline)
                 val b = if (selected) 2 * u else u

@@ -384,8 +384,8 @@ fun keyFocused(interaction: MutableInteractionSource): Boolean {
     return focused && LocalInputModeManager.current.inputMode == InputMode.Keyboard
 }
 
-/** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
-const val MIN_BUTTON = 32
+/** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 43 dp) – wygodny cel dla palca. */
+const val MIN_BUTTON = 40
 
 @Composable
 fun PixelButton(
