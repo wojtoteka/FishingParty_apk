@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -142,12 +143,22 @@ class AudioEngine(context: Context) {
         pool.play(id, SFX_VOLUME, SFX_VOLUME, 1, 0, 1f)
     }
 
+    /**
+     * Wibracja gry. Krótki impuls bez atrybutów Android uznaje za wibrację dotyku i wycisza ją, gdy w telefonie
+     * wyłączono wibracje przy dotknięciu (częste na Samsungach) – dlatego gra wibruje jako multimedia, jak jej dźwięk.
+     */
     fun vibrate(millis: Long) {
         if (!vibrationEnabled) return
         val v = vibrator ?: return
         if (!v.hasVibrator()) return
         try {
-            v.vibrate(VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE))
+            val effect = VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE)
+            if (Build.VERSION.SDK_INT >= 33) {
+                v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(effect, attributes)
+            }
         } catch (_: Exception) {
         }
     }
