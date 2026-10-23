@@ -95,16 +95,19 @@ enum class LevelType {
 enum class EnemyKind(
     /** Koszt w „budżecie trudności” etapu. */
     val cost: Float,
-    /** Pierwszy poziom, na którym się pojawia. */
+    /**
+     * Pierwszy poziom, na którym się pojawia. Od wersji 2.4 wszystkie potwory poznaje się w pierwszym
+     * świecie: każdy przez [INTRO_LEVELS] poziomy, po kolei od najsłabszego, a widmokuda na końcu.
+     */
     val firstLevel: Int,
 ) {
     PIRANHA(1f, 2),
     PIRANHA_VERTICAL(1f, 4),
-    OCTOPUS(1.5f, 8),
-    SHARK(2f, 12),
-    RED_PIRANHA(1.5f, 76),
-    RED_OCTOPUS(2f, 126),
-    DARK_SHARK(3f, 176),
+    OCTOPUS(1.5f, 6),
+    SHARK(2f, 8),
+    RED_PIRANHA(1.5f, 10),
+    RED_OCTOPUS(2f, 12),
+    DARK_SHARK(3f, 14),
 
     /**
      * Widmokuda – najgroźniejszy potwór (od wersji 2.3). Nie trafia do losowania z budżetu:
@@ -117,6 +120,12 @@ enum class EnemyKind(
     val costTenths: Int get() = Math.round(cost * 10f)
 
     companion object {
+        /**
+         * Przez tyle poziomów od [firstLevel] potwór jest przedstawiany graczowi: jest w każdym etapie
+         * (widmokuda – w drugim), a karta poziomu pokazuje „Nowy potwór!”.
+         */
+        const val INTRO_LEVELS = 2
+
         /**
          * Potwory losowane z budżetu – w tej kolejności, bo kolejność listy jest częścią formatu
          * poziomów (serwer rankingu powtarza to losowanie u siebie).
@@ -215,7 +224,7 @@ object LevelConstants {
      */
     const val MAX_LEVEL = 20_000
 
-    /** Pierwsze 500 poziomów (pierwsza wyprawa) ma niezmienioną krzywą trudności. */
+    /** Pierwsza wyprawa: od zapoznania z potworami przez łatwe do normalnych poziomów (trudność 0..1). */
     const val FIRST_VOYAGE_LEVELS = 500
     const val LEVELS_PER_WORLD = 25
     const val WORLD_COUNT = LEVEL_COUNT / LEVELS_PER_WORLD

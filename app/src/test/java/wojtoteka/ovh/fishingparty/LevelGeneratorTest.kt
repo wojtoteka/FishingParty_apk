@@ -168,25 +168,55 @@ class LevelGeneratorTest {
     }
 
     /**
-     * Rozszerzenie gry do 1000 poziomów nie mogło zmienić pierwszych 500: gracze mają
-     * na nich rekordy i gwiazdki. Odcisk policzony na wersji sprzed rozszerzenia.
+     * Od wersji 2.4 pierwszy świat przedstawia po kolei wszystkie potwory – każdego przez dwa poziomy
+     * (w każdym etapie, widmokudę w drugim) – i dopiero potem zaczynają się łatwe poziomy.
      */
     @Test
-    fun firstVoyageLevelsAreUnchanged() {
-        assertEquals(FIRST_VOYAGE_FINGERPRINT, fingerprint(1..LevelConstants.FIRST_VOYAGE_LEVELS))
+    fun monstersAreIntroducedInFirstWorld() {
+        for ((i, kind) in EnemyKind.entries.withIndex()) assertEquals(kind.name, 2 + i * EnemyKind.INTRO_LEVELS, kind.firstLevel)
+        assertEquals(EnemyKind.STALKER.firstLevel + EnemyKind.INTRO_LEVELS - 1, LevelGenerator.INTRO_END)
+        assertTrue(LevelGenerator.INTRO_END < LevelConstants.LEVELS_PER_WORLD)
+        for (n in 2..LevelGenerator.INTRO_END) {
+            val plan = LevelGenerator.plan(n)
+            for (kind in plan.stages.flatMap { it.enemies }) assertTrue("poziom $n: $kind za wcześnie", kind.firstLevel <= n)
+            val newcomer = EnemyKind.entries.last { it.firstLevel <= n }
+            if (newcomer == EnemyKind.STALKER) {
+                assertTrue("poziom $n: brak widmokudy", EnemyKind.STALKER in plan.stages[1].enemies)
+            } else {
+                for (stage in plan.stages) assertTrue("poziom $n: brak $newcomer", newcomer in stage.enemies)
+            }
+        }
+    }
+
+    /** Po zapoznaniu z potworami: łatwe poziomy, potem normalne, a pod koniec kampanii trudne. */
+    @Test
+    fun difficultyRisesFromEasyToHard() {
+        val worldStarts = (0 until LevelConstants.WORLD_COUNT).map { LevelGenerator.difficulty(Worlds.firstLevel(it)) }
+        assertEquals(worldStarts.sorted(), worldStarts)
+        assertTrue(LevelGenerator.difficulty(LevelGenerator.INTRO_END + 1) in 0.15f..0.3f)
+        assertTrue(LevelGenerator.difficulty(250) in 0.4f..0.7f)
+        assertTrue(LevelGenerator.difficulty(LevelConstants.LEVEL_COUNT - 1) > 1.2f)
     }
 
     /**
-     * Widmokuda (wersja 2.3) zmieniła tylko skład potworów: plansze, ryby, czasy i cele są te same co
-     * w wersji 2.2 (odcisk policzony na kodzie sprzed widmokudy), a poziomy 1–19 są identyczne w całości.
+     * Nowa krzywa trudności (wersja 2.4) zmieniła tylko pierwszą wyprawę – druga (501–999) i Wielki Finał
+     * są takie same jak wcześniej (odcisk policzony na kodzie wersji 2.3), więc gracze nie tracą tam rekordów.
      */
     @Test
-    fun stalkerChangesOnlyMonsters() {
-        assertEquals(CAMPAIGN_WITHOUT_MONSTERS, fingerprint(1..LevelConstants.LEVEL_COUNT, monsters = false))
-        assertEquals(BEFORE_STALKER, fingerprint(1 until 20))
+    fun secondVoyageIsUnchanged() {
+        assertEquals(SECOND_VOYAGE_FINGERPRINT, fingerprint(LevelConstants.FIRST_VOYAGE_LEVELS + 1..LevelConstants.LEVEL_COUNT))
     }
 
-    private fun fingerprint(range: IntRange, monsters: Boolean = true): String {
+    /**
+     * Pilnuje, żeby poziomy 1–500 nie zmieniły się przez przypadek: każda zmiana to nowe plansze dla graczy
+     * i nowe limity na serwerze rankingu (LevelLimitsExportTest, a stare limity zostają tam dla starszych wersji gry).
+     */
+    @Test
+    fun firstVoyageIsStable() {
+        assertEquals(FIRST_VOYAGE_FINGERPRINT, fingerprint(1..LevelConstants.FIRST_VOYAGE_LEVELS))
+    }
+
+    private fun fingerprint(range: IntRange): String {
         val md = MessageDigest.getInstance("SHA-256")
         fun put(v: Any) = md.update(v.toString().toByteArray())
         for (n in range) {
@@ -195,8 +225,7 @@ class LevelGeneratorTest {
             put("L$n|${sp.type}|${sp.seed}|${sp.secondGoal}|${sp.thirdGoal}|${sp.parSeconds}|${sp.timeLimitSeconds}|")
             put("${sp.scoreTarget}|${sp.comboTarget}|${sp.enemySpeed.toBits()}|${sp.currentX.toBits()}|${sp.currentY.toBits()}|${sp.world}|")
             for (st in plan.stages) {
-                val enemies = if (monsters) st.enemies.toString() else ""
-                put("S${st.rows},${st.quota},${st.common},${st.blue},${st.golden},$enemies,${st.rocks},${st.islands},${st.doorCenter},${st.wideBanks}|")
+                put("S${st.rows},${st.quota},${st.common},${st.blue},${st.golden},${st.enemies},${st.rocks},${st.islands},${st.doorCenter},${st.wideBanks}|")
             }
             val layout = all[n - 1]
             val g = layout.grid
@@ -206,7 +235,7 @@ class LevelGeneratorTest {
                 put("G${st.gateRow},${st.topRow},${st.bottomRow},${st.doorCols},${st.quota},${st.reachable.contentHashCode()}|")
                 for (f in st.fish) put("f${f.kind}${f.col},${f.row}")
                 for (f in st.golden) put("g${f.delaySeconds}${f.col},${f.row}")
-                if (monsters) for (e in st.enemies) put("e${e.kind}${e.col},${e.row}")
+                for (e in st.enemies) put("e${e.kind}${e.col},${e.row}")
             }
             put("c${layout.crabs}s${layout.startCol},${layout.startRow}")
         }
@@ -214,9 +243,9 @@ class LevelGeneratorTest {
     }
 
     private companion object {
-        /** Od wersji 2.3 z widmokudą (wcześniej 8a85a72a…16271). */
-        const val FIRST_VOYAGE_FINGERPRINT = "33717631853fa5788f46847684b5b0c3950e973250bf43b9eea5fb5852786cc4"
-        const val CAMPAIGN_WITHOUT_MONSTERS = "3aafc4ac7255b99d10ded34cce10aa25366e34688bfe6528976dad4a535d40ed"
-        const val BEFORE_STALKER = "7e6f4cd641ed149535ccd91a3e5e0ff808294409f12e8bf09c3c25ea764bb433"
+        /** Wersja 2.4: zapoznanie z potworami w pierwszym świecie, potem łatwe i normalne poziomy. */
+        const val FIRST_VOYAGE_FINGERPRINT = "7b72333e981dcbe0c62d83e9842a45d83e8610ff232fbe51f0cdbdc12414e676"
+        /** Poziomy 501–1000 od wersji 2.3 (z widmokudą). */
+        const val SECOND_VOYAGE_FINGERPRINT = "bd454a3c2c97bf15254dc48fbc83f53d8e0a3622aa83a201173d14ea7ffae32f"
     }
 }
