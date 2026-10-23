@@ -346,6 +346,7 @@ object LevelGenerator {
      * Poziom 1000 – Wielki Finał, ułożony ręcznie. Siedem etapów, każdy w barwach innego
      * świata ([Worlds.FINALE_STAGE_WORLDS]) i z własnym zestawem potworów: od cieśniny piranii,
      * przez rafę, archipelag, kanał i gorączkę złota, po czerwony legion i leże Krakena.
+     * Od wersji 2.4 najtrudniejszy poziom kampanii: więcej potworów na etap niż u każdego bossa.
      * Druga gwiazdka – bez trafienia, trzecia – wszystkie złote ryby.
      */
     fun finalePlan(): LevelPlan {
@@ -364,13 +365,13 @@ object LevelGenerator {
             enemies = enemies, rocks = rocks, islands = islands, doorCenter = door, wideBanks = canal,
         )
         val stages = listOf(
-            stage(20, 9, 2, 1, listOf(p, p, p, pv, pv, pv, rp, rp), rocks = 2, islands = 1, door = 7),
-            stage(22, 10, 3, 1, listOf(o, o, o, ro, ro, p, p), rocks = 7, islands = 0, door = 3),
-            stage(24, 10, 3, 1, listOf(s, s, s, pv, pv, o, o), rocks = 2, islands = 4, door = 6),
-            stage(24, 10, 2, 1, listOf(rp, rp, rp, rp, s, s), rocks = 1, islands = 0, door = 5, canal = true),
-            stage(22, 9, 3, 3, listOf(p, p, o, s), rocks = 2, islands = 1, door = 2),
-            stage(24, 11, 3, 1, listOf(rp, rp, rp, ro, ro, ro, ds, ds), rocks = 4, islands = 2, door = 8),
-            stage(24, 12, 4, 2, listOf(ds, ds, ds, ro, ro, rp, rp, s, s, pv), rocks = 3, islands = 2, door = 5),
+            stage(20, 9, 2, 1, listOf(p, p, p, p, pv, pv, pv, pv, rp, rp, rp), rocks = 2, islands = 1, door = 7),
+            stage(22, 10, 3, 1, listOf(o, o, o, o, ro, ro, ro, p, p, pv), rocks = 7, islands = 0, door = 3),
+            stage(24, 10, 3, 1, listOf(s, s, s, pv, pv, pv, o, o, rp, rp), rocks = 2, islands = 4, door = 6),
+            stage(24, 10, 2, 1, listOf(rp, rp, rp, rp, rp, s, s, pv, pv), rocks = 1, islands = 0, door = 5, canal = true),
+            stage(22, 9, 3, 3, listOf(p, p, o, o, ro, s, s), rocks = 2, islands = 1, door = 2),
+            stage(24, 11, 3, 1, listOf(rp, rp, rp, rp, ro, ro, ro, ro, ds, ds), rocks = 4, islands = 2, door = 8),
+            stage(24, 12, 4, 2, listOf(ds, ds, ds, ro, ro, ro, rp, rp, rp, s, s, pv, pv), rocks = 3, islands = 2, door = 5),
         )
         check(stages.size == Worlds.FINALE_STAGE_WORLDS.size)
         val par = ceil(stages.sumOf { it.quota * 2.6 + it.rows * 0.32 + it.enemies.size * 0.6 } + 3.0).toInt()
@@ -388,7 +389,7 @@ object LevelGenerator {
             scoreTarget = ((regularPoints * 1.6f + goldenTotal * FishKind.GOLDEN.points * 0.5f +
                 stages.size * LevelConstants.STAGE_BONUS) / 10f).roundToInt() * 10,
             comboTarget = MAX_COMBO,
-            enemySpeed = 1.35f,
+            enemySpeed = 1.38f,
             currentX = 0f,
             currentY = 0f,
         )

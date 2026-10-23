@@ -160,6 +160,12 @@ class LevelGeneratorTest {
         assertTrue(plan.stages.all { it.golden > 0 })
         assertTrue(plan.stages.all { it.common + it.blue >= it.quota })
         assertTrue(plan.stages.any { it.wideBanks })
+        // Od wersji 2.4 najtrudniejszy poziom kampanii: więcej potworów na etap niż u każdego bossa i nie wolniejsze.
+        val bosses = (1 until LevelConstants.LEVEL_COUNT).filter { LevelGenerator.isBoss(it) }.map { LevelGenerator.plan(it) }
+        for (boss in bosses) {
+            assertTrue("boss ${boss.spec.number}", boss.enemyCount * plan.stages.size < plan.enemyCount * boss.stages.size)
+            assertTrue("boss ${boss.spec.number}", boss.spec.enemySpeed <= plan.spec.enemySpeed + 0.01f)
+        }
         // Plan finału jest stały – za każdym razem ta sama plansza.
         val again = LevelGenerator.generate(LevelConstants.LEVEL_COUNT)
         val first = all.last()
@@ -199,12 +205,14 @@ class LevelGeneratorTest {
     }
 
     /**
-     * Nowa krzywa trudności (wersja 2.4) zmieniła tylko pierwszą wyprawę – druga (501–999) i Wielki Finał
-     * są takie same jak wcześniej (odcisk policzony na kodzie wersji 2.3), więc gracze nie tracą tam rekordów.
+     * Nowa krzywa trudności (wersja 2.4) zmieniła tylko pierwszą wyprawę – druga (501–999) jest taka sama
+     * jak wcześniej (odcisk policzony na kodzie wersji 2.3), więc gracze nie tracą tam rekordów.
+     * Wielki Finał od 2.4 jest trudniejszy – pilnuje go osobny odcisk.
      */
     @Test
     fun secondVoyageIsUnchanged() {
-        assertEquals(SECOND_VOYAGE_FINGERPRINT, fingerprint(LevelConstants.FIRST_VOYAGE_LEVELS + 1..LevelConstants.LEVEL_COUNT))
+        assertEquals(SECOND_VOYAGE_FINGERPRINT, fingerprint(LevelConstants.FIRST_VOYAGE_LEVELS + 1 until LevelConstants.LEVEL_COUNT))
+        assertEquals(FINALE_FINGERPRINT, fingerprint(LevelConstants.LEVEL_COUNT..LevelConstants.LEVEL_COUNT))
     }
 
     /**
@@ -245,7 +253,9 @@ class LevelGeneratorTest {
     private companion object {
         /** Wersja 2.4: zapoznanie z potworami w pierwszym świecie, potem łatwe i normalne poziomy. */
         const val FIRST_VOYAGE_FINGERPRINT = "7b72333e981dcbe0c62d83e9842a45d83e8610ff232fbe51f0cdbdc12414e676"
-        /** Poziomy 501–1000 od wersji 2.3 (z widmokudą). */
-        const val SECOND_VOYAGE_FINGERPRINT = "bd454a3c2c97bf15254dc48fbc83f53d8e0a3622aa83a201173d14ea7ffae32f"
+        /** Poziomy 501–999 od wersji 2.3 (z widmokudą). */
+        const val SECOND_VOYAGE_FINGERPRINT = "2254eb7a19b80089b109ce0d0fdee9268a0d226967aa9d7657a776a159117a2f"
+        /** Wielki Finał od wersji 2.4 (więcej potworów). */
+        const val FINALE_FINGERPRINT = "8eddad000aafaddba34637fd51d1960206bde7e6c2bfc4dcce13d31490df05f3"
     }
 }
