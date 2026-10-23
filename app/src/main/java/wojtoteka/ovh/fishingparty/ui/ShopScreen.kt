@@ -170,16 +170,17 @@ fun ShopScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(px(3)),
             ) {
                 for (t in ShopTab.entries) {
+                    val label = stringResource(
+                        when (t) {
+                            ShopTab.BOATS -> R.string.shop_boats
+                            ShopTab.SAILS -> R.string.shop_sails
+                            ShopTab.SAILORS -> R.string.shop_sailors
+                            ShopTab.POWERUPS -> R.string.shop_powerups
+                            ShopTab.MARKET -> R.string.shop_market
+                        },
+                    )
                     PixelButton(
-                        stringResource(
-                            when (t) {
-                                ShopTab.BOATS -> R.string.shop_boats
-                                ShopTab.SAILS -> R.string.shop_sails
-                                ShopTab.SAILORS -> R.string.shop_sailors
-                                ShopTab.POWERUPS -> R.string.shop_powerups
-                                ShopTab.MARKET -> R.string.shop_market
-                            },
-                        ),
+                        label,
                         onClick = {
                             tab = t
                             preview = null
@@ -187,7 +188,8 @@ fun ShopScreen(onBack: () -> Unit) {
                         },
                         style = if (t == tab) ButtonStyle.GREEN else if (t == ShopTab.MARKET) ButtonStyle.ORANGE else ButtonStyle.SEA,
                         size = 2,
-                        modifier = Modifier.weight(1f),
+                        // Szerokość według długości napisu – dłuższy (np. MARKET) nie łamie się na dwie linie.
+                        modifier = Modifier.weight(label.length + 2f),
                     )
                 }
             }
