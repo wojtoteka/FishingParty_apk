@@ -15,8 +15,6 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.IntrinsicSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,7 +52,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL, COMMUNITY, CREATOR }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -168,12 +166,17 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         PixelText(stringResource(R.string.level_n, current), size = 2, color = Pal.GreenLight)
                     }
                 }
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    PixelButton(stringResource(R.string.map_title), onClick = { onOpen(Destination.MAP) }, style = ButtonStyle.SEA, modifier = Modifier.weight(1f).fillMaxHeight())
-                    PixelButton(stringResource(R.string.shop_title), onClick = { onOpen(Destination.SHOP) }, style = ButtonStyle.SAND, modifier = Modifier.weight(1f).fillMaxHeight())
+                // Poziomy graczy i kreator poziomów (od wersji 2.4).
+                ButtonRow(gap = 5) {
+                    PixelButton(stringResource(R.string.menu_community), onClick = { onOpen(Destination.COMMUNITY) }, style = ButtonStyle.TEAL)
+                    PixelButton(stringResource(R.string.menu_creator), onClick = { onOpen(Destination.CREATOR) }, style = ButtonStyle.ORANGE)
                 }
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                ButtonRow(gap = 5) {
+                    PixelButton(stringResource(R.string.map_title), onClick = { onOpen(Destination.MAP) }, style = ButtonStyle.SEA)
+                    PixelButton(stringResource(R.string.shop_title), onClick = { onOpen(Destination.SHOP) }, style = ButtonStyle.SAND)
+                }
+                ButtonRow(gap = 5) {
+                    Box {
                         PixelButton(
                             stringResource(R.string.achievements_short),
                             onClick = { onOpen(Destination.ACHIEVEMENTS) },
@@ -186,27 +189,24 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                         stringResource(R.string.ranking_title),
                         onClick = { onOpen(Destination.RANKING) },
                         style = ButtonStyle.WOOD,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
+                ButtonRow(gap = 5) {
                     PixelButton(
                         stringResource(R.string.settings_title),
                         onClick = { onOpen(Destination.SETTINGS) },
                         style = ButtonStyle.SEA,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                     PixelButton(
                         stringResource(R.string.account_title),
                         onClick = { onOpen(Destination.ACCOUNT) },
                         style = ButtonStyle.SEA,
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
                     )
                 }
                 // Poziom dnia i tygodnia – ten sam seed z serwera dla wszystkich graczy, wynik do rankingu.
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(5))) {
-                    ChallengeButton(ChallengeKind.DAILY, onClick = { onOpen(Destination.DAILY_LEVEL) }, Modifier.weight(1f).fillMaxHeight())
-                    ChallengeButton(ChallengeKind.WEEKLY, onClick = { onOpen(Destination.WEEKLY_LEVEL) }, Modifier.weight(1f).fillMaxHeight())
+                ButtonRow(gap = 5) {
+                    ChallengeButton(ChallengeKind.DAILY, onClick = { onOpen(Destination.DAILY_LEVEL) })
+                    ChallengeButton(ChallengeKind.WEEKLY, onClick = { onOpen(Destination.WEEKLY_LEVEL) })
                 }
             }
             Box(Modifier.weight(0.5f))

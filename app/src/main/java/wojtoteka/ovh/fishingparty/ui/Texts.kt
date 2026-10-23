@@ -52,6 +52,7 @@ fun typeName(type: LevelType): String = stringResource(
         LevelType.SWARM -> R.string.type_swarm
         LevelType.BOSS -> R.string.type_boss
         LevelType.FINALE -> R.string.type_finale
+        LevelType.CUSTOM -> R.string.type_custom
     },
 )
 
@@ -68,6 +69,7 @@ fun typeDescription(type: LevelType): String = stringResource(
         LevelType.SWARM -> R.string.type_swarm_desc
         LevelType.BOSS -> R.string.type_boss_desc
         LevelType.FINALE -> R.string.type_finale_desc
+        LevelType.CUSTOM -> R.string.type_custom_desc
     },
 )
 

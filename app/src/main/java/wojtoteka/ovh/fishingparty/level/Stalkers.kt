@@ -10,14 +10,14 @@ import kotlin.math.min
  *
  * Zamiast dorzucać kolejne potwory zastępuje kilka słabszych: etap ma mniej potworów,
  * ale jest trudniejszy. Etap z trzema lub więcej rekinami zostaje z dwoma najgroźniejszymi
- * i widmokudą, a na poziomach 20–23 (jak każdy nowy potwór) pojawia się na pewno – jedna,
- * w drugim etapie, żeby gracz mógł ją poznać.
+ * i widmokudą, a na poziomach 16–17 (ostatni potwór poznawany w pierwszym świecie) pojawia się
+ * na pewno – jedna, w drugim etapie, żeby gracz mógł ją poznać.
  */
 object Stalkers {
-    const val FIRST_LEVEL = 20
+    const val FIRST_LEVEL = 16
 
     /** Na tylu poziomach od [FIRST_LEVEL] widmokuda jest przedstawiana graczowi. */
-    const val INTRO_LEVELS = 4
+    const val INTRO_LEVELS = EnemyKind.INTRO_LEVELS
 
     private const val SALT = 0x57_49_44_4D_4FL
 

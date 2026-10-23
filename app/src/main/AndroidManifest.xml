@@ -34,6 +34,18 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Linki do poziomów graczy (/l/<numer>) i poziomów udostępnionych bez publikacji (/s/<kod>);
+                 w wersji debug z betą serwera: /beta/l/…, /beta/s/….
+                 Serwer potwierdza je plikiem /.well-known/assetlinks.json – wtedy telefon z grą otwiera je od razu w grze. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="${fpLinkHost}" />
+                <data android:pathPrefix="${fpLinkPrefix}/l/" />
+                <data android:pathPrefix="${fpLinkPrefix}/s/" />
+            </intent-filter>
         </activity>
 
         <receiver

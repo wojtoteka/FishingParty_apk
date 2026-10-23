@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -146,7 +147,7 @@ fun ControlsSettings() {
     Column(Modifier.fillMaxWidth()) {
         PixelText(stringResource(R.string.set_controls), size = 2, color = Pal.Foam)
         VSpace(3)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        ButtonRow(gap = 3) {
             for (mode in ControlMode.entries) {
                 PixelButton(
                     stringResource(if (mode == ControlMode.JOYSTICK) R.string.controls_joystick else R.string.controls_swipe),
@@ -157,7 +158,6 @@ fun ControlsSettings() {
                     },
                     style = if (mode == save.controls) ButtonStyle.GREEN else ButtonStyle.SEA,
                     size = 2,
-                    modifier = Modifier.weight(1f),
                 )
             }
         }
@@ -165,7 +165,7 @@ fun ControlsSettings() {
             VSpace(4)
             PixelText(stringResource(R.string.set_joystick_side), size = 2, color = Pal.Foam)
             VSpace(3)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            ButtonRow(gap = 3) {
                 for (left in listOf(true, false)) {
                     PixelButton(
                         stringResource(if (left) R.string.set_left else R.string.set_right),
@@ -175,7 +175,6 @@ fun ControlsSettings() {
                         },
                         style = if (left == save.joystickLeft) ButtonStyle.GREEN else ButtonStyle.SEA,
                         size = 2,
-                        modifier = Modifier.weight(1f),
                     )
                 }
             }

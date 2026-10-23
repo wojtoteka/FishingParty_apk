@@ -116,13 +116,12 @@ fun SailWorkshop(
             VSpace(3)
         }
         VSpace(2)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+        ButtonRow(gap = 3) {
             for (i in 0..1) {
                 PixelButton(
                     text = "",
                     onClick = { onDraft(draft.copy(slot = i)) },
                     style = if (draft.slot == i) ButtonStyle.GREEN else ButtonStyle.SEA,
-                    modifier = Modifier.weight(1f),
                 ) {
                     ColorDot((if (i == 0) draft.first else draft.second).color, 8)
                     HSpace(3)
@@ -358,13 +357,13 @@ private fun PriceTable(current: Workshop.ColorGroup, priceOf: (Workshop.ColorGro
     VSpace(2)
     val rows = Workshop.groups.filter { it.tone != null }.chunked(Workshop.Hue.entries.size) + listOf(Workshop.groups.filter { it.neutral != null })
     for (row in rows) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(1))) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(2))) {
             for (group in row) {
                 val sample = Color(group.sample.color)
                 Box(
                     Modifier
                         .weight(1f)
-                        .height(px(15))
+                        .height(px(PRICE_CHIP_H))
                         .drawBehind {
                             drawRect(if (group === current) Pal.Gold else Pal.Outline)
                             val b = if (group === current) 2 * u else u
@@ -380,7 +379,7 @@ private fun PriceTable(current: Workshop.ColorGroup, priceOf: (Workshop.ColorGro
                 }
             }
         }
-        VSpace(1)
+        VSpace(2)
     }
 }
 
@@ -440,7 +439,7 @@ private fun PatternChip(design: SailDesign, selected: Boolean, modifier: Modifie
     )
 }
 
-private fun DrawScope.drawGrid(grid: Array<IntArray>, topLeft: Offset, area: Size) {
+internal fun DrawScope.drawGrid(grid: Array<IntArray>, topLeft: Offset, area: Size) {
     val rows = grid.size
     val cols = grid[0].size
     for (r in 0 until rows) {
@@ -514,7 +513,10 @@ private fun WorkshopBuy(
 
 /** Wysokość pola palety i paska barw w pikselach interfejsu. */
 private const val PICKER_H = 90
-private const val HUE_H = 14
+private const val HUE_H = 24
+
+/** Kafelek cennika – na tyle wysoki, żeby łatwo w niego trafić palcem. */
+private const val PRICE_CHIP_H = 24
 
 /** Krok strzałki w kreatorze: nasycenie/jasność o 1/20, barwa o 1/36 koła. */
 private const val KEY_STEP = 0.05f

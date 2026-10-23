@@ -121,7 +121,7 @@ private fun drawShip(canvas: android.graphics.Canvas, look: ShipLook, scale: Int
 private const val SHIP_H = 28f
 private const val SHIP_W = 24f
 
-private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
+private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS, MARKET }
 
 @Composable
 fun ShopScreen(onBack: () -> Unit) {
@@ -135,6 +135,9 @@ fun ShopScreen(onBack: () -> Unit) {
     var workshopOpen by remember { mutableStateOf(false) }
     var boatPick by remember { mutableStateOf(Workshop.DEFAULT_BOAT) }
     var sailDraft by remember { mutableStateOf(SailDraft()) }
+    // Wystawianie na targ – okienko poza przewijaną listą.
+    var selling by remember { mutableStateOf<ShopItem?>(null) }
+    var sold by remember { mutableIntStateOf(0) }
     val equipped = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val look = when (preview?.kind) {
         ItemKind.BOAT -> equipped.copy(boat = preview!!.id)
@@ -147,6 +150,7 @@ fun ShopScreen(onBack: () -> Unit) {
         ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
+        ShopTab.MARKET -> emptyList()
     }
     // Karta ŻAGLE: zwykłe kolory, pod nimi flagi (z nagłówkiem), potem własne żagle i kreator na samym dole.
     val flags = if (tab == ShopTab.SAILS) Catalog.flags else emptyList()
@@ -166,23 +170,26 @@ fun ShopScreen(onBack: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(px(3)),
             ) {
                 for (t in ShopTab.entries) {
+                    val label = stringResource(
+                        when (t) {
+                            ShopTab.BOATS -> R.string.shop_boats
+                            ShopTab.SAILS -> R.string.shop_sails
+                            ShopTab.SAILORS -> R.string.shop_sailors
+                            ShopTab.POWERUPS -> R.string.shop_powerups
+                            ShopTab.MARKET -> R.string.shop_market
+                        },
+                    )
                     PixelButton(
-                        stringResource(
-                            when (t) {
-                                ShopTab.BOATS -> R.string.shop_boats
-                                ShopTab.SAILS -> R.string.shop_sails
-                                ShopTab.SAILORS -> R.string.shop_sailors
-                                ShopTab.POWERUPS -> R.string.shop_powerups
-                            },
-                        ),
+                        label,
                         onClick = {
                             tab = t
                             preview = null
                             workshopOpen = false
                         },
-                        style = if (t == tab) ButtonStyle.GREEN else ButtonStyle.SEA,
+                        style = if (t == tab) ButtonStyle.GREEN else if (t == ShopTab.MARKET) ButtonStyle.ORANGE else ButtonStyle.SEA,
                         size = 2,
-                        modifier = Modifier.weight(1f),
+                        // Szerokość według długości napisu – dłuższy (np. MARKET) nie łamie się na dwie linie.
+                        modifier = Modifier.weight(label.length + 2f),
                     )
                 }
             }
@@ -233,6 +240,8 @@ fun ShopScreen(onBack: () -> Unit) {
                     .padding(start = px(6), top = gap, end = px(6), bottom = px(BOTTOM_GAP)),
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
+                // Targ: projekty innych graczy i stoisko gracza (zamiast kart sklepu).
+                if (tab == ShopTab.MARKET) MarketPanel(preview?.key, onPreview = { preview = it }, onEquip = equip, onSell = { selling = it }, sold = sold)
                 // Własne łodzie i żagle dochodzą na koniec ostatniej sekcji, w tych samych rzędach.
                 CardRows(if (flags.isEmpty()) items + creations else items, gap, card)
                 if (flags.isNotEmpty()) {
@@ -283,6 +292,12 @@ fun ShopScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+        selling?.let { item ->
+            MarketSellDialog(item, onClose = { selling = null }) {
+                selling = null
+                sold++
             }
         }
     }

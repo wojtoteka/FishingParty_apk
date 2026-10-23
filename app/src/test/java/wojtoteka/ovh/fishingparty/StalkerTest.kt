@@ -11,6 +11,8 @@ import wojtoteka.ovh.fishingparty.game.Hunt
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.Phase
+import wojtoteka.ovh.fishingparty.game.Rumble
+import wojtoteka.ovh.fishingparty.game.Rumbles
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
@@ -128,8 +130,12 @@ class StalkerTest {
     // ---------------------------------------------------------------- polowanie na prostej planszy
 
     private class Hits : GameListener {
+        val rumbles = ArrayList<Rumble>()
         override fun onSound(sfx: Sfx) = Unit
         override fun onVibrate(millis: Long) = Unit
+        override fun onRumble(rumble: Rumble) {
+            rumbles += rumble
+        }
         override fun onFinished(result: RunResult, reason: LoseReason?) = Unit
     }
 
@@ -137,7 +143,7 @@ class StalkerTest {
      * Otwarta woda 11 × 20 pól, widmokuda w górnej części, łódź na dole (ok. 7 pól od niej).
      * [wall] – rząd skał w poprzek planszy między nimi.
      */
-    private fun arena(wall: Boolean): GameWorld {
+    private fun arena(wall: Boolean, listener: Hits = Hits()): GameWorld {
         val height = 24
         val grid = TileGrid(WIDTH, height)
         for (c in 0 until WIDTH) {
@@ -157,7 +163,7 @@ class StalkerTest {
             reachable = IntArray(0),
         )
         val layout = LevelLayout(spec, grid, listOf(stage), startCol = 5, startRow = 20, crabs = emptyList())
-        return GameWorld(layout, Loadout(extraLife = true), tutorial = false, listener = Hits()).also { it.setViewport(180f, 390f) }
+        return GameWorld(layout, Loadout(extraLife = true), tutorial = false, listener = listener).also { it.setViewport(180f, 390f) }
     }
 
     @Test
@@ -172,7 +178,8 @@ class StalkerTest {
 
     @Test
     fun huntsWhatItSeesWithAWarning() {
-        val world = arena(wall = false)
+        val hits = Hits()
+        val world = arena(wall = false, hits)
         var lockedAt = -1f
         var aimSeconds = 0f
         repeat(60 * 30) {
@@ -184,8 +191,9 @@ class StalkerTest {
         assertTrue("nie zauważyła łodzi na otwartej wodzie", lockedAt >= 0f)
         // Zanim skoczy, świeci oczami przez ponad pół sekundy – jest czas na unik.
         assertTrue("za krótkie ostrzeżenie: $aimSeconds s", aimSeconds >= 0.5f)
-        // Łódź, która stoi w miejscu, zostaje trafiona.
+        // Łódź, która stoi w miejscu, zostaje trafiona – i czuje to inaczej niż złowioną rybę (podwójne „bzz-BZZZ”).
         assertTrue(world.hits > 0)
+        assertTrue(hits.rumbles.contains(Rumbles.HIT))
     }
 
     @Test

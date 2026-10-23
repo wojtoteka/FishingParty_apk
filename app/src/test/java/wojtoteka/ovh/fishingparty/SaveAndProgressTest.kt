@@ -78,9 +78,9 @@ class SaveAndProgressTest {
 
     @Test
     fun saveFromVersion5KeepsLevelRemindersOn() {
-        // Zapis v5 = v6 bez trzech ostatnich bajtów (ustawień przypomnień o poziomach).
-        val v6 = SaveCodec.encode(sample())
-        val v5 = v6.copyOf(v6.size - 3).also { it[4] = 0; it[5] = 5 }
+        // Zapis v5 = v7 bez pól v7 (6 bajtów pustych list i napisu) i trzech bajtów ustawień przypomnień o poziomach.
+        val v7 = SaveCodec.encode(sample())
+        val v5 = v7.copyOf(v7.size - 6 - 3).also { it[4] = 0; it[5] = 5 }
         val copy = SaveCodec.decode(v5)
         assertTrue(copy.dailyLevelReminders)
         assertTrue(copy.weeklyLevelReminders)

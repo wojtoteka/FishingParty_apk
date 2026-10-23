@@ -67,6 +67,7 @@ import wojtoteka.ovh.fishingparty.FishingPartyApp
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.audio.AudioEngine
 import wojtoteka.ovh.fishingparty.data.GameRepository
+import wojtoteka.ovh.fishingparty.data.LevelDrafts
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.gfx.Sprites
 import wojtoteka.ovh.fishingparty.online.OnlineManager
@@ -82,6 +83,8 @@ object Pal {
     val Sea = Color(0xFF0097E3)
     val SeaLight = Color(0xFF7FCBF1)
     val SeaDark = Color(0xFF004C72)
+    /** Cień niebieskich przycisków – [SeaDark] to tło ciemnych kart, więc taki cień zlewał się z kartą. */
+    val SeaShade = Color(0xFF0070AA)
     val Foam = Color(0xFFE3ECFF)
     val Sand = Color(0xFFFFB31C)
     val SandLight = Color(0xFFFFD071)
@@ -108,11 +111,14 @@ object Pal {
     val Purple = Color(0xFF9A52E0)
     val PurpleLight = Color(0xFFD7B0FF)
     val PurpleDark = Color(0xFF6A2DB0)
+    val Teal = Color(0xFF00AAAA)
+    val TealLight = Color(0xFF7FE6DC)
+    val TealDark = Color(0xFF007A7A)
     val White = Color.White
     val Scrim = Color(0xA0000000)
 }
 
-class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager)
+class Services(val repo: GameRepository, val audio: AudioEngine, val online: OnlineManager, val drafts: LevelDrafts)
 
 val LocalServices = staticCompositionLocalOf<Services> { error("Brak usług") }
 
@@ -132,7 +138,7 @@ fun ProvideUi(app: FishingPartyApp, content: @Composable () -> Unit) {
     // Niski ekran (tablet w poziomie) bierze skalę z wysokości, żeby menu się mieściło.
     val window = LocalWindowInfo.current.containerSize
     val unit = max(2, min(window.width / 360f, window.height / 720f).roundToInt())
-    val services = remember(app) { Services(app.repository, app.audio, app.online) }
+    val services = remember(app) { Services(app.repository, app.audio, app.online, app.drafts) }
     val measurer = rememberTextMeasurer(cacheSize = 512)
     CompositionLocalProvider(LocalServices provides services, LocalUnit provides unit, LocalTextMeasurer provides measurer, content = content)
 }
@@ -316,7 +322,7 @@ fun DrawScope.drawTiled(image: ImageBitmap, k: Float, alpha: Float = 1f) {
 enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val text: Color = Pal.White) {
     GREEN(Pal.Green, Pal.GreenLight, Pal.GreenDark),
     SAND(Pal.Sand, Pal.SandLight, Pal.SandDark),
-    SEA(Pal.Sea, Pal.SeaLight, Pal.SeaDark),
+    SEA(Pal.Sea, Pal.SeaLight, Pal.SeaShade),
     WOOD(Pal.Wood, Pal.WoodLight, Pal.WoodDark),
     RED(Pal.Red, Pal.RedLight, Pal.RedDark),
     GREY(Pal.Grey, Pal.GreyLight, Pal.GreyDark),
@@ -324,6 +330,9 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
     ORANGE(Pal.Orange, Pal.OrangeLight, Pal.OrangeDark),
     /** Poziom tygodnia. */
     PURPLE(Pal.Purple, Pal.PurpleLight, Pal.PurpleDark),
+
+    /** Poziomy graczy. */
+    TEAL(Pal.Teal, Pal.TealLight, Pal.TealDark),
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */
@@ -375,8 +384,8 @@ fun keyFocused(interaction: MutableInteractionSource): Boolean {
     return focused && LocalInputModeManager.current.inputMode == InputMode.Keyboard
 }
 
-/** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 34 dp). */
-const val MIN_BUTTON = 32
+/** Najmniejsza wysokość i szerokość przycisku w pikselach interfejsu (ok. 43 dp) – wygodny cel dla palca. */
+const val MIN_BUTTON = 40
 
 @Composable
 fun PixelButton(
@@ -422,6 +431,54 @@ fun PixelButton(
             }
             if (content != null) content() else if (text.isNotEmpty()) {
                 PixelText(text, size = size, color = s.text, align = TextAlign.Center)
+            }
+        }
+    }
+}
+
+/**
+ * Rząd przycisków o równej szerokości i wysokości. Gdy napis któregoś nie mieści się w jednej linii,
+ * przyciski przechodzą do kilku rzędów (jak najmniej, po równo w każdym) – zamiast łamać napisy
+ * i rozjeżdżać wysokości. Wszystkie przyciski mają wysokość najwyższego. [gap] – odstęp w pikselach interfejsu.
+ */
+@Composable
+fun ButtonRow(modifier: Modifier = Modifier, gap: Int = 3, content: @Composable () -> Unit) {
+    val gapPx = gap * LocalUnit.current
+    Layout(content, modifier) { measurables, constraints ->
+        val n = measurables.size
+        if (n == 0) return@Layout layout(constraints.minWidth, constraints.minHeight) {}
+        val wanted = measurables.map { it.maxIntrinsicWidth(Constraints.Infinity) }
+        val width = if (constraints.hasBoundedWidth) constraints.maxWidth else wanted.sum() + gapPx * (n - 1)
+        val slot = { cols: Int -> max(0, (width - gapPx * (cols - 1)) / cols) }
+        // Liczba przycisków w kolejnych rzędach: najmniej rzędów, w których każdy napis mieści się w jednej linii.
+        var counts = List(n) { 1 }
+        for (rows in 1..n) {
+            val c = List(rows) { r -> n / rows + if (r < n % rows) 1 else 0 }
+            var i = 0
+            val fits = c.all { cols -> (0 until cols).all { wanted[i++] <= slot(cols) } }
+            if (fits) {
+                counts = c
+                break
+            }
+        }
+        val widths = IntArray(n)
+        var i = 0
+        for (cols in counts) {
+            val base = slot(cols)
+            val extra = width - gapPx * (cols - 1) - base * cols
+            for (k in 0 until cols) widths[i++] = base + if (k < extra) 1 else 0
+        }
+        val h = measurables.indices.maxOf { measurables[it].minIntrinsicHeight(widths[it]) }
+        val placeables = measurables.mapIndexed { k, m -> m.measure(Constraints.fixed(widths[k], h)) }
+        val total = counts.size * h + gapPx * (counts.size - 1)
+        layout(width, max(constraints.minHeight, total)) {
+            var k = 0
+            for ((r, cols) in counts.withIndex()) {
+                var x = 0
+                for (c in 0 until cols) {
+                    placeables[k].place(x, r * (h + gapPx))
+                    x += widths[k++] + gapPx
+                }
             }
         }
     }

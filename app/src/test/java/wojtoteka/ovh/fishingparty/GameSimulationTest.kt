@@ -11,6 +11,8 @@ import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
 import wojtoteka.ovh.fishingparty.game.MessageKind
 import wojtoteka.ovh.fishingparty.game.Phase
+import wojtoteka.ovh.fishingparty.game.Rumble
+import wojtoteka.ovh.fishingparty.game.Rumbles
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
 import wojtoteka.ovh.fishingparty.game.TutorialStep
@@ -26,6 +28,8 @@ import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.StageLayout
 import wojtoteka.ovh.fishingparty.level.Tile
+import wojtoteka.ovh.fishingparty.level.UserLevelSeeds
+import wojtoteka.ovh.fishingparty.level.UserLevels
 import kotlin.math.atan2
 import kotlin.math.floor
 import kotlin.math.sqrt
@@ -40,8 +44,18 @@ class GameSimulationTest {
     private class Recorder : GameListener {
         var result: RunResult? = null
         var reason: LoseReason? = null
-        override fun onSound(sfx: Sfx) = Unit
-        override fun onVibrate(millis: Long) = Unit
+
+        /** Dźwięki i wibracje po kolei (wibracja – długość w ms albo melodyjka). */
+        val events = ArrayList<Any>()
+        override fun onSound(sfx: Sfx) {
+            events += sfx
+        }
+        override fun onVibrate(millis: Long) {
+            events += millis
+        }
+        override fun onRumble(rumble: Rumble) {
+            events += rumble
+        }
         override fun onFinished(result: RunResult, reason: LoseReason?) {
             this.result = result
             this.reason = reason
@@ -52,11 +66,12 @@ class GameSimulationTest {
         spec = layout.spec,
         grid = layout.grid,
         stages = layout.stages.map {
-            StageLayout(it.index, it.gateRow, it.topRow, it.bottomRow, it.doorCols, it.quota, it.fish, it.golden, emptyList(), it.reachable)
+            StageLayout(it.index, it.gateRow, it.topRow, it.bottomRow, it.doorCols, it.quota, it.fish, it.golden, emptyList(), it.reachable, it.currentX, it.currentY)
         },
         startCol = layout.startCol,
         startRow = layout.startRow,
         crabs = layout.crabs,
+        rowWorlds = layout.rowWorlds,
     )
 
     private fun play(number: Int): Pair<RunResult?, GameWorld> = play(LevelGenerator.generate(number), tutorial = false)
@@ -65,10 +80,10 @@ class GameSimulationTest {
         source: LevelLayout,
         tutorial: Boolean,
         loadout: Loadout = Loadout(),
+        recorder: Recorder = Recorder(),
         onFrame: (GameWorld) -> Unit = {},
     ): Pair<RunResult?, GameWorld> {
         val layout = withoutEnemies(source)
-        val recorder = Recorder()
         val world = GameWorld(layout, loadout, tutorial = tutorial, listener = recorder)
         world.setViewport(180f, 390f)
         val frame = 1f / 60f
@@ -194,9 +209,32 @@ class GameSimulationTest {
         val dx = tx - world.shipX
         val dy = ty - world.shipY
         val d = sqrt(dx * dx + dy * dy).coerceAtLeast(1f)
-        val vx = dx / d * world.maxSpeed - world.spec.currentX
-        val vy = dy / d * world.maxSpeed - world.spec.currentY
+        val vx = dx / d * world.maxSpeed - (stage.currentX ?: world.spec.currentX)
+        val vy = dy / d * world.maxSpeed - (stage.currentY ?: world.spec.currentY)
         world.setInput(true, atan2(vy, vx))
+    }
+
+    @Test
+    fun caughtFishAndFinishVibrate() {
+        // Poziom ze złotymi rybami: każda złowiona ryba to krótki impuls (złota – dłuższy), meta – melodyjka.
+        val n = (1..80).first { LevelGenerator.generate(it).goldenCount > 0 }
+        val recorder = Recorder()
+        val (result, _) = play(LevelGenerator.generate(n), tutorial = false, recorder = recorder)
+        assertTrue(result?.completed == true)
+        val events = recorder.events
+        var fish = 0
+        for ((i, e) in events.withIndex()) {
+            val buzz = when (e) {
+                Sfx.FISH, Sfx.COMBO -> 30L
+                Sfx.FISH_GOLD -> 50L
+                else -> continue
+            }
+            assertEquals("ryba #$fish", buzz, events.getOrNull(i + 1))
+            fish++
+        }
+        assertEquals(result!!.commonCaught + result.blueCaught + result.goldenCaught, fish)
+        assertTrue(events.contains(Rumbles.WON))
+        assertFalse(events.contains(Rumbles.LOST))
     }
 
     @Test
@@ -267,6 +305,43 @@ class GameSimulationTest {
                     result?.completed == true,
                 )
                 assertTrue("$kind #$i: wynik niewiarygodny", ScoreValidator.isPlausible(plan, result!!))
+            }
+        }
+    }
+
+    /** Poziomy z kreatora bez błędów da się przejść (prąd w etapach, różne palety, start od dalszego etapu). */
+    @Test
+    fun botCompletesUserLevels() {
+        var played = 0
+        for (seed in 1L..80L) {
+            val level = UserLevelSamples.random(seed).copy(time = 0)
+            if (UserLevels.check(level).any { it.error }) continue
+            val built = UserLevels.build(level)
+            val (result, world) = play(built.layout, tutorial = false)
+            assertTrue("poziom gracza $seed nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
+            assertTrue("poziom gracza $seed: wynik niewiarygodny", ScoreValidator.isPlausible(built.plan, result!!))
+            if (level.stages.size > 1) {
+                val (partial, _) = play(UserLevels.build(level, fromStage = 1).layout, tutorial = false)
+                assertTrue("poziom gracza $seed od etapu 2 nieukończony", partial?.completed == true)
+            }
+            played++
+        }
+        assertTrue("za mało poprawnych próbek: $played", played >= 20)
+    }
+
+    /** Poziom z seeda w kreatorze: zawsze ten sam dla tego samego kodu i trudności, bez błędów i do przejścia. */
+    @Test
+    fun seedLevelsForEditorArePlayable() {
+        for (difficulty in UserLevelSeeds.Difficulty.entries) {
+            for (i in 0L until 8L) {
+                val seed = LevelSeed(Rng.mix(0x5EEDL, i * 31 + difficulty.ordinal))
+                val level = UserLevelSeeds.build(seed, difficulty)
+                assertEquals(UserLevels.encode(level), UserLevels.encode(UserLevelSeeds.build(seed, difficulty)))
+                assertEquals(UserLevels.encode(level), UserLevels.encode(UserLevels.normalize(level)))
+                assertTrue("$difficulty #$i: ${UserLevels.check(level).map { it.kind }}", UserLevels.check(level).none { it.error })
+                val built = UserLevels.build(level.copy(time = 0))
+                val (result, world) = play(built.layout, tutorial = false)
+                assertTrue("$difficulty #$i nieukończony (etap ${world.stageIndex}/${world.stages.size})", result?.completed == true)
             }
         }
     }

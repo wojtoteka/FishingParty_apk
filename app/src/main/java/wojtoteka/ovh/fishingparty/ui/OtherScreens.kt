@@ -59,6 +59,7 @@ import wojtoteka.ovh.fishingparty.data.Achievement
 import wojtoteka.ovh.fishingparty.data.Achievements
 import wojtoteka.ovh.fishingparty.data.DailyRewards
 import wojtoteka.ovh.fishingparty.data.Metric
+import wojtoteka.ovh.fishingparty.game.Rumbles
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.Worlds
@@ -207,7 +208,8 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                     ToggleRow(stringResource(R.string.set_vibration), save.vibration) {
                         save.vibration = it
                         services.audio.vibrationEnabled = it
-                        if (it) services.audio.vibrate(40)
+                        // Po włączeniu – próbka: melodyjka wygranej.
+                        if (it) services.audio.rumble(Rumbles.WON)
                         repo.changed()
                     }
                 }
@@ -226,7 +228,7 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                             color = Pal.Foam,
                         )
                         VSpace(3)
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                        ButtonRow(gap = 3) {
                             for (hour in StreakReminderSlots.HOURS) {
                                 PixelButton(
                                     hour.toString(),
@@ -235,7 +237,6 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                                         repo.changed()
                                     },
                                     style = if (hour == save.reminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
-                                    modifier = Modifier.weight(1f),
                                 )
                             }
                         }
@@ -300,20 +301,18 @@ fun SettingsScreen(onBack: () -> Unit, onTutorial: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     )
                     VSpace(4)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+                    ButtonRow(gap = 3) {
                         PixelButton(
                             stringResource(R.string.set_privacy),
                             onClick = { openLink(context, OnlineManager.PRIVACY_URL) },
                             style = ButtonStyle.SEA,
                             size = 1,
-                            modifier = Modifier.weight(1f),
                         )
                         PixelButton(
                             stringResource(R.string.set_terms),
                             onClick = { openLink(context, OnlineManager.TERMS_URL) },
                             style = ButtonStyle.SEA,
                             size = 1,
-                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -402,7 +401,7 @@ private fun ChallengeReminderSettings() {
         color = Pal.Foam,
     )
     VSpace(3)
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+    ButtonRow(gap = 3) {
         for (hour in ChallengeReminderPlan.HOURS) {
             PixelButton(
                 hour.toString(),
@@ -411,7 +410,6 @@ private fun ChallengeReminderSettings() {
                     changed()
                 },
                 style = if (hour == save.challengeReminderHour) ButtonStyle.GREEN else ButtonStyle.SEA,
-                modifier = Modifier.weight(1f),
             )
         }
     }
@@ -462,14 +460,13 @@ private fun LanguagePicker() {
         Column(Modifier.fillMaxWidth()) {
             PixelText(stringResource(R.string.set_language), size = 2, color = Pal.Gold)
             VSpace(4)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
+            ButtonRow(gap = 3) {
                 for (language in Language.entries) {
                     val selected = language == current
                     PixelButton(
                         text = "",
                         onClick = { context.findActivity()?.let { AppLanguage.set(it, language) } },
                         style = if (selected) ButtonStyle.GREEN else ButtonStyle.SEA,
-                        modifier = Modifier.weight(1f),
                     ) {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             val flag = if (language == Language.AUTO) {
@@ -598,8 +595,8 @@ fun DailyRewardDialog(onClose: () -> Unit) {
             PixelText(stringResource(R.string.daily_clock), size = 1, color = Pal.Red, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         }
         VSpace(8)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
-            PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD, modifier = Modifier.weight(1f))
+        ButtonRow(gap = 4) {
+            PixelButton(stringResource(R.string.close), onClick = onClose, style = ButtonStyle.WOOD)
             PixelButton(
                 stringResource(R.string.daily_claim),
                 onClick = {
@@ -611,7 +608,6 @@ fun DailyRewardDialog(onClose: () -> Unit) {
                 },
                 style = ButtonStyle.GREEN,
                 enabled = state.available,
-                modifier = Modifier.weight(1f),
             )
         }
     }

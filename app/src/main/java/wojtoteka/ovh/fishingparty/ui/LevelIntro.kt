@@ -20,6 +20,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.PowerUp
+import wojtoteka.ovh.fishingparty.level.EnemyKind
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
 
@@ -63,9 +64,9 @@ fun LevelIntro(level: Int, onPlay: (Set<PowerUp>) -> Unit, onClose: () -> Unit) 
                 )
             }
         }
-        // Nowy potwór (pierwsze 4 poziomy, na których występuje) – co to jest i jak go omijać.
+        // Nowy potwór (pierwsze poziomy, na których występuje) – co to jest i jak go omijać.
         val newcomers = remember(level) {
-            plan.stages.flatMap { it.enemies }.distinct().filter { level - it.firstLevel in 0 until NEW_MONSTER_LEVELS }
+            plan.stages.flatMap { it.enemies }.distinct().filter { level - it.firstLevel in 0 until EnemyKind.INTRO_LEVELS }
         }
         for (kind in newcomers) {
             VSpace(4)
@@ -147,9 +148,6 @@ fun PowerUpPicker(selected: SnapshotStateList<PowerUp>) {
         modifier = Modifier.fillMaxWidth(),
     )
 }
-
-/** Przez tyle poziomów od pierwszego pojawienia się potwór jest przedstawiany na karcie poziomu. */
-private const val NEW_MONSTER_LEVELS = 4
 
 /** Szerokość kafelka wzmocnienia – pięć mieści się w oknie, kolejne są po przewinięciu w prawo. */
 private const val POWERUP_TILE = 52

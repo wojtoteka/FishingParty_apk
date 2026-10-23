@@ -26,7 +26,29 @@ class TileGrid(val width: Int, val height: Int) {
     /** Siatka zawinięta w pionie (nieskończenie przewijane tło menu). */
     var wrapRows = false
 
+    /** Kolory piasku pól (poziomy z kreatora); null – cały piasek w palecie wiersza. */
+    private var sand: ByteArray? = null
+
     fun wrap(row: Int): Int = if (wrapRows) Math.floorMod(row, height) else row
+
+    /**
+     * Paleta piasku pola (jak numer świata) albo [DEFAULT_SAND] – piasek w palecie wiersza. Poza kolumnami
+     * piasek ciągnie się w kolorze brzegu.
+     */
+    fun sandColor(col: Int, row: Int): Int {
+        val r = wrap(row)
+        val colors = sand ?: return DEFAULT_SAND
+        if (r !in 0 until height) return DEFAULT_SAND
+        val c = col.coerceIn(0, width - 1)
+        if (c != col && cells[r * width + c] != Tile.SAND) return DEFAULT_SAND
+        return colors[r * width + c].toInt()
+    }
+
+    fun setSandColor(col: Int, row: Int, palette: Int) {
+        if (!inside(col, row)) return
+        val colors = sand ?: if (palette == DEFAULT_SAND) return else ByteArray(width * height) { DEFAULT_SAND.toByte() }.also { sand = it }
+        colors[row * width + col] = palette.toByte()
+    }
 
     operator fun get(col: Int, row: Int): Tile {
         val r = wrap(row)
@@ -45,6 +67,11 @@ class TileGrid(val width: Int, val height: Int) {
     }
 
     fun inside(col: Int, row: Int) = col in 0 until width && row in 0 until height
+
+    companion object {
+        /** Piasek w palecie wiersza (jak [UserLevels.SAME_THEME]). */
+        const val DEFAULT_SAND = -2
+    }
 }
 
 enum class LevelType {
@@ -60,21 +87,27 @@ enum class LevelType {
 
     /** Poziom 1000 – Wielki Finał. */
     FINALE,
+
+    /** Poziom z kreatora (od wersji 2.4). */
+    CUSTOM,
 }
 
 enum class EnemyKind(
     /** Koszt w „budżecie trudności” etapu. */
     val cost: Float,
-    /** Pierwszy poziom, na którym się pojawia. */
+    /**
+     * Pierwszy poziom, na którym się pojawia. Od wersji 2.4 wszystkie potwory poznaje się w pierwszym
+     * świecie: każdy przez [INTRO_LEVELS] poziomy, po kolei od najsłabszego, a widmokuda na końcu.
+     */
     val firstLevel: Int,
 ) {
     PIRANHA(1f, 2),
     PIRANHA_VERTICAL(1f, 4),
-    OCTOPUS(1.5f, 8),
-    SHARK(2f, 12),
-    RED_PIRANHA(1.5f, 76),
-    RED_OCTOPUS(2f, 126),
-    DARK_SHARK(3f, 176),
+    OCTOPUS(1.5f, 6),
+    SHARK(2f, 8),
+    RED_PIRANHA(1.5f, 10),
+    RED_OCTOPUS(2f, 12),
+    DARK_SHARK(3f, 14),
 
     /**
      * Widmokuda – najgroźniejszy potwór (od wersji 2.3). Nie trafia do losowania z budżetu:
@@ -87,6 +120,12 @@ enum class EnemyKind(
     val costTenths: Int get() = Math.round(cost * 10f)
 
     companion object {
+        /**
+         * Przez tyle poziomów od [firstLevel] potwór jest przedstawiany graczowi: jest w każdym etapie
+         * (widmokuda – w drugim), a karta poziomu pokazuje „Nowy potwór!”.
+         */
+        const val INTRO_LEVELS = 2
+
         /**
          * Potwory losowane z budżetu – w tej kolejności, bo kolejność listy jest częścią formatu
          * poziomów (serwer rankingu powtarza to losowanie u siebie).
@@ -107,7 +146,8 @@ enum class SecondGoal { NO_DAMAGE, ALL_FISH }
 /** Cel na trzecią gwiazdkę. */
 enum class ThirdGoal { PAR_TIME, SCORE, ALL_GOLDEN, COMBO }
 
-class EnemySpawn(val kind: EnemyKind, val col: Int, val row: Int)
+/** [dir] – kierunek na start (0 prawo, 1 dół, 2 lewo, 3 góra), -1 – losowy. */
+class EnemySpawn(val kind: EnemyKind, val col: Int, val row: Int, val dir: Int = -1)
 
 class FishSpawn(val kind: FishKind, val col: Int, val row: Int)
 
@@ -129,6 +169,9 @@ class StageLayout(
     val enemies: List<EnemySpawn>,
     /** Pola morza osiągalne z wejścia do etapu (do losowania odrodzeń). */
     val reachable: IntArray,
+    /** Prąd morski tylko w tym etapie (poziomy z kreatora); null – prąd całego poziomu ze [LevelSpec]. */
+    val currentX: Float? = null,
+    val currentY: Float? = null,
 ) {
     val fishTotal: Int get() = fish.size + golden.size
 }
@@ -162,6 +205,8 @@ class LevelLayout(
     val startRow: Int,
     /** Kraby na plaży – tylko dekoracja. */
     val crabs: List<Pair<Int, Int>>,
+    /** Paleta (świat) każdego wiersza, gdy etapy mają różne barwy (poziomy z kreatora); null – jedna paleta. */
+    val rowWorlds: IntArray? = null,
 ) {
     val fishCount: Int get() = stages.sumOf { it.fish.size }
     val goldenCount: Int get() = stages.sumOf { it.golden.size }
@@ -179,7 +224,7 @@ object LevelConstants {
      */
     const val MAX_LEVEL = 20_000
 
-    /** Pierwsze 500 poziomów (pierwsza wyprawa) ma niezmienioną krzywą trudności. */
+    /** Pierwsza wyprawa: od zapoznania z potworami przez łatwe do normalnych poziomów (trudność 0..1). */
     const val FIRST_VOYAGE_LEVELS = 500
     const val LEVELS_PER_WORLD = 25
     const val WORLD_COUNT = LEVEL_COUNT / LEVELS_PER_WORLD
