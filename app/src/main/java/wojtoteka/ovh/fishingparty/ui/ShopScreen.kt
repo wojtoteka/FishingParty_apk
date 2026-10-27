@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.isActive
@@ -165,10 +166,7 @@ fun ShopScreen(onBack: () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             TopBar(stringResource(R.string.shop_title), onBack)
             ShipPreview(look, 5, Modifier.fillMaxWidth().height(px(96)).padding(vertical = px(3)))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = px(6)),
-                horizontalArrangement = Arrangement.spacedBy(px(3)),
-            ) {
+            TabRow(Modifier.fillMaxWidth().padding(horizontal = px(6))) {
                 for (t in ShopTab.entries) {
                     val label = stringResource(
                         when (t) {
@@ -188,8 +186,6 @@ fun ShopScreen(onBack: () -> Unit) {
                         },
                         style = if (t == tab) ButtonStyle.GREEN else if (t == ShopTab.MARKET) ButtonStyle.ORANGE else ButtonStyle.SEA,
                         size = 2,
-                        // Szerokość według długości napisu – dłuższy (np. MARKET) nie łamie się na dwie linie.
-                        modifier = Modifier.weight(label.length + 2f),
                     )
                 }
             }
@@ -564,5 +560,37 @@ private fun ShopCard(
 
         card.measured()
         layout(w, max(constraints.minHeight, y)) {}
+    }
+}
+
+/**
+ * Rząd zakładek: każda dostaje szerokość swojego napisu, a wolne miejsce dzieli się po równo –
+ * dłuższy napis (np. MARKET) nie łamie się na dwie linie. Wszystkie mają wysokość najwyższej.
+ */
+@Composable
+private fun TabRow(modifier: Modifier = Modifier, gap: Int = 3, content: @Composable () -> Unit) {
+    val gapPx = gap * LocalUnit.current
+    Layout(content, modifier) { measurables, constraints ->
+        val n = measurables.size
+        val width = constraints.maxWidth
+        val free = width - gapPx * (n - 1)
+        val wanted = measurables.map { it.maxIntrinsicWidth(Constraints.Infinity) }
+        val sum = wanted.sum()
+        val widths = if (sum <= free) {
+            val extra = (free - sum) / n
+            IntArray(n) { wanted[it] + extra + if (it < (free - sum) % n) 1 else 0 }
+        } else {
+            // Za mało miejsca na wszystkie napisy – zwężamy proporcjonalnie.
+            IntArray(n) { wanted[it] * free / sum }
+        }
+        val h = measurables.indices.maxOf { measurables[it].minIntrinsicHeight(widths[it]) }
+        val placeables = measurables.mapIndexed { k, m -> m.measure(Constraints.fixed(widths[k], h)) }
+        layout(width, h) {
+            var x = 0
+            for (k in placeables.indices) {
+                placeables[k].place(x, 0)
+                x += widths[k] + gapPx
+            }
+        }
     }
 }
