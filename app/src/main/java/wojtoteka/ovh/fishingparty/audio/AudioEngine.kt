@@ -145,7 +145,7 @@ class AudioEngine(context: Context) {
     }
 
     /** Krótki impuls wibracji (trafienie, ryba, meta…). */
-    fun vibrate(millis: Long) = vibrate(VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE))
+    fun vibrate(millis: Long) = vibrate(VibrationEffect.createOneShot(millis, SOFT_AMPLITUDE))
 
     /** Wibracja z rytmem; telefon bez regulacji siły drgań gra sam rytm. */
     fun rumble(rumble: Rumble) = vibrate(VibrationEffect.createWaveform(rumble.timings, rumble.amplitudes, -1))
@@ -252,6 +252,8 @@ class AudioEngine(context: Context) {
         private const val VERSION = 1
         const val SAMPLE_RATE = 48000
         private const val SFX_VOLUME = 0.9f
+        /** Siła pojedynczych impulsów wibracji (1..255) – lekki, przyjemny dotyk zamiast mocnego szarpnięcia. */
+        private const val SOFT_AMPLITUDE = 90
         private const val MUSIC_VOLUME = 0.7f
         private const val CHUNK = 4096
         private const val WAV_HEADER = 44

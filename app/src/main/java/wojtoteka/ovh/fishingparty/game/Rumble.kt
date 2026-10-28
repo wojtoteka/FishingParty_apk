@@ -10,36 +10,36 @@ class Rumble(val timings: LongArray, val amplitudes: IntArray) {
 
 object Rumbles {
     /**
-     * Przegrana: smutne „łuu-łuu-łuu-łuuuu” (ok. 1 s) – trzy coraz słabsze nuty i ostatnia, dłuższa, gasnąca.
+     * Przegrana: łagodne, smutne „łuu-łuu-łuu-łuuuu” (ok. 1 s) – trzy coraz słabsze nuty i ostatnia, dłuższa, gasnąca.
      * Przerwy między nutami są dość długie, żeby silniczek zdążył stanąć i każdą nutę było czuć osobno.
      */
     val LOST: Rumble = rumble {
-        note(140, 255); rest(80)
-        note(140, 210); rest(80)
-        note(140, 170); rest(90)
-        note(150, 230); note(130, 150); note(110, 80)
+        note(120, 110); rest(90)
+        note(120, 90); rest(90)
+        note(120, 70); rest(100)
+        note(130, 90); note(110, 55); note(90, 30)
     }
 
     /**
-     * Trafienie, które zabiera życie: podwójne, mocne „bzz-BZZZ” – inne niż pojedyncze, lekkie stuknięcie
+     * Trafienie, które zabiera życie: podwójne, lekkie „bzz-bzz” – inne niż pojedyncze, lekkie stuknięcie
      * po złowieniu ryby, żeby gracz rozpoznawał je samym dotykiem.
      */
     val HIT: Rumble = rumble {
-        note(80, 255); rest(70)
-        note(130, 255)
+        note(60, 120); rest(70)
+        note(90, 120)
     }
 
-    /** Trafienie zatrzymane przez tarczę: jedno dłuższe, średnie brzęczenie (bez utraty życia). */
+    /** Trafienie zatrzymane przez tarczę: jedno miękkie brzęczenie (bez utraty życia). */
     val SHIELD: Rumble = rumble {
-        note(160, 170)
+        note(110, 80)
     }
 
-    /** Wygrana: radosne „ta-ta-ta-TAAAM” (ok. 0,7 s) – trzy krótkie nuty i mocne, długie zakończenie. */
+    /** Wygrana: radosne „ta-ta-ta-TAAAM” (ok. 0,7 s) – trzy krótkie nuty i delikatnie dłuższe zakończenie. */
     val WON: Rumble = rumble {
-        note(60, 200); rest(60)
-        note(60, 200); rest(60)
-        note(60, 200); rest(80)
-        note(300, 255)
+        note(50, 90); rest(60)
+        note(50, 90); rest(60)
+        note(50, 90); rest(80)
+        note(220, 130)
     }
 
     private class Builder {
