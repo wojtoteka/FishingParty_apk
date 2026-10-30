@@ -59,6 +59,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.isActive
@@ -121,7 +122,7 @@ private fun drawShip(canvas: android.graphics.Canvas, look: ShipLook, scale: Int
 private const val SHIP_H = 28f
 private const val SHIP_W = 24f
 
-private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS }
+private enum class ShopTab { BOATS, SAILS, SAILORS, POWERUPS, MARKET }
 
 @Composable
 fun ShopScreen(onBack: () -> Unit) {
@@ -135,6 +136,9 @@ fun ShopScreen(onBack: () -> Unit) {
     var workshopOpen by remember { mutableStateOf(false) }
     var boatPick by remember { mutableStateOf(Workshop.DEFAULT_BOAT) }
     var sailDraft by remember { mutableStateOf(SailDraft()) }
+    // Wystawianie na targ – okienko poza przewijaną listą.
+    var selling by remember { mutableStateOf<ShopItem?>(null) }
+    var sold by remember { mutableIntStateOf(0) }
     val equipped = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val look = when (preview?.kind) {
         ItemKind.BOAT -> equipped.copy(boat = preview!!.id)
@@ -147,6 +151,7 @@ fun ShopScreen(onBack: () -> Unit) {
         ShopTab.SAILS -> Catalog.sails - Catalog.flags.toSet()
         ShopTab.SAILORS -> Catalog.sailors
         ShopTab.POWERUPS -> Catalog.powerups
+        ShopTab.MARKET -> emptyList()
     }
     // Karta ŻAGLE: zwykłe kolory, pod nimi flagi (z nagłówkiem), potem własne żagle i kreator na samym dole.
     val flags = if (tab == ShopTab.SAILS) Catalog.flags else emptyList()
@@ -161,28 +166,26 @@ fun ShopScreen(onBack: () -> Unit) {
         Column(Modifier.fillMaxSize()) {
             TopBar(stringResource(R.string.shop_title), onBack)
             ShipPreview(look, 5, Modifier.fillMaxWidth().height(px(96)).padding(vertical = px(3)))
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = px(6)),
-                horizontalArrangement = Arrangement.spacedBy(px(3)),
-            ) {
+            TabRow(Modifier.fillMaxWidth().padding(horizontal = px(6))) {
                 for (t in ShopTab.entries) {
+                    val label = stringResource(
+                        when (t) {
+                            ShopTab.BOATS -> R.string.shop_boats
+                            ShopTab.SAILS -> R.string.shop_sails
+                            ShopTab.SAILORS -> R.string.shop_sailors
+                            ShopTab.POWERUPS -> R.string.shop_powerups
+                            ShopTab.MARKET -> R.string.shop_market
+                        },
+                    )
                     PixelButton(
-                        stringResource(
-                            when (t) {
-                                ShopTab.BOATS -> R.string.shop_boats
-                                ShopTab.SAILS -> R.string.shop_sails
-                                ShopTab.SAILORS -> R.string.shop_sailors
-                                ShopTab.POWERUPS -> R.string.shop_powerups
-                            },
-                        ),
+                        label,
                         onClick = {
                             tab = t
                             preview = null
                             workshopOpen = false
                         },
-                        style = if (t == tab) ButtonStyle.GREEN else ButtonStyle.SEA,
+                        style = if (t == tab) ButtonStyle.GREEN else if (t == ShopTab.MARKET) ButtonStyle.ORANGE else ButtonStyle.SEA,
                         size = 2,
-                        modifier = Modifier.weight(1f),
                     )
                 }
             }
@@ -233,6 +236,8 @@ fun ShopScreen(onBack: () -> Unit) {
                     .padding(start = px(6), top = gap, end = px(6), bottom = px(BOTTOM_GAP)),
                 verticalArrangement = Arrangement.spacedBy(gap),
             ) {
+                // Targ: projekty innych graczy i stoisko gracza (zamiast kart sklepu).
+                if (tab == ShopTab.MARKET) MarketPanel(preview?.key, onPreview = { preview = it }, onEquip = equip, onSell = { selling = it }, sold = sold)
                 // Własne łodzie i żagle dochodzą na koniec ostatniej sekcji, w tych samych rzędach.
                 CardRows(if (flags.isEmpty()) items + creations else items, gap, card)
                 if (flags.isNotEmpty()) {
@@ -283,6 +288,12 @@ fun ShopScreen(onBack: () -> Unit) {
                         }
                     }
                 }
+            }
+        }
+        selling?.let { item ->
+            MarketSellDialog(item, onClose = { selling = null }) {
+                selling = null
+                sold++
             }
         }
     }
@@ -549,5 +560,37 @@ private fun ShopCard(
 
         card.measured()
         layout(w, max(constraints.minHeight, y)) {}
+    }
+}
+
+/**
+ * Rząd zakładek: każda dostaje szerokość swojego napisu, a wolne miejsce dzieli się po równo –
+ * dłuższy napis (np. MARKET) nie łamie się na dwie linie. Wszystkie mają wysokość najwyższej.
+ */
+@Composable
+private fun TabRow(modifier: Modifier = Modifier, gap: Int = 3, content: @Composable () -> Unit) {
+    val gapPx = gap * LocalUnit.current
+    Layout(content, modifier) { measurables, constraints ->
+        val n = measurables.size
+        val width = constraints.maxWidth
+        val free = width - gapPx * (n - 1)
+        val wanted = measurables.map { it.maxIntrinsicWidth(Constraints.Infinity) }
+        val sum = wanted.sum()
+        val widths = if (sum <= free) {
+            val extra = (free - sum) / n
+            IntArray(n) { wanted[it] + extra + if (it < (free - sum) % n) 1 else 0 }
+        } else {
+            // Za mało miejsca na wszystkie napisy – zwężamy proporcjonalnie.
+            IntArray(n) { wanted[it] * free / sum }
+        }
+        val h = measurables.indices.maxOf { measurables[it].minIntrinsicHeight(widths[it]) }
+        val placeables = measurables.mapIndexed { k, m -> m.measure(Constraints.fixed(widths[k], h)) }
+        layout(width, h) {
+            var x = 0
+            for (k in placeables.indices) {
+                placeables[k].place(x, 0)
+                x += widths[k] + gapPx
+            }
+        }
     }
 }

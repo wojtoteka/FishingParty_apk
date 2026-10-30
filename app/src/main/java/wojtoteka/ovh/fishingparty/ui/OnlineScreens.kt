@@ -143,7 +143,7 @@ fun PixelTextField(
 @Composable
 private fun PixelCheck(checked: Boolean, label: String, onToggle: () -> Unit) {
     val u = LocalUnit.current.toFloat()
-    Row(Modifier.fillMaxWidth().noRippleClick(onToggle).padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = px(MIN_BUTTON)).noRippleClick(onToggle).padding(vertical = px(2)), verticalAlignment = Alignment.CenterVertically) {
         Box(
             Modifier.size(px(12)).drawBehind {
                 pixelBox(u, Pal.SeaDark, Pal.Navy, Pal.Outline, shadow = 0f)
@@ -156,7 +156,7 @@ private fun PixelCheck(checked: Boolean, label: String, onToggle: () -> Unit) {
 }
 
 @Composable
-private fun Hint(text: String, color: androidx.compose.ui.graphics.Color = Pal.SeaLight) {
+internal fun Hint(text: String, color: androidx.compose.ui.graphics.Color = Pal.SeaLight) {
     PixelText(text, size = 1, color = color, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
 }
 
@@ -177,9 +177,9 @@ private fun PolicyBlock(accepted: Boolean, onToggle: () -> Unit) {
             VSpace(2)
             PixelText(stringResource(R.string.policy_summary), size = 1, color = Pal.Foam)
             VSpace(4)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-                PixelButton(stringResource(R.string.policy_open_privacy), onClick = { openUrl(context, OnlineManager.PRIVACY_URL) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
-                PixelButton(stringResource(R.string.policy_open_terms), onClick = { openUrl(context, OnlineManager.TERMS_URL) }, style = ButtonStyle.SEA, size = 1, modifier = Modifier.weight(1f))
+            ButtonRow(gap = 3) {
+                PixelButton(stringResource(R.string.policy_open_privacy), onClick = { openUrl(context, OnlineManager.PRIVACY_URL) }, style = ButtonStyle.SEA, size = 1)
+                PixelButton(stringResource(R.string.policy_open_terms), onClick = { openUrl(context, OnlineManager.TERMS_URL) }, style = ButtonStyle.SEA, size = 1)
             }
             VSpace(4)
             PixelCheck(accepted, stringResource(R.string.policy_accept), onToggle)
@@ -221,6 +221,25 @@ fun onlineErrorText(f: OnlineResult.Failed): String = when (f.code) {
     "clock_skew" -> stringResource(R.string.err_clock)
     "not_configured" -> stringResource(R.string.online_not_configured)
     "not_logged_in" -> stringResource(R.string.session_expired)
+    "level_exists" -> stringResource(R.string.err_level_exists)
+    "level_problems" -> stringResource(R.string.err_level_problems)
+    "verify_rejected", "not_verified" -> stringResource(R.string.err_verify_rejected)
+    "publish_limit" -> stringResource(R.string.err_publish_limit)
+    "level_limit" -> stringResource(R.string.err_level_limit)
+    "title_banned", "title_invalid", "name_banned" -> stringResource(R.string.err_title_banned)
+    "level_format", "level_json", "level_not_normalized", "level_too_large", "design_invalid" -> stringResource(R.string.err_level_invalid)
+    "not_found" -> stringResource(R.string.err_not_found)
+    "play_first" -> stringResource(R.string.err_play_first)
+    "own_level" -> stringResource(R.string.err_own_level)
+    "share_limit" -> stringResource(R.string.err_share_limit)
+    "device_untrusted" -> stringResource(R.string.err_device_untrusted)
+    "design_taken" -> stringResource(R.string.err_design_taken)
+    "market_limit" -> stringResource(R.string.err_market_limit)
+    "name_length" -> stringResource(R.string.err_name_length)
+    "price_invalid" -> stringResource(R.string.err_price_invalid)
+    "own_item" -> stringResource(R.string.err_own_item)
+    "item_removed" -> stringResource(R.string.err_item_removed)
+    "not_enough_coins" -> stringResource(R.string.err_not_enough_coins)
     else -> stringResource(R.string.err_generic, f.code)
 }
 
@@ -296,7 +315,7 @@ private fun rememberSubmit(form: FormState): (List<String?>, suspend () -> Onlin
 
 /** Sprawdza sieć przy wejściu i po powrocie do aplikacji. */
 @Composable
-private fun rememberOnline(): Pair<Boolean, () -> Unit> {
+internal fun rememberOnline(): Pair<Boolean, () -> Unit> {
     val online = LocalServices.current.online
     var state by remember { mutableStateOf(online.isOnline()) }
     LifecycleResumeEffect(Unit) {
@@ -307,7 +326,7 @@ private fun rememberOnline(): Pair<Boolean, () -> Unit> {
 }
 
 @Composable
-private fun OfflineCard(onRetry: () -> Unit) {
+internal fun OfflineCard(onRetry: () -> Unit) {
     PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
         PixelText(stringResource(R.string.online_offline_title), size = 4, color = Pal.RedDark, outline = null)
         VSpace(4)
@@ -325,7 +344,7 @@ private fun OfflineCard(onRetry: () -> Unit) {
 }
 
 @Composable
-private fun NotConfiguredCard() {
+internal fun NotConfiguredCard() {
     PixelPanel(Modifier.fillMaxWidth().widthIn(max = px(320))) {
         PixelText(stringResource(R.string.online_not_configured), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
     }
@@ -667,6 +686,8 @@ fun AccountScreen(onBack: () -> Unit) {
     var mode by remember { mutableStateOf(AccountMode.MENU) }
     var pendingEmail by remember { mutableStateOf("") }
     val loggedIn = online.loggedIn
+    // Potwierdzenie wylogowania poza przewijaną kolumną (Overlay w niej wywraca grę).
+    var confirmLogout by remember { mutableStateOf(false) }
     LaunchedEffect(loggedIn) { mode = AccountMode.MENU }
     LaunchedEffect(loggedIn, isOnline) { if (loggedIn && isOnline) online.refreshProfile() }
 
@@ -692,7 +713,7 @@ fun AccountScreen(onBack: () -> Unit) {
                         AccountMode.CHANGE_PASSWORD -> ChangePasswordForm { mode = AccountMode.MENU }
                         AccountMode.SET_PASSWORD -> SetPasswordForm { mode = AccountMode.MENU }
                         AccountMode.DELETE -> DeleteAccountForm()
-                        else -> AccountProfile { mode = it }
+                        else -> AccountProfile(onPick = { mode = it }, onLogout = { confirmLogout = true })
                     }
                 }
                 if (mode != AccountMode.MENU && isOnline) {
@@ -700,6 +721,16 @@ fun AccountScreen(onBack: () -> Unit) {
                 }
             }
         }
+    }
+    if (confirmLogout && loggedIn) {
+        ConfirmDialog(
+            message = stringResource(if (online.account?.hasPassword != false) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
+            onConfirm = {
+                confirmLogout = false
+                online.logout()
+            },
+            onCancel = { confirmLogout = false },
+        )
     }
 }
 
@@ -849,11 +880,10 @@ private fun ResetCodeForm(email: String) {
 }
 
 @Composable
-private fun AccountProfile(onPick: (AccountMode) -> Unit) {
+private fun AccountProfile(onPick: (AccountMode) -> Unit, onLogout: () -> Unit) {
     val online = LocalServices.current.online
     val context = LocalContext.current
     val account = online.account ?: return
-    var confirmLogout by remember { mutableStateOf(false) }
     DarkCard(Modifier.fillMaxWidth(), highlight = true) {
         Column(Modifier.fillMaxWidth()) {
             ProfileRow(stringResource(R.string.account_nick), account.nick)
@@ -872,6 +902,7 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
                 ProfileRow(stringResource(R.string.account_email), account.email ?: stringResource(R.string.account_no_email), if (account.email == null) Pal.Sand else Pal.White)
             }
             ProfileRow(stringResource(R.string.account_points), account.points.toString())
+            if (account.userLevelPoints > 0) ProfileRow(stringResource(R.string.account_user_level_points), account.userLevelPoints.toString())
             ProfileRow(stringResource(R.string.account_rank), account.rank?.let { "#$it" } ?: stringResource(R.string.ranking_not_ranked))
             val sync = when (online.status) {
                 SyncStatus.OK -> stringResource(R.string.sync_ok, DateFormat.getTimeFormat(context).format(Date(online.lastSyncAt)))
@@ -897,19 +928,9 @@ private fun AccountProfile(onPick: (AccountMode) -> Unit) {
         }
         PixelButton(stringResource(R.string.account_change_password), onClick = { onPick(AccountMode.CHANGE_PASSWORD) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
     }
-    PixelButton(stringResource(R.string.account_logout), onClick = { confirmLogout = true }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
+    PixelButton(stringResource(R.string.account_logout), onClick = onLogout, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.fillMaxWidth())
     VSpace(4)
     PixelButton(stringResource(R.string.account_delete), onClick = { onPick(AccountMode.DELETE) }, style = ButtonStyle.RED, size = 2, modifier = Modifier.fillMaxWidth())
-    if (confirmLogout) {
-        ConfirmDialog(
-            message = stringResource(if (account.hasPassword) R.string.account_logout_confirm else R.string.account_logout_nick_confirm),
-            onConfirm = {
-                confirmLogout = false
-                online.logout()
-            },
-            onCancel = { confirmLogout = false },
-        )
-    }
 }
 
 @Composable

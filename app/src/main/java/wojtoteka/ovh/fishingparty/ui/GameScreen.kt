@@ -1,5 +1,6 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import wojtoteka.ovh.fishingparty.game.TutorialStep
 import wojtoteka.ovh.fishingparty.game.TutorialCoach
@@ -61,6 +62,7 @@ import wojtoteka.ovh.fishingparty.game.HudStrings
 import wojtoteka.ovh.fishingparty.game.KeyboardSteer
 import wojtoteka.ovh.fishingparty.game.Loadout
 import wojtoteka.ovh.fishingparty.game.LoseReason
+import wojtoteka.ovh.fishingparty.game.Rumble
 import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.game.TouchStick
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
@@ -70,7 +72,13 @@ import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
+import wojtoteka.ovh.fishingparty.level.UserLevel
+import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.level.Worlds
+import wojtoteka.ovh.fishingparty.data.VerifyRun
+import wojtoteka.ovh.fishingparty.online.Net
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import kotlin.math.atan2
 import kotlin.math.min
 import kotlin.math.sqrt
@@ -84,6 +92,30 @@ sealed interface GameExit {
 
 private class Outcome(val result: RunResult, val reason: LoseReason?)
 
+/**
+ * Poziom z kreatora w grze: test autora, przejście przed publikacją, poziom gracza z serwera albo poziom
+ * z linku bez publikacji ([SHARED] – bez punktów, monet i statystyk).
+ */
+enum class CustomMode { TEST, VERIFY, PLAY, SHARED }
+
+/**
+ * @param fromStage test od wybranego etapu (tylko [CustomMode.TEST])
+ * @param draftId szkic, z którego pochodzi poziom (test i przejście przed publikacją)
+ * @param onlineId numer poziomu na serwerze ([CustomMode.PLAY])
+ * @param starred czy ten gracz dał już gwiazdkę ([CustomMode.PLAY])
+ * @param shareCode kod linku ([CustomMode.SHARED]) – po grze wraca okno tego poziomu
+ */
+class CustomRun(
+    val level: UserLevel,
+    val mode: CustomMode,
+    val title: String,
+    val fromStage: Int = 0,
+    val draftId: String? = null,
+    val onlineId: Int = 0,
+    val starred: Boolean = false,
+    val shareCode: String? = null,
+)
+
 @Composable
 fun GameScreen(
     level: Int,
@@ -91,6 +123,7 @@ fun GameScreen(
     attempt: Int,
     tutorial: Boolean = false,
     challenge: Challenge? = null,
+    custom: CustomRun? = null,
     onExit: (GameExit) -> Unit,
 ) {
     val services = LocalServices.current
@@ -98,20 +131,29 @@ fun GameScreen(
     val audio = services.audio
     // Samouczek to osobny poziom (dwa etapy: ryby, potem potwory) – nie liczy się do wyników.
     // Poziom dnia/tygodnia powstaje z seeda z serwera.
-    val plan = remember(level, tutorial, challenge) {
+    val plan = remember(level, tutorial, challenge, custom) {
         when {
             tutorial -> LevelGenerator.tutorialPlan()
+            custom != null -> UserLevels.build(custom.level, custom.fromStage).plan
             challenge != null -> challenge.plan()
             else -> LevelGenerator.plan(level)
         }
     }
-    val title = if (challenge != null) challengeTitle(challenge.kind) else stringResource(R.string.level_n, level)
-    val layout = remember(plan, attempt) { LevelGenerator.generate(plan) }
+    val title = when {
+        custom != null -> custom.title
+        challenge != null -> challengeTitle(challenge.kind)
+        else -> stringResource(R.string.level_n, level)
+    }
+    val layout = remember(plan, attempt) {
+        if (custom != null) UserLevels.build(custom.level, custom.fromStage).layout else LevelGenerator.generate(plan)
+    }
 
     var outcome by remember(attempt) { mutableStateOf<Outcome?>(null) }
     var reward by remember(attempt) { mutableStateOf<Reward?>(null) }
     var paused by remember(attempt) { mutableStateOf(false) }
     var applied by remember(attempt) { mutableStateOf(false) }
+    // Przejazd poziomu gracza w kolejce wysyłki (czas przejazdu – klucz odpowiedzi serwera).
+    var playAt by remember(attempt) { mutableStateOf<Long?>(null) }
     // Nowy gracz od razu trafia do wody – najpierw wyjaśniamy, że to krótki samouczek.
     var welcome by remember(attempt) { mutableStateOf(tutorial) }
 
@@ -120,6 +162,23 @@ fun GameScreen(
         applied = true
         when {
             tutorial -> if (result.completed) repo.save.tutorialDone = true
+            custom != null -> when (custom.mode) {
+                CustomMode.TEST -> Unit
+                // Do publikacji liczy się tylko przejście całego poziomu (bez kontynuacji – w tym trybie jej nie ma).
+                CustomMode.VERIFY -> if (result.completed && custom.fromStage == 0) {
+                    val draft = custom.draftId?.let { services.drafts.get(it) }
+                    if (draft != null && draft.hash == UserLevels.hashOf(custom.level)) {
+                        services.drafts.save(draft.with(verifiedHash = draft.hash, verifyRun = VerifyRun.of(result, repo.clock.now())))
+                    }
+                }
+                CustomMode.PLAY -> {
+                    reward = repo.progress.applyUserLevel(result, plan, custom.onlineId)
+                    playAt = repo.save.userLevelQueue.lastOrNull()?.at
+                    services.online.flushPlays()
+                }
+                // Poziom z linku nie jest opublikowany – bez punktów, monet i wysyłki wyniku.
+                CustomMode.SHARED -> Unit
+            }
             challenge != null -> reward = repo.progress.applyChallenge(result, plan, challenge)
             else -> reward = repo.progress.applyRun(result, plan)
         }
@@ -130,9 +189,11 @@ fun GameScreen(
         object : GameListener {
             override fun onSound(sfx: Sfx) = audio.play(sfx)
             override fun onVibrate(millis: Long) = audio.vibrate(millis)
+            override fun onRumble(rumble: Rumble) = audio.rumble(rumble)
             override fun onFinished(result: RunResult, reason: LoseReason?) {
                 outcome = Outcome(result, reason)
-                if (result.completed) apply(result)
+                // Przegrana w poziomie gracza też trafia do jego statystyk (kontynuacji tam nie ma).
+                if (result.completed || custom?.mode == CustomMode.PLAY) apply(result)
             }
         }
     }
@@ -168,7 +229,8 @@ fun GameScreen(
         finale = stringResource(R.string.type_finale),
         finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
         spotted = stringResource(R.string.hud_spotted),
-        levelTag = challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) },
+        levelTag = custom?.title?.take(CUSTOM_TAG)
+            ?: challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) },
     )
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val renderer = remember(attempt) { GameRenderer(hud, look) }
@@ -240,7 +302,11 @@ fun GameScreen(
             if (event == Lifecycle.Event.ON_PAUSE && outcome == null) paused = true
         }
         lifecycle.addObserver(observer)
-        onDispose { lifecycle.removeObserver(observer) }
+        onDispose {
+            lifecycle.removeObserver(observer)
+            // Nowa próba albo wyjście z poziomu ucina melodyjkę wibracji (wygranej albo przegranej).
+            audio.stopVibration()
+        }
     }
     BackHandler(enabled = outcome == null && !welcome) { paused = !paused }
     // Po zakończeniu poziomu „wstecz” wraca na mapę (a nie zamyka gry).
@@ -319,15 +385,18 @@ fun GameScreen(
         val current = outcome
         when {
             current != null && current.result.completed && tutorial -> TutorialDonePanel(onExit)
+            current != null && current.result.completed && custom != null -> CustomWinPanel(custom, title, current.result, reward, playAt, onExit)
             current != null && current.result.completed -> WinPanel(level, title, challenge != null, current.result, reward, onExit)
             current != null -> LosePanel(
                 level = level,
                 title = title,
                 challenge = challenge != null,
+                custom = custom,
                 world = world,
                 outcome = current,
                 onRevive = {
                     outcome = null
+                    audio.stopVibration()
                     world.revive()
                 },
                 onExit = { exit ->
@@ -339,6 +408,7 @@ fun GameScreen(
                 level = level,
                 title = title,
                 challenge = challenge != null,
+                custom = custom,
                 tutorial = tutorial,
                 world = world,
                 onResume = { paused = false },
@@ -478,15 +548,20 @@ private fun RewardTile(label: String, amount: Int, icon: String, labelColor: Col
     }
 }
 
-/** Wspólny rząd wyjść z poziomu: od nowa, mapa (poza poziomem dnia/tygodnia), menu główne. */
+/**
+ * Wspólny rząd wyjść z poziomu: od nowa, mapa (poza poziomem dnia/tygodnia), menu główne.
+ * [backText] – zamiast mapy powrót do kreatora albo do poziomów graczy.
+ */
 @Composable
-private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit, showMap: Boolean = true) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(3))) {
-        PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2, modifier = Modifier.weight(1f))
-        if (showMap) {
-            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
+private fun ExitButtons(retryText: String, level: Int, onExit: (GameExit) -> Unit, showMap: Boolean = true, backText: String? = null) {
+    ButtonRow(gap = 3) {
+        PixelButton(retryText, onClick = { onExit(GameExit.Retry(level)) }, style = ButtonStyle.SEA, size = 2)
+        if (backText != null) {
+            PixelButton(backText, onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2)
+        } else if (showMap) {
+            PixelButton(stringResource(R.string.to_map), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2)
         }
-        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2, modifier = Modifier.weight(1f))
+        PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2)
     }
 }
 
@@ -495,6 +570,7 @@ private fun LosePanel(
     level: Int,
     title: String,
     challenge: Boolean,
+    custom: CustomRun?,
     world: GameWorld,
     outcome: Outcome,
     onRevive: () -> Unit,
@@ -503,9 +579,11 @@ private fun LosePanel(
     val services = LocalServices.current
     val repo = services.repo
     repo.revision.intValue
-    // W samouczku kontynuacja jest darmowa i bez limitu – nowy gracz nie ma jeszcze monet.
-    val cost = if (world.tutorial) 0 else Catalog.reviveCost(world.continuesUsed)
-    val canRevive = world.tutorial || world.continuesUsed < 3
+    // W samouczku i w teście z kreatora kontynuacja jest darmowa i bez limitu – nowy gracz nie ma jeszcze monet.
+    // Przejście przed publikacją i poziomy graczy są bez kontynuacji: liczy się samo przejście.
+    val free = world.tutorial || custom?.mode == CustomMode.TEST
+    val cost = if (free) 0 else Catalog.reviveCost(world.continuesUsed)
+    val canRevive = free || (custom == null && world.continuesUsed < 3)
     Overlay {
         PixelText(stringResource(R.string.result_lose), size = 5, color = Pal.Red)
         PixelText(title, size = 2, color = Pal.Outline, outline = null)
@@ -517,6 +595,10 @@ private fun LosePanel(
             align = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
         )
+        if (custom?.mode == CustomMode.VERIFY) {
+            VSpace(3)
+            PixelText(stringResource(R.string.editor_verify_lost), size = 1, color = Pal.RedDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        }
         VSpace(6)
         PixelText(stringResource(R.string.result_score), size = 2, color = Pal.Outline, outline = null)
         PixelText(outcome.result.score.toString(), size = 4)
@@ -544,8 +626,16 @@ private fun LosePanel(
             }
             VSpace(4)
         }
-        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge)
+        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
     }
+}
+
+/** Napis przycisku powrotu z poziomu z kreatora: do kreatora albo do poziomów graczy (poziom z linku wraca przez MENU). */
+@Composable
+private fun customBack(custom: CustomRun?): String? = when (custom?.mode) {
+    null, CustomMode.SHARED -> null
+    CustomMode.PLAY -> stringResource(R.string.menu_community)
+    else -> stringResource(R.string.editor_back)
 }
 
 @Composable
@@ -553,6 +643,7 @@ private fun PausePanel(
     level: Int,
     title: String,
     challenge: Boolean,
+    custom: CustomRun?,
     tutorial: Boolean,
     world: GameWorld,
     onResume: () -> Unit,
@@ -565,7 +656,7 @@ private fun PausePanel(
     Overlay(onDismiss = onResume) {
         PixelText(stringResource(R.string.paused), size = 5)
         PixelText(
-            if (tutorial) stringResource(R.string.tutorial_badge) else "$title · " + typeName(world.spec.type),
+            if (tutorial) stringResource(R.string.tutorial_badge) else "$title · " + if (custom?.mode == CustomMode.SHARED) stringResource(R.string.shared_badge) else typeName(world.spec.type),
             size = 2,
             color = Pal.Outline,
             outline = null,
@@ -605,7 +696,153 @@ private fun PausePanel(
         VSpace(8)
         PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
-        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge)
+        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
+    }
+}
+
+/** Najwięcej znaków nazwy poziomu z kreatora w rogu ekranu (zamiast „Lv numer”). */
+private const val CUSTOM_TAG = 14
+
+/**
+ * Wygrana w poziomie z kreatora. Test – wynik i powrót do kreatora, przejście przed publikacją – potwierdzenie,
+ * poziom gracza – odpowiedź serwera (monety za pierwsze ukończenie, punkty rankingu) i gwiazdka dla poziomu,
+ * poziom z linku – sam wynik (bez nagród).
+ */
+@Composable
+private fun CustomWinPanel(custom: CustomRun, title: String, result: RunResult, reward: Reward?, playAt: Long?, onExit: (GameExit) -> Unit) {
+    val services = LocalServices.current
+    val online = services.online
+    val audio = services.audio
+    var shownStars by remember { mutableIntStateOf(0) }
+    LaunchedEffect(result) {
+        delay(250)
+        for (i in 1..result.stars) {
+            shownStars = i
+            audio.play(Sfx.STAR)
+            delay(380)
+        }
+    }
+    val scope = rememberCoroutineScope()
+    var starred by remember { mutableStateOf(custom.starred) }
+    var starring by remember { mutableStateOf(false) }
+    Overlay {
+        PixelText(stringResource(R.string.result_win), size = 4, color = Pal.Gold, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        PixelText(title, size = 2, color = Pal.Outline, outline = null)
+        VSpace(5)
+        Badge(
+            stringResource(
+                when (custom.mode) {
+                    CustomMode.TEST -> R.string.editor_test_badge
+                    CustomMode.VERIFY -> R.string.editor_verify_badge
+                    CustomMode.PLAY -> R.string.type_custom
+                    CustomMode.SHARED -> R.string.shared_badge
+                },
+            ),
+            color = when (custom.mode) {
+                CustomMode.PLAY -> ButtonStyle.GREEN
+                CustomMode.SHARED -> ButtonStyle.PURPLE
+                else -> ButtonStyle.ORANGE
+            },
+        )
+        VSpace(6)
+        Plate { StarRow(shownStars, scale = 4, gap = 4) }
+        VSpace(6)
+        PixelText(stringResource(R.string.result_score), size = 2, color = Pal.Outline, outline = null)
+        PixelText(result.score.toString(), size = 5)
+        VSpace(5)
+        when (custom.mode) {
+            CustomMode.TEST -> Unit
+            CustomMode.VERIFY -> PixelText(
+                stringResource(if (custom.fromStage == 0) R.string.editor_verify_done else R.string.editor_verify_lost),
+                size = 2,
+                color = Pal.GreenDark,
+                outline = null,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            CustomMode.PLAY -> {
+                val answer = playAt?.let { online.community.outcomes[it] }
+                when {
+                    answer == null -> PixelText(
+                        stringResource(if (online.isOnline()) R.string.community_sending else R.string.community_offline_result),
+                        size = 1,
+                        color = Pal.WoodDark,
+                        outline = null,
+                        align = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    else -> {
+                        if (answer.firstCompletion) PixelText(stringResource(R.string.community_first), size = 3, color = Pal.Gold)
+                        if (answer.coins > 0 || answer.points > 0) {
+                            VSpace(3)
+                            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+                                if (answer.coins > 0) RewardTile(stringResource(R.string.result_coins), answer.coins, "fishscore_gold", Pal.Gold, Modifier.weight(1f))
+                                if (answer.points > 0) RewardTile(stringResource(R.string.challenge_points_won), answer.points, "fishscore_blue", Pal.SeaLight, Modifier.weight(1f))
+                            }
+                        }
+                        val note = when {
+                            answer.own -> R.string.community_own
+                            answer.overDailyLimit -> R.string.community_daily_limit
+                            !answer.level.rated && online.loggedIn -> R.string.community_points_pending
+                            !online.loggedIn -> R.string.community_guest
+                            else -> null
+                        }
+                        note?.let {
+                            VSpace(2)
+                            PixelText(stringResource(it), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                }
+                if (reward != null && reward.streakDays > 0) {
+                    VSpace(3)
+                    RewardTile(
+                        stringResource(R.string.streak_title) + ": " + pluralStringResource(R.plurals.streak_days, reward.streakDays, reward.streakDays),
+                        reward.trophies,
+                        "fishscore_blue",
+                        Pal.SeaLight,
+                        Modifier.fillMaxWidth(),
+                    )
+                }
+                // Gwiazdka tylko dla cudzego poziomu i dopiero, gdy serwer zapisał przejazd (wcześniej odpowiedziałby „najpierw zagraj”).
+                if (answer != null && !answer.own) {
+                    VSpace(4)
+                    PixelButton(
+                        stringResource(if (starred) R.string.community_unstar else R.string.community_star),
+                        onClick = {
+                            if (!starring) {
+                                starring = true
+                                scope.launch {
+                                    val res = online.community.star(custom.onlineId, !starred)
+                                    if (res is Net.Ok) {
+                                        starred = res.value.starred
+                                        if (starred) services.audio.play(Sfx.STAR)
+                                    }
+                                    starring = false
+                                }
+                            }
+                        },
+                        enabled = !starring,
+                        style = if (starred) ButtonStyle.GREEN else ButtonStyle.SAND,
+                        size = 2,
+                        icon = "fishscore_gold",
+                    )
+                }
+            }
+            CustomMode.SHARED -> PixelText(
+                stringResource(R.string.shared_rules),
+                size = 1,
+                color = Pal.WoodDark,
+                outline = null,
+                align = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        VSpace(8)
+        if (custom.mode == CustomMode.VERIFY) {
+            PixelButton(stringResource(R.string.editor_back), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.GREEN, size = 3, modifier = Modifier.keyPrimary().fillMaxWidth())
+        } else {
+            ExitButtons(stringResource(R.string.retry), UserLevels.LEVEL_NUMBER, onExit, showMap = custom.mode != CustomMode.SHARED, backText = customBack(custom))
+        }
     }
 }
 

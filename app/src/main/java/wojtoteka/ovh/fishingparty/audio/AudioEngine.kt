@@ -6,6 +6,7 @@ import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.SoundPool
 import android.os.Build
+import android.os.VibrationAttributes
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -14,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import wojtoteka.ovh.fishingparty.game.Rumble
 import wojtoteka.ovh.fishingparty.game.Sfx
 import java.io.DataOutputStream
 import java.io.File
@@ -142,12 +144,35 @@ class AudioEngine(context: Context) {
         pool.play(id, SFX_VOLUME, SFX_VOLUME, 1, 0, 1f)
     }
 
-    fun vibrate(millis: Long) {
+    /** Krótki impuls wibracji (trafienie, ryba, meta…). */
+    fun vibrate(millis: Long) = vibrate(VibrationEffect.createOneShot(millis, SOFT_AMPLITUDE))
+
+    /** Wibracja z rytmem; telefon bez regulacji siły drgań gra sam rytm. */
+    fun rumble(rumble: Rumble) = vibrate(VibrationEffect.createWaveform(rumble.timings, rumble.amplitudes, -1))
+
+    /** Przerywa wibrację gry (np. melodyjkę przegranej po kontynuacji albo wyjściu z poziomu). */
+    fun stopVibration() {
+        try {
+            vibrator?.cancel()
+        } catch (_: Exception) {
+        }
+    }
+
+    /**
+     * Wibracja gry. Krótki impuls bez atrybutów Android uznaje za wibrację dotyku i wycisza ją, gdy w telefonie
+     * wyłączono wibracje przy dotknięciu (częste na Samsungach) – dlatego gra wibruje jako multimedia, jak jej dźwięk.
+     */
+    private fun vibrate(effect: VibrationEffect) {
         if (!vibrationEnabled) return
         val v = vibrator ?: return
         if (!v.hasVibrator()) return
         try {
-            v.vibrate(VibrationEffect.createOneShot(millis, VibrationEffect.DEFAULT_AMPLITUDE))
+            if (Build.VERSION.SDK_INT >= 33) {
+                v.vibrate(effect, VibrationAttributes.createForUsage(VibrationAttributes.USAGE_MEDIA))
+            } else {
+                @Suppress("DEPRECATION")
+                v.vibrate(effect, attributes)
+            }
         } catch (_: Exception) {
         }
     }
@@ -227,6 +252,8 @@ class AudioEngine(context: Context) {
         private const val VERSION = 1
         const val SAMPLE_RATE = 48000
         private const val SFX_VOLUME = 0.9f
+        /** Siła pojedynczych impulsów wibracji (1..255) – lekki, przyjemny dotyk zamiast mocnego szarpnięcia. */
+        private const val SOFT_AMPLITUDE = 90
         private const val MUSIC_VOLUME = 0.7f
         private const val CHUNK = 4096
         private const val WAV_HEADER = 44

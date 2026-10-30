@@ -225,6 +225,64 @@ class Progress(val save: SaveData, private val time: GameTime) {
         return Reward(true, coins, 0, false, 0, credit.days, credit.trophies, 0, credit.deferred, points)
     }
 
+    // ------------------------------------------------------------ poziomy graczy i targ
+
+    fun userLevelDone(id: Int): Boolean = id in save.userLevelsDone
+
+    /**
+     * Zakończony poziom gracza (z kreatora): statystyki i passa jak w zwykłym poziomie, a przejazd trafia
+     * do kolejki wysyłki – monety za pierwsze ukończenie i punkty rankingu przyznaje serwer. Monet za ryby
+     * nie ma: poziom pełen złotych ryb nie może być „kopalnią” monet.
+     */
+    fun applyUserLevel(result: RunResult, plan: LevelPlan, levelId: Int): Reward {
+        if (!ScoreValidator.isPlausible(plan, result)) {
+            save.tamperEvents++
+            return Reward(false, 0, 0, false, 0)
+        }
+        save.totalFish.add(result.fishCaught.toLong())
+        save.totalGolden.add(result.goldenCaught.toLong())
+        save.maxCombo = max(save.maxCombo, result.maxCombo)
+        var credit = StreakCredit(0, 0, false)
+        if (result.completed) {
+            credit = creditCompletion()
+            save.levelWins++
+            if (result.hits == 0) save.noHitWins++
+            markUserLevelDone(levelId)
+        }
+        queueUserLevelPlay(levelId, result)
+        return Reward(true, 0, 0, false, 0, credit.days, credit.trophies, 0, credit.deferred)
+    }
+
+    /** Przegrany przejazd też liczy się do statystyk poziomu (ilu graczy próbowało, ilu ukończyło). */
+    fun queueUserLevelPlay(levelId: Int, result: RunResult) {
+        save.userLevelQueue.addLast(
+            UserLevelPlay(
+                levelId, result.completed, result.score, result.timeMillis, result.commonCaught, result.blueCaught,
+                result.goldenCaught, result.hits, result.maxCombo, result.stagesCleared, now(),
+            ),
+        )
+        while (save.userLevelQueue.size > SaveData.MAX_USER_LEVEL_QUEUE) save.userLevelQueue.removeFirst()
+    }
+
+    fun markUserLevelDone(levelId: Int) {
+        save.userLevelsDone += levelId
+        while (save.userLevelsDone.size > SaveData.MAX_USER_LEVELS_DONE) save.userLevelsDone.remove(save.userLevelsDone.first())
+    }
+
+    /**
+     * Zakup projektu z targu potwierdzony przez serwer: monety, przedmiot w posiadaniu i od razu założony.
+     * [charge] = false – serwer pamięta wcześniejszy zakup z tego telefonu (bez drugiej zapłaty).
+     */
+    fun buyFromMarket(item: ShopItem, price: Int, charge: Boolean): Boolean {
+        if (charge && !owns(item) && !spend(price)) return false
+        if (!owns(item)) {
+            save.purchases++
+            save.owned += item.key
+        }
+        equip(item)
+        return true
+    }
+
     // ------------------------------------------------------------ passa
 
     fun streakState(): StreakState {
@@ -483,6 +541,7 @@ class Progress(val save: SaveData, private val time: GameTime) {
         save.records.clear()
         save.challengePoints.set(0)
         save.challengeResults.clear()
+        save.userLevelsDone.clear()
     }
 
     companion object {

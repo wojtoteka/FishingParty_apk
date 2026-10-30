@@ -37,10 +37,13 @@ fun TopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, sho
             .padding(horizontal = px(6), vertical = px(4)),
     ) {
         PixelButton("<", onClick = onBack, style = ButtonStyle.WOOD, size = 3, modifier = Modifier.align(Alignment.CenterStart))
-        PixelText(title, size = 4, modifier = Modifier.align(Alignment.Center))
+        // Długie tytuły (np. „POZIOMY GRACZY”) mniejszą czcionką, żeby nie wchodziły na przycisk i monety.
+        PixelText(title, size = if (title.length > LONG_TITLE) 3 else 4, modifier = Modifier.align(Alignment.Center))
         if (showCoins) CoinCounter(repo.progress.coins, Modifier.align(Alignment.CenterEnd), size = 3)
     }
 }
+
+private const val LONG_TITLE = 11
 
 /** Przyciemnienie + wyśrodkowany panel. Kliknięcie w tło nic nie robi (chroni przed przypadkowym zamknięciem). */
 @Composable
@@ -76,9 +79,9 @@ fun ConfirmDialog(message: String, onConfirm: () -> Unit, onCancel: () -> Unit) 
     Overlay(onDismiss = onCancel) {
         PixelText(message, size = 3, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
         VSpace(10)
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(px(6))) {
-            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA, modifier = Modifier.weight(1f))
-            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED, modifier = Modifier.weight(1f))
+        ButtonRow(gap = 6) {
+            PixelButton(stringResource(R.string.cancel), onClick = onCancel, style = ButtonStyle.SEA)
+            PixelButton(stringResource(R.string.confirm), onClick = onConfirm, style = ButtonStyle.RED)
         }
     }
 }

@@ -2,11 +2,8 @@ package wojtoteka.ovh.fishingparty.ui
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -88,13 +85,12 @@ fun StreakRepairDialog(onClose: () -> Unit) {
             modifier = Modifier.fillMaxWidth(),
         )
         VSpace(8)
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(px(4))) {
+        ButtonRow(gap = 4) {
             PixelButton(
                 stringResource(R.string.repair_later),
                 onClick = onClose,
                 style = ButtonStyle.WOOD,
                 size = 2,
-                modifier = Modifier.weight(1f).fillMaxHeight(),
             )
             PixelButton(
                 text = "",
@@ -107,7 +103,6 @@ fun StreakRepairDialog(onClose: () -> Unit) {
                 },
                 style = ButtonStyle.GREEN,
                 enabled = affordable,
-                modifier = Modifier.weight(1.4f).fillMaxHeight(),
             ) {
                 // Napis i cena w jednej linii, mniejszą czcionką – przycisk jest cienki, a nic się nie łamie nawet na wąskim telefonie.
                 PixelText(stringResource(R.string.streak_repair), size = 2, maxLines = 1)

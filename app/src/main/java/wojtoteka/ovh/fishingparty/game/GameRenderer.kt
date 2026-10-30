@@ -175,7 +175,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
     private val rowTilesOf: (Int) -> TileSet = { r -> tilesAt(r) }
     private val doorOpenAt: (Int) -> Boolean = { row -> drawn.stageOfGateRow(row).let { it >= 0 && drawn.isDoorOpen(it) } }
 
-    /** Paleta każdego wiersza – w Wielkim Finale każdy etap leży w innym świecie (null = jedna paleta). */
+    /** Paleta każdego wiersza – w Wielkim Finale (i poziomach z kreatora) etapy leżą w różnych światach (null = jedna paleta). */
     private var rowWorlds: IntArray? = null
     private var rowTiles: Array<TileSet>? = null
 
@@ -188,7 +188,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         if (themeSpec !== world.spec) {
             themeSpec = world.spec
             currentTiles = Sprites.tiles(Worlds.theme(world.spec.world))
-            rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else null
+            rowWorlds = if (world.spec.type == LevelType.FINALE) finaleRowWorlds(world) else world.layout.rowWorlds
             rowTiles = rowWorlds?.let { rows -> Array(rows.size) { Sprites.tiles(Worlds.theme(rows[it])) } }
         }
         scale = scaleFor(width, height)
@@ -503,8 +503,8 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
             boostLeft += b.width * k + 2 * p1
         }
 
-        // Prawa strona (miejsce na przycisk pauzy zostaje): wynik i licznik ryb etapu.
-        val right = width - margin - 40 * p1
+        // Prawa strona (miejsce na przycisk pauzy – MIN_BUTTON interfejsu i odstęp – zostaje): wynik i licznik ryb etapu.
+        val right = width - margin - 48 * p1
         icon(canvas, scoreIcon, right - scoreIcon.width * p1 * 1.5f, top, p1 * 1.5f)
         val scoreRight = right - scoreIcon.width * p1 * 1.5f - 2 * p1
         text.draw(canvas, scoreText.get(world.score), scoreRight, top, p3, PixelText.WHITE, align = 1)

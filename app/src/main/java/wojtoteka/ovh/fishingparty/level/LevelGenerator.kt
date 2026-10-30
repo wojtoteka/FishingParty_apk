@@ -45,8 +45,9 @@ class LevelPlan(val spec: LevelSpec, val stages: List<StagePlan>) {
 /**
  * Generator poziomów. Wszystko wynika z numeru poziomu, więc poziomy nie
  * muszą być nigdzie zapisane, a każdy gracz dostaje identyczną planszę.
- * Poziomy 1–500 są takie same jak przed rozszerzeniem gry, 501–999 to druga,
- * trudniejsza wyprawa, poziom 1000 to ręcznie ułożony Wielki Finał, a od 1001
+ * Poziomy 1–[INTRO_END] przedstawiają po kolei wszystkie potwory (każdego przez dwa poziomy),
+ * dalej do 500 są łatwe, a potem normalne poziomy, 501–999 to druga, trudna wyprawa,
+ * poziom 1000 to ręcznie ułożony Wielki Finał, a od 1001
  * zaczyna się Bezkresne Morze – poziomy z seeda ([EndlessLevels]).
  */
 object LevelGenerator {
@@ -61,16 +62,25 @@ object LevelGenerator {
 
     fun isBoss(number: Int): Boolean = number % LEVELS_PER_WORLD == 0 && !isFinale(number)
 
+    /** Ostatni poziom zapoznawania z potworami – widmokuda jest przedstawiana na końcu. */
+    const val INTRO_END = Stalkers.FIRST_LEVEL + Stalkers.INTRO_LEVELS - 1
+
+    /** Postęp na pierwszym łatwym poziomie, zaraz po zapoznaniu z potworami. */
+    private const val EASY_START = 0.15f
+
     /** O ile druga wyprawa (poziomy 501–999) podnosi trudność ponad poziom 500. */
     private const val SECOND_VOYAGE_BOOST = 0.3f
 
     /**
-     * Postęp przez grę: 0..1 w pierwszej wyprawie (jak przed rozszerzeniem gry),
-     * a w drugiej dalej rośnie aż do 1 + [SECOND_VOYAGE_BOOST] na poziomie 999.
+     * Postęp przez grę: w zapoznaniu z potworami rośnie od 0 do [EASY_START], dalej do 1 na poziomie 500
+     * (łatwe, potem normalne poziomy), a w drugiej wyprawie aż do 1 + [SECOND_VOYAGE_BOOST] na poziomie 999.
      */
-    private fun voyage(number: Int): Float =
-        if (number <= FIRST_VOYAGE_LEVELS) (number - 1) / (FIRST_VOYAGE_LEVELS - 1f)
-        else 1f + SECOND_VOYAGE_BOOST * (number - FIRST_VOYAGE_LEVELS) / (LEVEL_COUNT - 1 - FIRST_VOYAGE_LEVELS).toFloat()
+    private fun voyage(number: Int): Float = when {
+        number <= INTRO_END -> EASY_START * (number - 1) / INTRO_END
+        number <= FIRST_VOYAGE_LEVELS ->
+            EASY_START + (1f - EASY_START) * (number - INTRO_END) / (FIRST_VOYAGE_LEVELS - INTRO_END)
+        else -> 1f + SECOND_VOYAGE_BOOST * (number - FIRST_VOYAGE_LEVELS) / (LEVEL_COUNT - 1 - FIRST_VOYAGE_LEVELS).toFloat()
+    }
 
     /** Trudność: 0..1 w pierwszych 500 poziomach, potem do ok. 1,25 – rośnie przez całą grę i lekko w obrębie świata. */
     fun difficulty(number: Int): Float {
@@ -132,7 +142,7 @@ object LevelGenerator {
 
         val unlocked = EnemyKind.rolled.filter { number >= it.firstLevel }
         val newest = unlocked.lastOrNull()
-        val featured = if (newest != null && number - newest.firstLevel < 4) newest else null
+        val featured = if (newest != null && number - newest.firstLevel < EnemyKind.INTRO_LEVELS) newest else null
 
         val stages = (0 until stageCount).map { index ->
             val rows = if (number == 1) 14 else min(24, 11 + rng.range(0, 4) + (e * 8).toInt())
@@ -263,7 +273,8 @@ object LevelGenerator {
         if (type == LevelType.TIME_ATTACK) budget *= 0.8f
         if (number < 30 && stage == 0) budget *= 0.6f
         if (type == LevelType.BOSS) {
-            val strongest = unlocked.maxBy { it.cost }
+            // Para najgroźniejszych potworów, na jakie pozwala trudność – czarne rekiny od ok. 1/3 trudności.
+            val strongest = unlocked.filter { it.cost <= 2f + e * 3f }.maxBy { it.cost }
             result += strongest
             result += strongest
             budget += 1f
@@ -335,6 +346,7 @@ object LevelGenerator {
      * Poziom 1000 – Wielki Finał, ułożony ręcznie. Siedem etapów, każdy w barwach innego
      * świata ([Worlds.FINALE_STAGE_WORLDS]) i z własnym zestawem potworów: od cieśniny piranii,
      * przez rafę, archipelag, kanał i gorączkę złota, po czerwony legion i leże Krakena.
+     * Od wersji 2.4 najtrudniejszy poziom kampanii: więcej potworów na etap niż u każdego bossa.
      * Druga gwiazdka – bez trafienia, trzecia – wszystkie złote ryby.
      */
     fun finalePlan(): LevelPlan {
@@ -353,13 +365,13 @@ object LevelGenerator {
             enemies = enemies, rocks = rocks, islands = islands, doorCenter = door, wideBanks = canal,
         )
         val stages = listOf(
-            stage(20, 9, 2, 1, listOf(p, p, p, pv, pv, pv, rp, rp), rocks = 2, islands = 1, door = 7),
-            stage(22, 10, 3, 1, listOf(o, o, o, ro, ro, p, p), rocks = 7, islands = 0, door = 3),
-            stage(24, 10, 3, 1, listOf(s, s, s, pv, pv, o, o), rocks = 2, islands = 4, door = 6),
-            stage(24, 10, 2, 1, listOf(rp, rp, rp, rp, s, s), rocks = 1, islands = 0, door = 5, canal = true),
-            stage(22, 9, 3, 3, listOf(p, p, o, s), rocks = 2, islands = 1, door = 2),
-            stage(24, 11, 3, 1, listOf(rp, rp, rp, ro, ro, ro, ds, ds), rocks = 4, islands = 2, door = 8),
-            stage(24, 12, 4, 2, listOf(ds, ds, ds, ro, ro, rp, rp, s, s, pv), rocks = 3, islands = 2, door = 5),
+            stage(20, 9, 2, 1, listOf(p, p, p, p, pv, pv, pv, pv, rp, rp, rp), rocks = 2, islands = 1, door = 7),
+            stage(22, 10, 3, 1, listOf(o, o, o, o, ro, ro, ro, p, p, pv), rocks = 7, islands = 0, door = 3),
+            stage(24, 10, 3, 1, listOf(s, s, s, pv, pv, pv, o, o, rp, rp), rocks = 2, islands = 4, door = 6),
+            stage(24, 10, 2, 1, listOf(rp, rp, rp, rp, rp, s, s, pv, pv), rocks = 1, islands = 0, door = 5, canal = true),
+            stage(22, 9, 3, 3, listOf(p, p, o, o, ro, s, s), rocks = 2, islands = 1, door = 2),
+            stage(24, 11, 3, 1, listOf(rp, rp, rp, rp, ro, ro, ro, ro, ds, ds), rocks = 4, islands = 2, door = 8),
+            stage(24, 12, 4, 2, listOf(ds, ds, ds, ro, ro, ro, rp, rp, rp, s, s, pv, pv), rocks = 3, islands = 2, door = 5),
         )
         check(stages.size == Worlds.FINALE_STAGE_WORLDS.size)
         val par = ceil(stages.sumOf { it.quota * 2.6 + it.rows * 0.32 + it.enemies.size * 0.6 } + 3.0).toInt()
@@ -377,7 +389,7 @@ object LevelGenerator {
             scoreTarget = ((regularPoints * 1.6f + goldenTotal * FishKind.GOLDEN.points * 0.5f +
                 stages.size * LevelConstants.STAGE_BONUS) / 10f).roundToInt() * 10,
             comboTarget = MAX_COMBO,
-            enemySpeed = 1.35f,
+            enemySpeed = 1.38f,
             currentX = 0f,
             currentY = 0f,
         )

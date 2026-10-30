@@ -27,6 +27,9 @@ import kotlin.math.sqrt
 interface GameListener {
     fun onSound(sfx: Sfx)
     fun onVibrate(millis: Long)
+
+    /** Wibracja z rytmem (trafienie, tarcza, melodyjka wygranej i przegranej); bez obsługi – jeden impuls tej samej długości. */
+    fun onRumble(rumble: Rumble) = onVibrate(rumble.millis)
     fun onFinished(result: RunResult, reason: LoseReason?)
 }
 
@@ -163,6 +166,12 @@ class GameWorld(
         // Wielki Finał zaczyna się od własnego napisu, polecenie łowienia pojawia się po nim.
         message = if (spec.type == LevelType.FINALE) GameMessage(MessageKind.FINALE, 0, 0)
         else GameMessage(MessageKind.GO, stages[0].quota, 0)
+        openEmptyGate()
+    }
+
+    /** Etap bez ryb do złowienia (poziomy z kreatora) – brama otwiera się od razu po wpłynięciu. */
+    private fun openEmptyGate() {
+        if (!cleared[stageIndex] && stages[stageIndex].quota <= 0) openGate(stageIndex)
     }
 
     fun setViewport(width: Float, height: Float) {
@@ -276,8 +285,10 @@ class GameWorld(
         var dy = ownY + knockY * dt
         // Prąd nie wpycha łodzi na piasek (na plażę wpływa się tylko samemu), a łodzi na piasku już nie znosi.
         if (phase == Phase.PLAYING && !beached) {
-            val cx = spec.currentX * dt
-            val cy = spec.currentY * dt
+            // Poziom z kreatora może mieć inny prąd w każdym etapie.
+            val stage = stages[stageIndex]
+            val cx = (stage.currentX ?: spec.currentX) * dt
+            val cy = (stage.currentY ?: spec.currentY) * dt
             val own = beachDepth(shipX + dx, shipY + dy)
             if (beachDepth(shipX + dx + cx, shipY + dy) <= own) dx += cx
             if (beachDepth(shipX + dx, shipY + dy + cy) <= own) dy += cy
@@ -387,20 +398,27 @@ class GameWorld(
         for (s in stage.enemies) {
             val horizontal = s.kind == EnemyKind.PIRANHA || s.kind == EnemyKind.RED_PIRANHA
             val vertical = s.kind == EnemyKind.PIRANHA_VERTICAL
-            val dir = rng.nextInt(4)
+            // Losujemy zawsze, także przy kierunku z kreatora – kolejne losowania zostają te same.
+            val rolled = rng.nextInt(4)
+            val randomX = if (horizontal) rng.sign() else 0
+            val randomY = if (vertical) rng.sign() else 0
+            val dir = if (s.dir in 0..3) s.dir else rolled
+            val fixed = s.dir in 0..3
             pendingEnemies += Enemy(
                 kind = s.kind,
                 x = s.col * TILE + TILE / 2f,
                 y = s.row * TILE + TILE / 2f,
                 stage = k,
                 dirX = when {
-                    horizontal -> rng.sign()
+                    fixed -> DIR_X[dir]
+                    horizontal -> randomX
                     vertical -> 0
                     else -> DIR_X[dir]
                 },
                 dirY = when {
+                    fixed -> DIR_Y[dir]
                     horizontal -> 0
-                    vertical -> rng.sign()
+                    vertical -> randomY
                     else -> DIR_Y[dir]
                 },
                 phase = rng.nextFloat() * 0.4f,
@@ -492,13 +510,12 @@ class GameWorld(
         popups += Popup(f.x, f.y - 6f, points, f.kind == FishKind.GOLDEN)
         caught += CaughtFish(f.x, f.y, CAUGHT_ANIM)
         when {
-            f.kind == FishKind.GOLDEN -> {
-                listener.onSound(Sfx.FISH_GOLD)
-                listener.onVibrate(20)
-            }
+            f.kind == FishKind.GOLDEN -> listener.onSound(Sfx.FISH_GOLD)
             combo >= 2 -> listener.onSound(Sfx.COMBO)
             else -> listener.onSound(Sfx.FISH)
         }
+        // Każda złowiona ryba – krótki impuls, złota – trochę dłuższy.
+        listener.onVibrate(if (f.kind == FishKind.GOLDEN) GOLDEN_BUZZ else FISH_BUZZ)
         if (combo >= 3) message = GameMessage(MessageKind.COMBO, combo, 0)
         if (f.stage == stageIndex && !cleared[stageIndex] && caughtInStage[stageIndex] >= stages[stageIndex].quota) {
             openGate(stageIndex)
@@ -567,6 +584,7 @@ class GameWorld(
         showGateArrow = false
         message = GameMessage(MessageKind.STAGE, stageIndex + 1, stages.size)
         listener.onSound(Sfx.STAGE)
+        openEmptyGate()
     }
 
     private fun win() {
@@ -579,7 +597,7 @@ class GameWorld(
         phase = Phase.WINNING
         phaseTimer = 1.4f
         listener.onSound(Sfx.WIN)
-        listener.onVibrate(40)
+        listener.onRumble(Rumbles.WON)
     }
 
     private fun checkTime() {
@@ -599,7 +617,7 @@ class GameWorld(
         phaseTimer = 1.1f
         hitFlash = 1f
         listener.onSound(Sfx.LOST)
-        listener.onVibrate(220)
+        listener.onRumble(Rumbles.LOST)
     }
 
     // ================================================================ wrogowie
@@ -849,7 +867,7 @@ class GameWorld(
             invulnerable = 1.5f
             message = GameMessage(MessageKind.SHIELD, 0, 0)
             listener.onSound(Sfx.SHIELD)
-            listener.onVibrate(40)
+            listener.onRumble(Rumbles.SHIELD)
             return
         }
         lives--
@@ -857,7 +875,7 @@ class GameWorld(
         invulnerable = 2f
         hitFlash = 1f
         listener.onSound(Sfx.HIT)
-        listener.onVibrate(70)
+        listener.onRumble(Rumbles.HIT)
         if (lives <= 0) lose(LoseReason.CAUGHT)
         else if (lives == 1) message = GameMessage(MessageKind.LAST_LIFE, 0, 0)
     }
@@ -960,6 +978,10 @@ class GameWorld(
     companion object {
         const val STEP = 1f / 120f
         private const val MAX_STEPS = 12
+
+        /** Wibracja po złowieniu ryby (ms) – zwykłej i złotej. */
+        private const val FISH_BUZZ = 30L
+        private const val GOLDEN_BUZZ = 50L
         const val SHIP_SPEED = 72f
         const val SHIP_RADIUS = 5f
         /** Jak daleko od wody może wpłynąć na piasek środek łodzi (kafelek ma 16). */

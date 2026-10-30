@@ -12,7 +12,8 @@ import kotlin.math.floor
 /**
  * Rysuje siatkę kafelków tak jak animowane mapy oryginału: fale, piana przy
  * brzegu, skały i wrota zmieniają klatkę co 125 ms z przesunięciem zależnym
- * od położenia pola. Brzegi dobierane są automatycznie po sąsiadach.
+ * od położenia pola. Brzegi dobierane są automatycznie po sąsiadach. Piasek pola może mieć kolor innej
+ * palety ([TileGrid.sandColor], poziomy z kreatora) – woda i piana przy brzegu zostają w barwach wiersza.
  */
 class TileRenderer {
     val paint = Paint().apply {
@@ -50,16 +51,16 @@ class TileRenderer {
                 val x = (c * TILE).toFloat()
                 val y = (r * TILE).toFloat()
                 if (wrapped < 0 || wrapped >= grid.height || c < 0 || c >= grid.width) {
-                    blit(canvas, rowSet.sandFull, x, y)
+                    blit(canvas, sandSet(grid, rowSet, c, r).sandFull, x, y)
                     continue
                 }
                 when (grid[c, r]) {
                     Tile.SEA -> blit(canvas, seaSprite(grid, rowSet, c, r, frame), x, y)
-                    Tile.SAND -> blit(canvas, sandSprite(grid, rowSet, c, r, frame), x, y)
+                    Tile.SAND -> blit(canvas, sandSprite(grid, sandSet(grid, rowSet, c, r), c, r, frame), x, y)
                     Tile.ROCK -> blit(canvas, rowSet.rocks[anim(r * 3 + c + frame, 3)], x, y)
                     Tile.WALL -> {
                         val below = grid[c, r + 1]
-                        val sprite = if (below == Tile.SAND) rowSet.wallSand
+                        val sprite = if (below == Tile.SAND) sandSet(grid, rowSet, c, r + 1).wallSand
                         else rowSet.walls[anim(r * 3 + c + frame, 2)]
                         blit(canvas, sprite, x, y)
                     }
@@ -77,6 +78,12 @@ class TileRenderer {
                 }
             }
         }
+    }
+
+    /** Kafelki piasku pola: w barwach wiersza albo przemalowane na kolor z kreatora. */
+    private fun sandSet(grid: TileGrid, set: TileSet, c: Int, r: Int): TileSet {
+        val palette = grid.sandColor(c, r)
+        return if (palette == TileGrid.DEFAULT_SAND) set else set.withSand(palette)
     }
 
     private fun seaSprite(grid: TileGrid, set: TileSet, c: Int, r: Int, frame: Int): Bitmap =
