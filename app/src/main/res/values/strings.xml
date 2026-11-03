@@ -1005,4 +1005,13 @@
     <string name="tournament_best_label">TOURNAMENT BEST</string>
     <string name="tournament_your_prize">YOUR PRIZE: +%1$d COINS, +%2$d POINTS</string>
     <string name="tournament_not_running">The tournament has ended – the next one starts on Saturday.</string>
+    <string name="ranking_tab_all">OVERALL</string>
+    <string name="ranking_tab_season">SEASON</string>
+    <string name="season_title">SEASON %d</string>
+    <string name="season_ends_in">SEASON ENDS IN %s</string>
+    <string name="season_info">A season lasts %d days, then the season ranking starts from zero. The overall ranking stays.</string>
+    <string name="season_previous">SEASON %d WINNERS</string>
+    <string name="season_empty">Nobody has scored this season yet – be the first!</string>
+    <string name="season_guest">Create an account to compete in the season ranking!</string>
+    <string name="season_points">SEASON POINTS</string>
 </resources>

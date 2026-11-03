@@ -446,12 +446,14 @@ fun RankingScreen(onBack: () -> Unit, onAccount: () -> Unit) {
     var data by remember { mutableStateOf<RankingData?>(null) }
     var failed by remember { mutableStateOf<OnlineResult.Failed?>(null) }
     var loading by remember { mutableStateOf(false) }
+    // Zakładka: ranking ogólny albo sezonowy (od wersji 2.5).
+    var season by remember { mutableStateOf(false) }
     val loggedIn = online.loggedIn
 
-    LaunchedEffect(loggedIn, refreshKey, isOnline) {
+    LaunchedEffect(loggedIn, refreshKey, isOnline, season) {
         if (!isOnline || !online.configured) return@LaunchedEffect
         loading = true
-        val result = online.ranking()
+        val result = if (season) online.seasonRanking() else online.ranking()
         loading = false
         result.onSuccess {
             data = it
@@ -477,7 +479,16 @@ fun RankingScreen(onBack: () -> Unit, onAccount: () -> Unit) {
                 OfflineCard(recheck)
                 LocalPointsPanel()
             }
-            else -> RankingList(data, failed, loading, onRefresh = { refreshKey++ }, onAccount = onAccount)
+            // Dane drugiej zakładki nie mignią przy przełączeniu – do czasu odpowiedzi lista jest pusta.
+            else -> RankingList(
+                data?.takeIf { (it.season != null) == season },
+                failed,
+                loading,
+                season = season,
+                onSeason = { season = it },
+                onRefresh = { refreshKey++ },
+                onAccount = onAccount,
+            )
         }
     }
 }
@@ -503,27 +514,63 @@ private fun LocalPointsPanel() {
 }
 
 @Composable
-private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loading: Boolean, onRefresh: () -> Unit, onAccount: () -> Unit) {
+private fun RankingList(
+    data: RankingData?,
+    failed: OnlineResult.Failed?,
+    loading: Boolean,
+    season: Boolean,
+    onSeason: (Boolean) -> Unit,
+    onRefresh: () -> Unit,
+    onAccount: () -> Unit,
+) {
     val services = LocalServices.current
     val account = services.online.account
     services.repo.revision.intValue
-    // Gość: punkty liczone w grze i miejsce, które zająłby po założeniu konta.
+    val now = rememberGameNow()
+    // Gość: punkty liczone w grze i miejsce, które zająłby po założeniu konta (tylko w rankingu ogólnym).
     val guestPoints = services.repo.progress.rankingPoints()
-    val guestPlace = if (account == null && data != null) RankingPreview.place(guestPoints, data.entries.map { it.points }, data.size) else null
+    val guestPlace = if (account == null && data != null && !season) RankingPreview.place(guestPoints, data.entries.map { it.points }, data.size) else null
     Column(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.navigationBars)) {
         Column(Modifier.fillMaxWidth().padding(horizontal = px(6)), horizontalAlignment = Alignment.CenterHorizontally) {
+            ButtonRow(Modifier.fillMaxWidth().widthIn(max = px(340)), gap = 3) {
+                PixelButton(stringResource(R.string.ranking_tab_all), onClick = { onSeason(false) }, style = if (season) ButtonStyle.SEA else ButtonStyle.GREEN, size = 2)
+                PixelButton(stringResource(R.string.ranking_tab_season), onClick = { onSeason(true) }, style = if (season) ButtonStyle.GREEN else ButtonStyle.SEA, size = 2)
+            }
+            VSpace(3)
+            val info = data?.season
+            if (season && info != null) {
+                DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340))) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        PixelText(stringResource(R.string.season_title, info.number), size = 3, color = Pal.Gold)
+                        PixelText(stringResource(R.string.season_ends_in, countdownText(info.endsAt - now)), size = 1, color = Pal.Foam)
+                        VSpace(1)
+                        PixelText(stringResource(R.string.season_info, info.days), size = 1, color = Pal.SeaLight, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                        if (info.previousTop.isNotEmpty()) {
+                            VSpace(2)
+                            PixelText(stringResource(R.string.season_previous, info.number - 1), size = 1, color = Pal.Gold)
+                            PixelText(
+                                info.previousTop.joinToString("   ") { "#${it.rank} ${it.nick}" },
+                                size = 1,
+                                align = TextAlign.Center,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                        }
+                    }
+                }
+                VSpace(3)
+            }
             if (account == null) {
                 // Gość widzi ranking, ale sam w nim nie występuje.
                 DarkCard(Modifier.fillMaxWidth().widthIn(max = px(340)), highlight = true) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
                         PixelText(
-                            stringResource(R.string.ranking_guest_info),
+                            stringResource(if (season) R.string.season_guest else R.string.ranking_guest_info),
                             size = 2,
                             color = Pal.Foam,
                             align = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth(),
                         )
-                        if (data != null) {
+                        if (data != null && !season) {
                             VSpace(2)
                             GuestRankText(guestPoints, guestPlace)
                         }
@@ -536,7 +583,8 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                     Column(Modifier.weight(1f)) {
                         PixelText(stringResource(R.string.ranking_my_position), size = 1, color = Pal.Gold)
                         PixelText(account?.nick ?: "", size = 3)
-                        val rank = data?.myRank ?: account?.rank
+                        // W sezonie miejsce tylko z rankingu sezonowego (miejsce w ogólnym to co innego).
+                        val rank = data?.myRank ?: account?.rank?.takeIf { !season }
                         PixelText(
                             if (rank != null) "#$rank" else stringResource(R.string.ranking_not_ranked),
                             size = 2,
@@ -544,8 +592,8 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
                         )
                     }
                     Column(horizontalAlignment = Alignment.End) {
-                        PixelText(stringResource(R.string.account_points), size = 1, color = Pal.Gold)
-                        PixelText((data?.myPoints ?: account?.points ?: 0L).toString(), size = 4)
+                        PixelText(stringResource(if (season) R.string.season_points else R.string.account_points), size = 1, color = Pal.Gold)
+                        PixelText((data?.myPoints ?: (if (season) account?.seasonPoints else account?.points) ?: 0L).toString(), size = 4)
                     }
                 }
             }
@@ -570,7 +618,7 @@ private fun RankingList(data: RankingData?, failed: OnlineResult.Failed?, loadin
         val entries = data?.entries.orEmpty()
         if (data != null && entries.isEmpty()) {
             VSpace(10)
-            Hint(stringResource(R.string.ranking_empty), Pal.Foam)
+            Hint(stringResource(if (season) R.string.season_empty else R.string.ranking_empty), Pal.Foam)
         }
         val list = rememberListState()
         LazyColumn(
