@@ -984,4 +984,33 @@
     <string name="creator_seed_go">UTWÓRZ Z SEEDA</string>
     <string name="creator_seed_invalid">Nieprawidłowy kod – 13 znaków: cyfry i litery (bez I, L, O, U).</string>
     <string name="editor_ready">GOTOWY DO PUBLIKACJI</string>
+    <!-- Turnieje weekendowe i ranking sezonowy (2.5) -->
+    <string name="tournament_title">TURNIEJ WEEKENDOWY</string>
+    <string name="tournament_screen">TURNIEJ</string>
+    <string name="hud_tournament">TURNIEJ</string>
+    <string name="tournament_ends_in">KONIEC ZA %s</string>
+    <string name="tournament_starts_in">START ZA %s</string>
+    <string name="tournament_weekend">SOBOTA – NIEDZIELA</string>
+    <string name="tournament_info">Co weekend nowy poziom, ten sam dla wszystkich – od soboty 00:00 do niedzieli 23:59 (czas polski). Graj, ile chcesz: liczy się najlepszy wynik. Nagrody za miejsca zaraz po końcu.</string>
+    <string name="tournament_next">NASTĘPNY TURNIEJ</string>
+    <string name="tournament_loading">Pobieranie turnieju…</string>
+    <string name="tournament_offline">Połącz się z internetem, aby zobaczyć turniej.</string>
+    <string name="tournament_my_best">TWÓJ NAJLEPSZY: %d</string>
+    <string name="tournament_no_score">Jeszcze bez wyniku – ukończ poziom!</string>
+    <string name="tournament_my_place">MIEJSCE #%d</string>
+    <string name="tournament_prizes">NAGRODY</string>
+    <string name="tournament_prize_everyone">KAŻDY GRACZ</string>
+    <string name="tournament_guest">Bez konta wynik zostaje na tym telefonie. Załóż konto, żeby trafić do rankingu turnieju i zdobywać nagrody.</string>
+    <string name="tournament_ranking">RANKING TURNIEJU</string>
+    <string name="tournament_players">GRACZY: %d</string>
+    <string name="tournament_ranking_empty">Nikt jeszcze nie ukończył poziomu – bądź pierwszy!</string>
+    <string name="tournament_previous">POPRZEDNI TURNIEJ: %s</string>
+    <string name="tournament_counting">Liczenie wyników – nagrody chwilę po końcu.</string>
+    <string name="tournament_prize_waiting">NAGRODA Z TURNIEJU</string>
+    <string name="tournament_claim">ODBIERZ</string>
+    <string name="tournament_claimed">+%d MONET!</string>
+    <string name="tournament_new_best">NOWY REKORD TURNIEJU!</string>
+    <string name="tournament_best_label">REKORD TURNIEJU</string>
+    <string name="tournament_your_prize">TWOJA NAGRODA: +%1$d MONET, +%2$d PKT</string>
+    <string name="tournament_not_running">Turniej się skończył – następny startuje w sobotę.</string>
 </resources>

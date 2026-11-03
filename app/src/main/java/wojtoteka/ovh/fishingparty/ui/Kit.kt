@@ -114,6 +114,9 @@ object Pal {
     val Teal = Color(0xFF00AAAA)
     val TealLight = Color(0xFF7FE6DC)
     val TealDark = Color(0xFF007A7A)
+    val Crimson = Color(0xFFE2335A)
+    val CrimsonLight = Color(0xFFFF9AB0)
+    val CrimsonDark = Color(0xFFA51D3D)
     val White = Color.White
     val Scrim = Color(0xA0000000)
 }
@@ -333,6 +336,9 @@ enum class ButtonStyle(val base: Color, val light: Color, val dark: Color, val t
 
     /** Poziomy graczy. */
     TEAL(Pal.Teal, Pal.TealLight, Pal.TealDark),
+
+    /** Turnieje weekendowe. */
+    CRIMSON(Pal.Crimson, Pal.CrimsonLight, Pal.CrimsonDark),
 }
 
 /** Prostokąt w stylu pikselowym: obrys z „uciętymi” narożnikami, jasna krawędź u góry, cień u dołu. */
