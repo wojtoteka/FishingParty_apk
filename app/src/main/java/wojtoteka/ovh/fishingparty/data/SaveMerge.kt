@@ -9,7 +9,7 @@ import kotlin.math.max
  * [remote] – nowszy zapis z konta (od drugiego telefonu). Z obu stron zostaje wszystko, co zdobyto
  * od [base]: monety i liczniki to [remote] + to, co doszło na tym telefonie (więc nic nie przepada
  * ani nie liczy się podwójnie), rekordy, gwiazdki i odblokowane poziomy – lepsze z obu,
- * kupione przedmioty, odebrane osiągnięcia i zaliczone poziomy dnia/tygodnia – suma.
+ * kupione przedmioty, odebrane osiągnięcia i zaliczone poziomy dnia/tygodnia – suma, turnieje – najlepszy przejazd z obu.
  * Ustawienia i założony wygląd łodzi: zmienione na tym telefonie wygrywają, inaczej zostają z konta.
  *
  * Wynik to nowy obiekt; [base], [local] i [remote] zostają bez zmian.
@@ -83,6 +83,15 @@ object SaveMerge {
         out.userLevelQueue += plays.takeLast(SaveData.MAX_USER_LEVEL_QUEUE)
         // Odbiór zarobku rozpoczęty na tym telefonie dokańcza ten telefon.
         if (local.marketClaim.isNotEmpty()) out.marketClaim = local.marketClaim
+        // Turnieje: najlepszy przejazd każdego turnieju z obu telefonów (przy remisie wcześniejszy) i nowszy zapamiętany turniej.
+        val bestRuns = (remote.tournamentRuns + local.tournamentRuns)
+            .groupBy { it.tournament }
+            .map { (_, runs) -> runs.maxWith(compareBy<TournamentRun> { it.score }.thenByDescending { it.at }) }
+            .sortedBy { it.tournament }
+        out.tournamentRuns.clear()
+        out.tournamentRuns += bestRuns.takeLast(SaveData.MAX_TOURNAMENT_RUNS)
+        out.tournamentCache = listOfNotNull(remote.tournamentCache, local.tournamentCache).maxByOrNull { it.id }
+        if (local.prizeClaim.isNotEmpty()) out.prizeClaim = local.prizeClaim
 
         // ---------------------------------------------------------------- ustawienia: zmienione tutaj wygrywają
         fun <T> pick(b: T, l: T, r: T) = if (l != b) l else r
