@@ -91,6 +91,17 @@ class ApiClient(
     }
 
     /**
+     * Turniej weekendowy (`GET /tournaments`, bez podpisu, jak `/challenges`): trwający z seedem, najbliższy i poprzedni.
+     * Odpowiedź niesie też czas serwera. null = serwer bez turniejów (starsza wersja).
+     */
+    fun tournaments(): JSONObject? {
+        if (baseUrl.isEmpty()) return null
+        val res = getPublic("/tournaments") ?: return null
+        clock?.onServerTime(res.json.optLong("now"), res.sentAt, res.receivedAt, res.json.optString("zone").takeIf { it.isNotEmpty() })
+        return res.json
+    }
+
+    /**
      * Start aplikacji (`GET /launch`, bez podpisu – działa też gościom i przy złej dacie w telefonie): czy ta wersja
      * nie jest zablokowana w panelu i bieżące ogłoszenia dla gościa albo zalogowanego ([account]).
      * [deviceId] (losowy identyfikator instalacji) i [start] (nowe uruchomienie gry) liczą graczy w statystykach panelu.
