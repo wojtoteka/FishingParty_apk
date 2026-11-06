@@ -71,7 +71,7 @@ fun TournamentButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
                         PixelText(stringResource(R.string.tournament_ends_in, countdownText(running.endsAt - now)), size = 1, color = Pal.Gold)
                     next != null && next.startsAt > now ->
                         PixelText(stringResource(R.string.tournament_starts_in, countdownText(next.startsAt - now)), size = 1, color = Pal.Foam)
-                    else -> PixelText(stringResource(R.string.tournament_weekend), size = 1, color = Pal.Foam)
+                    else -> PixelText(stringResource(R.string.tournament_soon), size = 1, color = Pal.Foam)
                 }
             }
         }

@@ -990,8 +990,8 @@
     <string name="hud_tournament">TURNIEJ</string>
     <string name="tournament_ends_in">KONIEC ZA %s</string>
     <string name="tournament_starts_in">START ZA %s</string>
-    <string name="tournament_weekend">SOBOTA – NIEDZIELA</string>
-    <string name="tournament_info">Co weekend nowy poziom, ten sam dla wszystkich – od soboty 00:00 do niedzieli 23:59 (czas polski). Graj, ile chcesz: liczy się najlepszy wynik. Nagrody za miejsca zaraz po końcu.</string>
+    <string name="tournament_soon">WKRÓTCE</string>
+    <string name="tournament_info">Każdy turniej to nowy poziom, ten sam dla wszystkich. Graj, ile chcesz: liczy się najlepszy wynik. Nagrody za miejsca zaraz po końcu.</string>
     <string name="tournament_next">NASTĘPNY TURNIEJ</string>
     <string name="tournament_loading">Pobieranie turnieju…</string>
     <string name="tournament_offline">Połącz się z internetem, aby zobaczyć turniej.</string>
@@ -1012,7 +1012,7 @@
     <string name="tournament_new_best">NOWY REKORD TURNIEJU!</string>
     <string name="tournament_best_label">REKORD TURNIEJU</string>
     <string name="tournament_your_prize">TWOJA NAGRODA: +%1$d MONET, +%2$d PKT</string>
-    <string name="tournament_not_running">Turniej się skończył – następny startuje w sobotę.</string>
+    <string name="tournament_not_running">Turniej się skończył – następny już wkrótce.</string>
     <string name="ranking_tab_all">OGÓLNY</string>
     <string name="ranking_tab_season">SEZON</string>
     <string name="season_title">SEZON %d</string>

@@ -3,7 +3,7 @@ package wojtoteka.ovh.fishingparty.level
 import wojtoteka.ovh.fishingparty.core.Rng
 
 /**
- * Turniej weekendowy (od wersji 2.5). Ogłasza go sam serwer: od soboty 00:00 do poniedziałku 00:00 (czas polski)
+ * Turniej weekendowy (od wersji 2.5). Ogłasza go sam serwer (on decyduje o starcie i końcu):
  * wszyscy grają ten sam poziom z seeda, prób jest dowolnie wiele, a do rankingu turnieju liczy się najlepszy wynik.
  * Po końcu serwer rozdaje miejsca, premie do rankingu i monety (odbierane w grze).
  *
