@@ -1009,7 +1009,7 @@
     <string name="ranking_tab_season">SEASON</string>
     <string name="season_title">SEASON %d</string>
     <string name="season_ends_in">SEASON ENDS IN %s</string>
-    <string name="season_info">A season lasts %d days, then the season ranking starts from zero. The overall ranking stays.</string>
+    <string name="season_info">When the season ends, the season ranking starts from zero. The overall ranking stays.</string>
     <string name="season_previous">SEASON %d WINNERS</string>
     <string name="season_empty">Nobody has scored this season yet – be the first!</string>
     <string name="season_guest">Create an account to compete in the season ranking!</string>

@@ -60,7 +60,7 @@ class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Lo
 /**
  * Sezon rankingu sezonowego: numer, początek i koniec (czas serwera), długość w dniach i podium poprzedniego sezonu.
  */
-class SeasonInfo(val number: Int, val startsAt: Long, val endsAt: Long, val days: Int, val previousTop: List<RankingEntry>)
+class SeasonInfo(val number: Int, val startsAt: Long, val endsAt: Long, val previousTop: List<RankingEntry>)
 
 /**
  * [myId] = null, gdy ranking ogląda gość bez konta. [size] – ile miejsc ma ranking (top 100).
@@ -1074,7 +1074,6 @@ class OnlineManager(
                 number = s.optInt("number"),
                 startsAt = s.optLong("startsAt"),
                 endsAt = s.optLong("endsAt"),
-                days = s.optInt("days"),
                 previousTop = previous?.optJSONArray("top")?.let { rankingEntries(it) }.orEmpty(),
             )
             val me = res.optJSONObject("me")

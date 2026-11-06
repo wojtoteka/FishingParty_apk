@@ -544,7 +544,7 @@ private fun RankingList(
                         PixelText(stringResource(R.string.season_title, info.number), size = 3, color = Pal.Gold)
                         PixelText(stringResource(R.string.season_ends_in, countdownText(info.endsAt - now)), size = 1, color = Pal.Foam)
                         VSpace(1)
-                        PixelText(stringResource(R.string.season_info, info.days), size = 1, color = Pal.SeaLight, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                        PixelText(stringResource(R.string.season_info), size = 1, color = Pal.SeaLight, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                         if (info.previousTop.isNotEmpty()) {
                             VSpace(2)
                             PixelText(stringResource(R.string.season_previous, info.number - 1), size = 1, color = Pal.Gold)

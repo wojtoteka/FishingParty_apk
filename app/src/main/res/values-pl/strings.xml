@@ -1017,7 +1017,7 @@
     <string name="ranking_tab_season">SEZON</string>
     <string name="season_title">SEZON %d</string>
     <string name="season_ends_in">KONIEC SEZONU ZA %s</string>
-    <string name="season_info">Sezon trwa %d dni, potem ranking sezonowy zaczyna się od zera. Ogólny ranking zostaje.</string>
+    <string name="season_info">Po końcu sezonu ranking sezonowy zaczyna się od zera. Ogólny ranking zostaje.</string>
     <string name="season_previous">ZWYCIĘZCY SEZONU %d</string>
     <string name="season_empty">W tym sezonie nikt jeszcze nie zdobył punktów – bądź pierwszy!</string>
     <string name="season_guest">Załóż konto, żeby walczyć w rankingu sezonowym!</string>
