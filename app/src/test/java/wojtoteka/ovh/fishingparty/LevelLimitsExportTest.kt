@@ -12,6 +12,8 @@ import wojtoteka.ovh.fishingparty.level.LevelSeed
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
+import wojtoteka.ovh.fishingparty.level.SeedProfile
+import wojtoteka.ovh.fishingparty.level.Tournaments
 import java.io.File
 import java.security.MessageDigest
 
@@ -45,6 +47,33 @@ class LevelLimitsExportTest {
             }
         }
         val out = File("build/challenge-sample.json")
+        out.parentFile?.mkdirs()
+        out.writeText("{\n  \"levels\": [\n${rows.joinToString(",\n")}\n  ]\n}\n")
+        assertTrue(out.length() > 0)
+    }
+
+    /**
+     * Turnieje weekendowe: reguły świata i miejsce w świecie podaje serwer (motywy w src/tournaments.ts), więc próbka
+     * (`test/fixtures/tournament-sample.json` serwera) ma je w każdym wierszu: seed, minDifficulty, maxDifficulty,
+     * minStages, maxStages, position i te same kolumny co level-limits.json. Reguły jak w motywach serwera i skrajne.
+     */
+    @Test
+    fun exportTournamentSample() {
+        val rules = listOf(
+            SeedProfile(1000, 1300, 5, 6) to 1000,
+            SeedProfile(700, 1000, 2, 3) to 800,
+            SeedProfile(600, 950, 6, 6) to 600,
+            SeedProfile(850, 1150, 4, 5) to 900,
+            SeedProfile(0, 200, 2, 6) to 0,
+        )
+        val rows = rules.flatMapIndexed { r, (profile, position) ->
+            (0 until 60).map { i ->
+                val seed = LevelSeed(Rng.mix(0x54_4F_55_52L + r, i.toLong()))
+                val p = "${profile.minDifficulty},${profile.maxDifficulty},${profile.minStages},${profile.maxStages},$position"
+                "    [\"${seed.value}\",$p,${limits(Tournaments.plan(seed, profile, position))}]"
+            }
+        }
+        val out = File("build/tournament-sample.json")
         out.parentFile?.mkdirs()
         out.writeText("{\n  \"levels\": [\n${rows.joinToString(",\n")}\n  ]\n}\n")
         assertTrue(out.length() > 0)

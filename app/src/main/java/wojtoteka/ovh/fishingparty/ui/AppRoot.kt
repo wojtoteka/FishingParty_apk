@@ -25,6 +25,8 @@ import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
+import wojtoteka.ovh.fishingparty.level.Tournament
+import wojtoteka.ovh.fishingparty.level.Tournaments
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.online.LevelLink
 
@@ -38,6 +40,7 @@ private sealed interface Screen {
     data object Settings : Screen
     data object Community : Screen
     data object Creator : Screen
+    data object WeekendTournament : Screen
     data class Editor(val draftId: String) : Screen
     data class Game(
         val level: Int,
@@ -48,6 +51,8 @@ private sealed interface Screen {
         val challenge: Challenge? = null,
         /** Poziom z kreatora (test, przejście przed publikacją albo poziom gracza). */
         val custom: CustomRun? = null,
+        /** Poziom turnieju weekendowego. */
+        val tournament: Tournament? = null,
     ) : Screen
 }
 
@@ -109,14 +114,14 @@ private fun AppContent() {
         screen = Screen.Game(UserLevels.LEVEL_NUMBER, Loadout(), attempts, custom = run)
     }
 
-    fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null) {
+    fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null, tournament: Tournament? = null) {
         lastSelection = selection
         val loadout = repo.progress.consume(selection)
         repo.changed()
         attempts++
         intro = null
         challengeDialog = null
-        screen = Screen.Game(level, loadout, attempts, challenge = challenge)
+        screen = Screen.Game(level, loadout, attempts, challenge = challenge, tournament = tournament)
     }
 
     // Ogłoszenie z panelu serwera (pierwsze z niezamkniętych) – poza rozgrywką i po wyborze sterowania.
@@ -181,6 +186,7 @@ private fun AppContent() {
                         Destination.WEEKLY_LEVEL -> challengeDialog = ChallengeKind.WEEKLY
                         Destination.COMMUNITY -> screen = Screen.Community
                         Destination.CREATOR -> screen = Screen.Creator
+                        Destination.TOURNAMENT -> screen = Screen.WeekendTournament
                     }
                 },
             )
@@ -189,6 +195,11 @@ private fun AppContent() {
             Screen.Achievements -> AchievementsScreen(onBack = { screen = Screen.Menu })
             Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu }, onAccount = { screen = Screen.Account })
             Screen.Account -> AccountScreen(onBack = { screen = Screen.Menu })
+            Screen.WeekendTournament -> TournamentScreen(
+                onBack = { screen = Screen.Menu },
+                onPlay = { t, selection -> start(Tournaments.LEVEL_NUMBER, selection, tournament = t) },
+                onAccount = { screen = Screen.Account },
+            )
             Screen.Settings -> SettingsScreen(
                 onBack = { screen = Screen.Menu },
                 // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
@@ -221,9 +232,19 @@ private fun AppContent() {
                 },
                 onAccount = { screen = Screen.Account },
             )
-            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge, s.custom) { exit ->
+            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge, s.custom, s.tournament) { exit ->
                 val challenge = s.challenge
                 val custom = s.custom
+                val tournament = s.tournament
+                if (tournament != null) {
+                    // Turniej nie leży na mapie – powrót na ekran turnieju; prób jest dowolnie wiele.
+                    when (exit) {
+                        GameExit.ToMenu -> screen = Screen.Menu
+                        is GameExit.Retry -> start(exit.level, lastSelection, tournament = tournament)
+                        GameExit.ToMap, is GameExit.Next -> screen = Screen.WeekendTournament
+                    }
+                    return@GameScreen
+                }
                 if (custom != null) {
                     when (exit) {
                         GameExit.ToMap -> screen = if (custom.mode == CustomMode.PLAY || custom.draftId == null) Screen.Community else Screen.Editor(custom.draftId)

@@ -35,6 +35,9 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
     /** Czas (ChallengeResult.at) ostatniego poziomu dnia/tygodnia wysłanego na serwer. */
     var lastSentChallengeAt: Long = 0
 
+    /** Czas (TournamentRun.at) ostatniego wyniku turnieju wysłanego na serwer. */
+    var lastSentTournamentAt: Long = 0
+
     /** Konto „tylko nick” nie ma hasła – wylogowanie oznacza utratę nicku. */
     var hasPassword: Boolean = true
 
@@ -65,6 +68,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         knownRevision = 0
         lastSentRunAt = 0
         lastSentChallengeAt = 0
+        lastSentTournamentAt = 0
         hasPassword = true
         importPending = false
         dirty = false
@@ -91,6 +95,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
                     lastSentChallengeAt = i.readLong()
                     hasPassword = i.readBoolean()
                 }
+                if (version >= 4) lastSentTournamentAt = i.readLong()
             }
         } catch (e: Exception) {
             Log.w("FishingParty", "Nie można odczytać sesji konta", e)
@@ -101,7 +106,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
         val bytes = ByteArrayOutputStream()
         DataOutputStream(bytes).use { o ->
             o.writeInt(MAGIC)
-            o.writeShort(3)
+            o.writeShort(4)
             o.writeUTF(deviceId)
             o.writeUTF(token.orEmpty())
             o.writeLong(accountId)
@@ -114,6 +119,7 @@ class AccountStore(dir: File, private val crypto: SaveCrypto) {
             o.writeBoolean(deviceAttested)
             o.writeLong(lastSentChallengeAt)
             o.writeBoolean(hasPassword)
+            o.writeLong(lastSentTournamentAt)
         }
         val plain = bytes.toByteArray()
         io.execute {

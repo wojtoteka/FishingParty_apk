@@ -9,6 +9,7 @@ import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
 import wojtoteka.ovh.fishingparty.level.ScoreValidator
 import wojtoteka.ovh.fishingparty.level.Scoring
+import wojtoteka.ovh.fishingparty.level.Tournament
 import kotlin.math.max
 
 class Reward(
@@ -26,6 +27,8 @@ class Reward(
     val streakDeferred: Boolean = false,
     /** Punkty rankingowe za poziom dnia/tygodnia (0 = zwykły poziom albo nieukończony). */
     val challengePoints: Int = 0,
+    /** Turniej: najlepszy wynik gracza w tym turnieju po tym przejeździe (0 = to nie turniej albo brak wyniku). */
+    val tournamentBest: Int = 0,
 )
 
 /**
@@ -223,6 +226,71 @@ class Progress(val save: SaveData, private val time: GameTime) {
         ) + bonus
         addCoins(coins.toLong())
         return Reward(true, coins, 0, false, 0, credit.days, credit.trophies, 0, credit.deferred, points)
+    }
+
+    // ------------------------------------------------------------ turnieje weekendowe
+
+    /** Najlepszy wynik tego telefonu w turnieju [id] (0 – jeszcze nie ukończony). */
+    fun tournamentBest(id: Int): Int = save.tournamentRuns.firstOrNull { it.tournament == id }?.score ?: 0
+
+    /** Zapamiętany turniej, który teraz trwa i da się w niego zagrać (null – trzeba zapytać serwer). */
+    fun currentTournament(): Tournament? = save.tournamentCache?.takeIf { it.playable && it.isRunning(now()) }
+
+    /** Zapamiętuje turniej z serwera (trwający albo najbliższy); true, gdy coś się zmieniło. */
+    fun cacheTournament(fresh: Tournament): Boolean {
+        val old = save.tournamentCache
+        if (fresh.sameAs(old)) return false
+        // Najbliższy turniej (bez seeda) nie wypiera trwającego, w który da się jeszcze zagrać.
+        if (!fresh.playable && old != null && old.playable && old.isRunning(now())) return false
+        save.tournamentCache = fresh
+        return true
+    }
+
+    /**
+     * Wynik poziomu turnieju: monety za ryby (jak w każdym poziomie), passa i statystyki, a ukończenie lepsze niż
+     * dotychczasowy rekord turnieju – do wysłania na serwer (prób jest dowolnie wiele, liczy się najlepsza).
+     * Punkty rankingu i nagrody za miejsce przyznaje serwer.
+     */
+    fun applyTournament(result: RunResult, plan: LevelPlan, tournament: Tournament): Reward {
+        if (!ScoreValidator.isPlausible(plan, result)) {
+            save.tamperEvents++
+            return Reward(false, 0, 0, false, 0)
+        }
+        save.totalFish.add(result.fishCaught.toLong())
+        save.totalGolden.add(result.goldenCaught.toLong())
+        save.maxCombo = max(save.maxCombo, result.maxCombo)
+        val previous = tournamentBest(tournament.id)
+        var credit = StreakCredit(0, 0, false)
+        var improved = false
+        if (result.completed) {
+            credit = creditCompletion()
+            save.levelWins++
+            if (result.hits == 0) save.noHitWins++
+            if (result.score > previous) {
+                improved = true
+                save.tournamentRuns.removeAll { it.tournament == tournament.id }
+                save.tournamentRuns.addLast(
+                    TournamentRun(
+                        tournament.id, result.score, result.timeMillis, result.commonCaught, result.blueCaught, result.goldenCaught,
+                        result.hits, result.maxCombo, result.stagesCleared, now(),
+                    ),
+                )
+                while (save.tournamentRuns.size > SaveData.MAX_TOURNAMENT_RUNS) save.tournamentRuns.removeFirst()
+            }
+        }
+        val coins = Scoring.coinsFor(result.commonCaught, result.blueCaught, result.goldenCaught, result.completed, plan.spec.world, 0)
+        addCoins(coins.toLong())
+        return Reward(
+            accepted = true,
+            coins = coins,
+            previousBest = previous,
+            newBest = improved,
+            newStars = 0,
+            streakDays = credit.days,
+            trophies = credit.trophies,
+            streakDeferred = credit.deferred,
+            tournamentBest = max(previous, if (result.completed) result.score else 0),
+        )
     }
 
     // ------------------------------------------------------------ poziomy graczy i targ
@@ -541,6 +609,7 @@ class Progress(val save: SaveData, private val time: GameTime) {
         save.records.clear()
         save.challengePoints.set(0)
         save.challengeResults.clear()
+        save.tournamentRuns.clear()
         save.userLevelsDone.clear()
     }
 

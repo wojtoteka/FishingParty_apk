@@ -6,6 +6,9 @@ import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSeed
+import wojtoteka.ovh.fishingparty.level.SeedProfile
+import wojtoteka.ovh.fishingparty.level.Tournament
+import wojtoteka.ovh.fishingparty.level.Tournaments
 import wojtoteka.ovh.fishingparty.notify.ChallengeReminderPlan
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -53,6 +56,23 @@ class ChallengeResult(
 class UserLevelPlay(
     val levelId: Int,
     val completed: Boolean,
+    val score: Int,
+    val timeMillis: Long,
+    val common: Int,
+    val blue: Int,
+    val golden: Int,
+    val hits: Int,
+    val maxCombo: Int,
+    val stages: Int,
+    val at: Long,
+)
+
+/**
+ * Najlepszy ukończony przejazd turnieju weekendowego ([tournament] – numer turnieju z serwera) na tym telefonie.
+ * Wysyłany na serwer, który liczy najlepszy wynik każdego gracza; [at] – czas gry (czas serwera).
+ */
+class TournamentRun(
+    val tournament: Int,
     val score: Int,
     val timeMillis: Long,
     val common: Int,
@@ -158,6 +178,15 @@ class SaveData {
      */
     var marketClaim = ""
 
+    /** Najlepsze przejazdy ostatnich turniejów weekendowych (po jednym na turniej) – rekord turnieju i co wysłać na serwer. */
+    val tournamentRuns = ArrayDeque<TournamentRun>()
+
+    /** Ostatnio pobrany turniej z serwera – trwający da się rozegrać także bez internetu, do końca turnieju. */
+    var tournamentCache: Tournament? = null
+
+    /** Rozpoczęty odbiór nagród z turniejów – jak [marketClaim]. Pusty – nic nie czeka. */
+    var prizeClaim = ""
+
     /** Liczba poziomów w tablicach rekordów i gwiazdek (co najmniej 1000). */
     val levelSlots: Int get() = stars.size
 
@@ -179,13 +208,14 @@ class SaveData {
         const val MAX_CHALLENGE_RESULTS = 20
         const val MAX_USER_LEVEL_QUEUE = 30
         const val MAX_USER_LEVELS_DONE = 5000
+        const val MAX_TOURNAMENT_RUNS = 10
     }
 }
 
 /** Binarny zapis/odczyt [SaveData]. Szyfrowanie robi [SaveCrypto]. */
 object SaveCodec {
     private const val MAGIC = 0x46505344 // "FPSD"
-    private const val VERSION = 7
+    private const val VERSION = 8
 
     fun encode(d: SaveData): ByteArray {
         val bytes = ByteArrayOutputStream()
@@ -306,6 +336,42 @@ object SaveCodec {
                 o.writeLong(p.at)
             }
             o.writeUTF(d.marketClaim)
+            // v8
+            o.writeShort(d.tournamentRuns.size)
+            for (r in d.tournamentRuns) {
+                o.writeInt(r.tournament)
+                o.writeInt(r.score)
+                o.writeLong(r.timeMillis)
+                o.writeShort(r.common)
+                o.writeShort(r.blue)
+                o.writeShort(r.golden)
+                o.writeShort(r.hits)
+                o.writeByte(r.maxCombo)
+                o.writeByte(r.stages)
+                o.writeLong(r.at)
+            }
+            val t = d.tournamentCache
+            o.writeBoolean(t != null)
+            if (t != null) {
+                o.writeInt(t.id)
+                o.writeUTF(t.theme)
+                o.writeUTF(t.namePl)
+                o.writeUTF(t.nameEn)
+                o.writeLong(t.startsAt)
+                o.writeLong(t.endsAt)
+                val seed = t.seed
+                val profile = t.profile
+                o.writeBoolean(seed != null && profile != null)
+                if (seed != null && profile != null) {
+                    o.writeLong(seed.value)
+                    o.writeInt(profile.minDifficulty)
+                    o.writeInt(profile.maxDifficulty)
+                    o.writeInt(profile.minStages)
+                    o.writeInt(profile.maxStages)
+                    o.writeInt(t.position)
+                }
+            }
+            o.writeUTF(d.prizeClaim)
         }
         return bytes.toByteArray()
     }
@@ -452,6 +518,45 @@ object SaveCodec {
                     )
                 }
                 d.marketClaim = i.readUTF()
+            }
+            if (version >= 8) {
+                repeat(i.readUnsignedShort()) {
+                    d.tournamentRuns += TournamentRun(
+                        tournament = i.readInt(),
+                        score = i.readInt(),
+                        timeMillis = i.readLong(),
+                        common = i.readShort().toInt(),
+                        blue = i.readShort().toInt(),
+                        golden = i.readShort().toInt(),
+                        hits = i.readShort().toInt(),
+                        maxCombo = i.readByte().toInt(),
+                        stages = i.readByte().toInt(),
+                        at = i.readLong(),
+                    )
+                }
+                if (i.readBoolean()) {
+                    val id = i.readInt()
+                    val theme = i.readUTF()
+                    val namePl = i.readUTF()
+                    val nameEn = i.readUTF()
+                    val startsAt = i.readLong()
+                    val endsAt = i.readLong()
+                    var seed: LevelSeed? = null
+                    var profile: SeedProfile? = null
+                    var position = 0
+                    if (i.readBoolean()) {
+                        seed = LevelSeed(i.readLong())
+                        profile = Tournaments.profileOf(i.readInt(), i.readInt(), i.readInt(), i.readInt())
+                        position = i.readInt()
+                    }
+                    d.tournamentCache = Tournament(
+                        id, theme, namePl, nameEn, startsAt, endsAt,
+                        seed = if (profile != null) seed else null,
+                        profile = profile,
+                        position = position,
+                    )
+                }
+                d.prizeClaim = i.readUTF()
             }
         }
         // Gra miała kiedyś mniej poziomów – kto ukończył ostatni z nich, dostaje od razu kolejny.

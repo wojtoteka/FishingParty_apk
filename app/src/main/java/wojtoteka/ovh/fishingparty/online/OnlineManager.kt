@@ -32,6 +32,7 @@ import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelSeed
+import java.security.SecureRandom
 
 /** Profil gracza z serwera. [hasPassword] = false – konto „tylko nick”. */
 class AccountInfo(
@@ -46,11 +47,25 @@ class AccountInfo(
     val userLevelPoints: Long = 0,
     /** Zarobek z targu czekający na odebranie. */
     val marketPending: Long = 0,
+    /** Punkty rankingu z turniejów weekendowych (wliczone w [points]). */
+    val tournamentPoints: Long = 0,
+    /** Monety z nagród turniejowych czekające na odebranie. */
+    val prizePending: Long = 0,
+    /** Punkty w bieżącym sezonie (ranking sezonowy). */
+    val seasonPoints: Long = 0,
 )
 
 class RankingEntry(val rank: Int, val id: Long, val nick: String, val points: Long, val maxLevel: Int)
 
-/** [myId] = null, gdy ranking ogląda gość bez konta. [size] – ile miejsc ma ranking (top 100). */
+/**
+ * Sezon rankingu sezonowego: numer, początek i koniec (czas serwera), długość w dniach i podium poprzedniego sezonu.
+ */
+class SeasonInfo(val number: Int, val startsAt: Long, val endsAt: Long, val previousTop: List<RankingEntry>)
+
+/**
+ * [myId] = null, gdy ranking ogląda gość bez konta. [size] – ile miejsc ma ranking (top 100).
+ * [season] – ranking sezonowy (null – ogólny).
+ */
 class RankingData(
     val entries: List<RankingEntry>,
     val myId: Long?,
@@ -58,6 +73,7 @@ class RankingData(
     val myPoints: Long,
     val hidden: Boolean,
     val size: Int = 100,
+    val season: SeasonInfo? = null,
 )
 
 /** Wynik operacji na koncie. [code] to kod błędu serwera albo jeden z kodów klienta (offline, quick_wrong…). */
@@ -177,6 +193,7 @@ class OnlineManager(
                         if (store.loggedIn) sync()
                         community.flush()
                         community.resumeClaim()
+                        resumePrizeClaim()
                     }
                 }
             })
@@ -432,6 +449,9 @@ class OnlineManager(
             hasPassword = p.optBoolean("hasPassword", true),
             userLevelPoints = p.optLong("userLevelPoints"),
             marketPending = p.optLong("marketPending"),
+            tournamentPoints = p.optLong("tournamentPoints"),
+            prizePending = p.optLong("prizePending"),
+            seasonPoints = p.optLong("seasonPoints"),
         )
         account = info
         if (store.nick != info.nick || store.email != info.email || store.hasPassword != info.hasPassword) {
@@ -445,6 +465,8 @@ class OnlineManager(
     private fun latestRecordAt(): Long = repo.save.records.maxOfOrNull { it.at } ?: 0L
 
     private fun latestChallengeAt(): Long = repo.save.challengeResults.maxOfOrNull { it.at } ?: 0L
+
+    private fun latestTournamentAt(): Long = repo.save.tournamentRuns.maxOfOrNull { it.at } ?: 0L
 
     private suspend fun afterAuth(res: JSONObject, fresh: Boolean): OnlineResult {
         val profile = res.getJSONObject("account")
@@ -462,8 +484,9 @@ class OnlineManager(
                 // Nowe konto: dotychczasowe rekordy jadą jednorazowym importem, kolejne przejazdy na bieżąco.
                 store.importPending = repo.progress.completedLevels() > 0
                 store.lastSentRunAt = latestRecordAt()
-                // Poziomy dnia/tygodnia rozegrane jako gość lecą zwykłą drogą (serwer przyjmie te z bieżących okresów).
+                // Poziomy dnia/tygodnia i turnieje rozegrane jako gość lecą zwykłą drogą (serwer przyjmie te z bieżących okresów).
                 store.lastSentChallengeAt = 0L
+                store.lastSentTournamentAt = 0L
             }
             remote && repo.progress.completedLevels() == 0 -> {
                 pullSnapshot()
@@ -471,11 +494,13 @@ class OnlineManager(
             remote -> {
                 store.lastSentRunAt = latestRecordAt()
                 store.lastSentChallengeAt = latestChallengeAt()
+                store.lastSentTournamentAt = latestTournamentAt()
                 restoreChoice = true
             }
             else -> {
                 store.lastSentRunAt = 0L
                 store.lastSentChallengeAt = 0L
+                store.lastSentTournamentAt = 0L
             }
         }
         store.save()
@@ -509,6 +534,7 @@ class OnlineManager(
         store.knownRevision = res.getInt("revision")
         store.lastSentRunAt = latestRecordAt()
         store.lastSentChallengeAt = latestChallengeAt()
+        store.lastSentTournamentAt = latestTournamentAt()
         store.dirty = false
         store.save()
         onRestored()
@@ -543,7 +569,9 @@ class OnlineManager(
             store.save()
         }
         // Ukończony poziom leci od razu, pełny zapis chwilę po ostatniej zmianie.
-        if (repo.save.records.any { it.at > store.lastSentRunAt } || repo.save.challengeResults.any { it.at > store.lastSentChallengeAt }) {
+        if (repo.save.records.any { it.at > store.lastSentRunAt } || repo.save.challengeResults.any { it.at > store.lastSentChallengeAt } ||
+            repo.save.tournamentRuns.any { it.at > store.lastSentTournamentAt }
+        ) {
             scope.launch { sync(snapshot = false) }
         }
         snapshotJob?.cancel()
@@ -564,6 +592,7 @@ class OnlineManager(
         scope.launch {
             community.flush()
             community.resumeClaim()
+            resumePrizeClaim()
         }
     }
 
@@ -614,6 +643,7 @@ class OnlineManager(
                 }
                 pushRuns()
                 pushChallenges()
+                pushTournaments()
                 if (pushOwn) {
                     try {
                         pushSnapshot(force = false)
@@ -652,6 +682,7 @@ class OnlineManager(
     private suspend fun pushAll() {
         pushRuns()
         pushChallenges()
+        pushTournaments()
         pushSnapshot(force = false)
     }
 
@@ -757,6 +788,48 @@ class OnlineManager(
         }
     }
 
+    /**
+     * Najlepsze wyniki turniejów (po kolei). Serwer liczy najlepszy wynik gracza; odrzucony (np. wysłany po zamknięciu
+     * turnieju) nie wraca do kolejki. Serwer bez turniejów albo brak sieci – wyniki czekają na następną synchronizację.
+     */
+    private suspend fun pushTournaments() {
+        val pending = repo.save.tournamentRuns.filter { it.at > store.lastSentTournamentAt }.sortedBy { it.at }
+        for (r in pending) {
+            val body = JSONObject()
+                .put("tournament", r.tournament)
+                .put(
+                    "run",
+                    JSONObject()
+                        .put("score", r.score)
+                        .put("timeMs", r.timeMillis)
+                        .put("common", r.common)
+                        .put("blue", r.blue)
+                        .put("golden", r.golden)
+                        .put("hits", r.hits)
+                        .put("maxCombo", r.maxCombo)
+                        .put("stages", r.stages)
+                        .put("at", r.at),
+                )
+                .put("integrity", integrity())
+            try {
+                val res = call("POST", "/tournaments/run", body)
+                applyProfile(res.getJSONObject("account"))
+                if (!res.optBoolean("accepted")) Log.w("FishingParty", "Turniej #${r.tournament} odrzucony: ${res.optString("reason")}")
+            } catch (e: OfflineException) {
+                return
+            } catch (e: ApiException) {
+                when {
+                    e.status == 401 || e.status == 403 || e.status == 426 -> throw e
+                    e.status == 404 || e.status == 429 || e.status >= 500 -> return
+                    // Nieprawidłowe dane – ponowna wysyłka nic nie zmieni.
+                    else -> Log.w("FishingParty", "Turniej #${r.tournament} odrzucony: ${e.code}")
+                }
+            }
+            store.lastSentTournamentAt = r.at
+            store.save()
+        }
+    }
+
     private suspend fun pushSnapshot(force: Boolean) {
         if (!store.dirty && !force) return
         val bytes = repo.exportSnapshot()
@@ -798,6 +871,74 @@ class OnlineManager(
         val endsAt = o.optLong("endsAt")
         if (!o.has("period") || endsAt <= startsAt) return null
         return Challenge(kind, o.getInt("period"), LevelSeed(seed), startsAt, endsAt)
+    }
+
+    // ------------------------------------------------------------------ turnieje weekendowe
+
+    /** Ostatnia odpowiedź serwera o turniejach (trwający, najbliższy, poprzedni z podium) – null, dopóki nie pobrano. */
+    var tournaments by mutableStateOf<TournamentInfo?>(null)
+        private set
+
+    private val tournamentLock = Mutex()
+    private val prizeLock = Mutex()
+    private var tournamentsFetchedAt = 0L
+
+    /**
+     * Pobiera turniej z serwera (trwający zapamiętuje w zapisie – da się w niego zagrać bez internetu do końca turnieju).
+     * Bez [force] najwyżej raz na pół minuty. Równoczesne wywołania czekają na jedno pobranie.
+     */
+    suspend fun refreshTournaments(force: Boolean = false): OnlineResult = tournamentLock.withLock {
+        if (!force && tournaments != null && SystemClock.elapsedRealtime() - tournamentsFetchedAt < TOURNAMENT_REFRESH_MS) return@withLock OnlineResult.Ok
+        guarded {
+            val json = withContext(Dispatchers.IO) { api.tournaments() } ?: return@guarded OnlineResult.Failed("server_unreachable")
+            val info = TournamentJson.info(json)
+            tournaments = info
+            tournamentsFetchedAt = SystemClock.elapsedRealtime()
+            val fresh = info.current ?: info.next
+            if (fresh != null && repo.progress.cacheTournament(fresh)) repo.changed()
+            OnlineResult.Ok
+        }
+    }
+
+    /** Ranking turnieju [id] i wynik gracza (gość – bez konta i bez klucza telefonu, jak zwykły ranking). */
+    suspend fun tournamentRanking(id: Int): Net<TournamentBoard> = try {
+        if (!isOnline()) {
+            Net.Err(OnlineResult.Failed("offline"))
+        } else {
+            val guest = !store.loggedIn
+            val res = call("GET", "/tournaments/$id/ranking", auth = !guest, device = !guest)
+            TournamentJson.board(res)?.let { Net.Ok(it) } ?: Net.Err(OnlineResult.Failed("bad_response"))
+        }
+    } catch (e: Exception) {
+        Net.Err(failure(e))
+    }
+
+    /**
+     * Odbiór monet z nagród turniejowych. Identyfikator prośby trafia najpierw do zapisu gry – po zerwanym połączeniu
+     * kolejna próba pyta o tę samą wypłatę i monety nie dublują się ani nie przepadają (jak zarobek z targu).
+     */
+    suspend fun claimPrizes(): Net<Int> = prizeLock.withLock {
+        try {
+            if (!isOnline()) return@withLock Net.Err(OnlineResult.Failed("offline"))
+            if (repo.save.prizeClaim.isEmpty()) {
+                repo.save.prizeClaim = ByteArray(16).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
+                repo.changed()
+            }
+            val res = call("POST", "/prizes/claim", JSONObject().put("claimId", repo.save.prizeClaim))
+            val amount = res.optInt("amount")
+            if (amount > 0) repo.progress.addCoins(amount.toLong())
+            repo.save.prizeClaim = ""
+            repo.changed()
+            res.optJSONObject("account")?.let { applyProfile(it) }
+            Net.Ok(amount)
+        } catch (e: Exception) {
+            Net.Err(failure(e))
+        }
+    }
+
+    /** Odbiór przerwany wcześniej (np. gra zamknięta w trakcie) – dokańczamy przy następnym połączeniu. */
+    private suspend fun resumePrizeClaim() {
+        if (repo.save.prizeClaim.isNotEmpty() && store.loggedIn) claimPrizes()
     }
 
     // ------------------------------------------------------------------ start gry: blokada wersji i ogłoszenia
@@ -906,7 +1047,10 @@ class OnlineManager(
             } else {
                 val rank = if (me.isNull("rank")) null else me.optInt("rank")
                 account?.let {
-                    account = AccountInfo(it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword, it.userLevelPoints, it.marketPending)
+                    account = AccountInfo(
+                        it.nick, it.email, me.optLong("points"), rank, me.optBoolean("hidden"), it.maxLevel, it.hasPassword,
+                        it.userLevelPoints, it.marketPending, it.tournamentPoints, it.prizePending, it.seasonPoints,
+                    )
                 }
                 Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden"), size))
             }
@@ -914,6 +1058,41 @@ class OnlineManager(
     } catch (e: Exception) {
         if (e is ApiException && e.code == "not_logged_in" && store.loggedIn) dropSession()
         Result.failure(e)
+    }
+
+    /** Ranking sezonowy: punkty z bieżącego sezonu (co sezon od zera), pozycja gracza i podium poprzedniego sezonu. */
+    suspend fun seasonRanking(): Result<RankingData> = try {
+        if (!isOnline()) {
+            Result.failure(OfflineException())
+        } else {
+            val guest = !store.loggedIn
+            val res = call("GET", "/ranking/season", auth = !guest, device = !guest)
+            val entries = rankingEntries(res.getJSONArray("entries"))
+            val s = res.getJSONObject("season")
+            val previous = res.optJSONObject("previous")
+            val season = SeasonInfo(
+                number = s.optInt("number"),
+                startsAt = s.optLong("startsAt"),
+                endsAt = s.optLong("endsAt"),
+                previousTop = previous?.optJSONArray("top")?.let { rankingEntries(it) }.orEmpty(),
+            )
+            val me = res.optJSONObject("me")
+            val size = res.optInt("size", 100)
+            if (me == null) {
+                Result.success(RankingData(entries, null, null, 0, false, size, season))
+            } else {
+                val rank = if (me.isNull("rank")) null else me.optInt("rank")
+                Result.success(RankingData(entries, me.optLong("id"), rank, me.optLong("points"), me.optBoolean("hidden"), size, season))
+            }
+        }
+    } catch (e: Exception) {
+        if (e is ApiException && e.code == "not_logged_in" && store.loggedIn) dropSession()
+        Result.failure(e)
+    }
+
+    private fun rankingEntries(list: JSONArray): List<RankingEntry> = (0 until list.length()).map { i ->
+        val e = list.getJSONObject(i)
+        RankingEntry(e.getInt("rank"), e.getLong("id"), e.getString("nick"), e.getLong("points"), e.optInt("maxLevel"))
     }
 
     suspend fun refreshProfile(): OnlineResult = guarded {
@@ -929,6 +1108,7 @@ class OnlineManager(
         private const val SNAPSHOT_DEBOUNCE_MS = 4_000L
         private const val MAX_RUNS_PER_REQUEST = 50
         private const val CHALLENGE_REFRESH_MS = 5_000L
+        private const val TOURNAMENT_REFRESH_MS = 30_000L
         private const val LAUNCH_RECHECK_MS = 60_000L
         private const val LAUNCH_PREFS = "launch"
         private const val KEY_SEEN = "seen_announcements"
