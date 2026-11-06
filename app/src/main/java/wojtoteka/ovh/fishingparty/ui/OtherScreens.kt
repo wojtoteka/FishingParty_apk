@@ -1,5 +1,8 @@
 package wojtoteka.ovh.fishingparty.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -29,6 +32,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -77,6 +81,12 @@ internal fun ScreenFrame(title: String, onBack: () -> Unit, dim: Float = 0.35f, 
     }
 }
 
+/** Jak długo odebrana odznaka zjeżdża na dół listy (a reszta kart podjeżdża w górę). */
+private const val CLAIM_SLIDE_MILLIS = 650
+
+/** O ile stopni przechyla się zjeżdżająca karta. */
+private const val CLAIM_TILT = -2.5f
+
 @Composable
 fun AchievementsScreen(onBack: () -> Unit) {
     val services = LocalServices.current
@@ -88,18 +98,14 @@ fun AchievementsScreen(onBack: () -> Unit) {
     val metrics = remember(repo.revision.intValue) { Metric.entries.associateWith { progress.metric(it) } }
     fun isUnlocked(a: Achievement) = metrics.getValue(a.metric) >= a.target
     val visible = Achievements.all.filter { !it.hidden || isUnlocked(it) }
-    // Kolejność ustalana raz przy wejściu – odebrana odznaka zostaje na miejscu,
-    // inaczej lista przeskakiwała za nią na sam dół.
-    val order = remember {
-        visible.sortedBy {
-            when {
-                isUnlocked(it) && !progress.isClaimed(it) -> 0
-                !isUnlocked(it) -> 1
-                else -> 2
-            }
-        }.map { it.id }
+    // Do odebrania na górze, potem niezdobyte, odebrane na dole – odebrana odznaka od razu zjeżdża na dół.
+    val sorted = visible.sortedBy {
+        when {
+            isUnlocked(it) && !progress.isClaimed(it) -> 0
+            !isUnlocked(it) -> 1
+            else -> 2
+        }
     }
-    val sorted = order.mapNotNull { id -> visible.firstOrNull { it.id == id } }
     val unlockedCount = visible.count { isUnlocked(it) }
     val percent = if (visible.isEmpty()) 0 else unlockedCount * 100 / visible.size
     ScreenFrame(stringResource(R.string.achievements_title), onBack) {
@@ -119,8 +125,24 @@ fun AchievementsScreen(onBack: () -> Unit) {
             items(sorted, key = { it.id }) { a ->
                 val unlocked = isUnlocked(a)
                 val claimed = progress.isClaimed(a)
+                // Odebrana na tym ekranie: zjeżdżając na dół, karta lekko się przechyla i wraca do pionu.
+                val tilt = remember { Animatable(0f) }
+                val claimedAtStart = remember { claimed }
+                LaunchedEffect(claimed) {
+                    if (claimed && !claimedAtStart) {
+                        tilt.animateTo(CLAIM_TILT, tween(CLAIM_SLIDE_MILLIS / 3))
+                        tilt.animateTo(0f, tween(CLAIM_SLIDE_MILLIS * 2 / 3, easing = FastOutSlowInEasing))
+                    }
+                }
                 // Karta bez przycisku też jest przystankiem strzałek – inaczej z klawiatury lista by się nie przewijała.
-                DarkCard(Modifier.fillMaxWidth().then(if (unlocked && !claimed) Modifier else Modifier.keyStop()), highlight = unlocked && !claimed) {
+                DarkCard(
+                    Modifier
+                        .animateItem(placementSpec = tween(CLAIM_SLIDE_MILLIS, easing = FastOutSlowInEasing))
+                        .graphicsLayer { rotationZ = tilt.value }
+                        .fillMaxWidth()
+                        .then(if (unlocked && !claimed) Modifier else Modifier.keyStop()),
+                    highlight = unlocked && !claimed,
+                ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(Modifier.widthIn(min = px(30)), contentAlignment = Alignment.Center) {
                             SpriteImage(a.icon, 2, alpha = if (unlocked) 1f else 0.45f)
@@ -140,9 +162,14 @@ fun AchievementsScreen(onBack: () -> Unit) {
                             unlocked -> PixelButton(
                                 text = "",
                                 onClick = {
+                                    // Lista zostaje w miejscu – bez tego pozycja trzyma się klucza pierwszej karty
+                                    // i jechałaby za odebraną odznaką na sam dół.
+                                    val index = list.firstVisibleItemIndex
+                                    val offset = list.firstVisibleItemScrollOffset
                                     if (progress.claim(a) > 0) {
                                         services.audio.play(Sfx.COIN)
                                         repo.changed()
+                                        list.requestScrollToItem(index, offset)
                                     }
                                 },
                                 style = ButtonStyle.GREEN,
