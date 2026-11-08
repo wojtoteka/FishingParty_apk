@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Catalog
@@ -254,7 +256,9 @@ fun GameScreen(
     LaunchedEffect(world) {
         audio.play(Sfx.START)
         var last = 0L
+        var held = false
         while (isActive) {
+            var idle = false
             withFrameNanos { now ->
                 if (stick.active && stick.joystick) {
                     // Joystick: baza stoi w miejscu, gałka w środku zatrzymuje łódź.
@@ -284,10 +288,18 @@ fun GameScreen(
                 } else {
                     world.setInput(stick.active && stick.engaged, stick.angle)
                 }
-                world.paused = paused || welcome || outcome != null
+                val frozen = paused || welcome || outcome != null
+                world.paused = frozen
                 if (last != 0L) world.advance(min((now - last) / 1e9f, 0.1f))
                 last = now
-                frame.longValue = now
+                // Zatrzymany świat wygląda cały czas tak samo – zmienić się może tylko joystick pod palcem z jazdy.
+                if (!frozen || stick.active || held) frame.longValue = now
+                held = stick.active
+                idle = frozen && !stick.active
+            }
+            if (idle) {
+                snapshotFlow { paused || welcome || outcome != null }.first { !it }
+                last = 0L
             }
         }
     }
