@@ -171,7 +171,7 @@ fun MapScreen(onBack: () -> Unit, onSelect: (Int) -> Unit) {
                 canvas.save()
                 canvas.scale(s, s)
                 canvas.translate(-camX, -camY)
-                tiles.draw(
+                tiles.drawCached(
                     canvas, map.grid, camX, camY, viewW, viewH, t,
                     tilesForRow = { r -> Sprites.tiles(Worlds.theme(map.worldOfRow(r))) },
                     doorOpen = { r -> map.isGateOpen(r, current) },

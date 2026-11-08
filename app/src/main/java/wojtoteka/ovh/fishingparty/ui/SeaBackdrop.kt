@@ -191,7 +191,7 @@ fun SeaBackdrop(world: Int, modifier: Modifier = Modifier, ship: ShipLook? = nul
             canvas.save()
             canvas.scale(s, s)
             canvas.translate(-camX, -camY)
-            tiles.draw(canvas, Backdrop.grid, camX, camY, viewW, viewH, t, { tileSet }, { false })
+            tiles.drawCached(canvas, Backdrop.grid, camX, camY, viewW, viewH, t, { tileSet }, { false })
             val loop = Backdrop.ROWS * TILE
             for (f in Backdrop.fish) {
                 val baseY = f.row * TILE + 8f
