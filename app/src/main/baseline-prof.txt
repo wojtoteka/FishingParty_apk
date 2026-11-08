@@ -1,5 +1,23 @@
-# Profil kompilacji: cały kod gry (pakiet wojtoteka.ovh.fishingparty) kompilowany z wyprzedzeniem
-# przy instalacji, a nie dopiero w trakcie działania – menu, sklep i listy są płynne od pierwszego
-# uruchomienia. Biblioteki Compose mają własne profile, dołączane automatycznie.
-HSPLwojtoteka/ovh/fishingparty/**->**(**)**
+# Baseline Profile: kod gry kompilowany przy instalacji, a nie dopiero w trakcie pierwszych minut grania.
+# Biblioteki Compose dokładają własne profile, tu jest tylko kod aplikacji.
+
+# Start aplikacji i pierwszy ekran.
+HSPLwojtoteka/ovh/fishingparty/FishingPartyApp;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/MainActivity;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/ui/AppRootKt**;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/ui/MenuScreenKt**;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/ui/SeaBackdropKt**;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/ui/KitKt**;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/data/**;->**(**)**
+HSPLwojtoteka/ovh/fishingparty/gfx/**;->**(**)**
+
+# Rozgrywka i rysowanie.
+HPLwojtoteka/ovh/fishingparty/game/**;->**(**)**
+HPLwojtoteka/ovh/fishingparty/level/**;->**(**)**
+HPLwojtoteka/ovh/fishingparty/ui/GameScreenKt**;->**(**)**
+HPLwojtoteka/ovh/fishingparty/ui/MapScreenKt**;->**(**)**
+HPLwojtoteka/ovh/fishingparty/ui/ShopScreenKt**;->**(**)**
+HPLwojtoteka/ovh/fishingparty/ui/CommonKt**;->**(**)**
+
+# Klasy całej aplikacji ładowane z obrazu zamiast z pliku dex.
 Lwojtoteka/ovh/fishingparty/**;
