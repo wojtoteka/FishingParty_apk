@@ -3,6 +3,10 @@ package wojtoteka.ovh.fishingparty.ui
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import android.graphics.Bitmap
+import android.graphics.BitmapShader
+import android.graphics.Matrix
+import android.graphics.Paint
+import android.graphics.Shader
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
@@ -42,6 +46,7 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.input.InputMode
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalDensity
@@ -308,17 +313,15 @@ fun DrawScope.drawSprite(image: ImageBitmap, topLeft: Offset, k: Float, alpha: F
     }
 }
 
-/** Kafelek powtarzany jako tekstura tła. */
-fun DrawScope.drawTiled(image: ImageBitmap, k: Float, alpha: Float = 1f) {
-    val step = image.width * k
-    var y = 0f
-    while (y < size.height) {
-        var x = 0f
-        while (x < size.width) {
-            drawSprite(image, Offset(x, y), k, alpha)
-            x += step
-        }
-        y += step
+/** Farba powtarzająca kafelek w skali [k] od punktu ([origin], [origin]) – całe tło to jeden prostokąt. */
+private fun tiledPaint(tile: Bitmap, k: Float, origin: Float) = Paint().apply {
+    isFilterBitmap = false
+    isAntiAlias = false
+    shader = BitmapShader(tile, Shader.TileMode.REPEAT, Shader.TileMode.REPEAT).apply {
+        setLocalMatrix(Matrix().apply {
+            setScale(k, k)
+            postTranslate(origin, origin)
+        })
     }
 }
 
@@ -494,19 +497,14 @@ fun ButtonRow(modifier: Modifier = Modifier, gap: Int = 3, content: @Composable 
 @Composable
 fun PixelPanel(modifier: Modifier = Modifier, scrollable: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     val u = LocalUnit.current.toFloat()
-    val sand = rememberSprite("tiles/sunny_bay/sandfull")
+    val inset = 3 * u
+    val sand = remember(u) { tiledPaint(Sprites.get("tiles/sunny_bay/sandfull"), u, inset) }
     val scroll = rememberScrollState()
     Column(
         modifier = modifier
             .drawBehind {
                 pixelBox(u, Pal.WoodDark, Pal.WoodLight, Pal.WoodDark, shadow = 0f)
-                val inset = 3 * u
-                drawContext.canvas.save()
-                drawContext.canvas.clipRect(inset, inset, size.width - inset, size.height - inset)
-                drawContext.transform.translate(inset, inset)
-                drawTiled(sand, u)
-                drawContext.transform.translate(-inset, -inset)
-                drawContext.canvas.restore()
+                drawContext.canvas.nativeCanvas.drawRect(inset, inset, size.width - inset, size.height - inset, sand)
             }
             // Ramka stoi w miejscu, przewija się tylko zawartość.
             .then(if (scrollable) Modifier.keyScroll(scroll).verticalScroll(scroll) else Modifier)
