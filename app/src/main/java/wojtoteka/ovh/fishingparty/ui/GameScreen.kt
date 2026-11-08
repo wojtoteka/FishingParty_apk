@@ -318,7 +318,7 @@ fun GameScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, attempt) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE && outcome == null) paused = true
+            if (event == Lifecycle.Event.ON_PAUSE && outcome == null && !welcome) paused = true
         }
         lifecycle.addObserver(observer)
         onDispose {
