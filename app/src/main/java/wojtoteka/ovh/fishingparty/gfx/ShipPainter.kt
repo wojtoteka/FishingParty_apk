@@ -251,27 +251,46 @@ class ShipPainter {
     private val fill = Paint().apply { isAntiAlias = false }
     private val rect = RectF()
 
+    /** Części łodzi trzymane między klatkami – rysowanie nie składa ścieżek do grafik ani nie parsuje żagla z kreatora. */
+    private class Parts(look: ShipLook) {
+        val hull = Sprites.boat(look.boat, "ship")
+        val hullMoving = Sprites.boat(look.boat, "ship2")
+        val top = Sprites.boat(look.boat, "shiptop")
+        val mast = Sprites.sprite("mast")
+        val sailor = Sprites.sailor(look.sailor)
+        val bands = SailStyles.bands(look.sail)
+    }
+
+    private var partsLook: ShipLook? = null
+    private var parts: Parts? = null
+
+    private fun partsOf(look: ShipLook): Parts =
+        parts?.takeIf { look == partsLook } ?: Parts(look).also {
+            parts = it
+            partsLook = look
+        }
+
     fun draw(canvas: Canvas, x: Float, y: Float, heading: Float, moving: Boolean, time: Float, look: ShipLook, alpha: Int = 255) {
         bitmapPaint.alpha = alpha
         val rotation = Math.toDegrees(heading.toDouble()).toFloat() + 90f
-        val hull = if (moving && time % 0.4f < 0.2f) Sprites.boat(look.boat, "ship2") else Sprites.boat(look.boat, "ship")
-        sprite(canvas, hull, x, y, rotation)
-        sprite(canvas, Sprites.boat(look.boat, "shiptop"), x, y - 1.6f, rotation)
+        val p = partsOf(look)
+        sprite(canvas, if (moving && time % 0.4f < 0.2f) p.hullMoving else p.hull, x, y, rotation)
+        sprite(canvas, p.top, x, y - 1.6f, rotation)
 
         // W oryginale „rotation > 180” = łódź skierowana w dół ekranu: maszt chowa się za żaglem.
         val facingDown = sin(heading) > 0f
-        if (facingDown) mastAndSailor(canvas, x, y, heading, look)
-        sail(canvas, x, y, heading, rotation, SailStyles.bands(look.sail), alpha)
-        if (!facingDown) mastAndSailor(canvas, x, y, heading, look)
+        if (facingDown) mastAndSailor(canvas, x, y, heading, p)
+        sail(canvas, x, y, heading, rotation, p.bands, alpha)
+        if (!facingDown) mastAndSailor(canvas, x, y, heading, p)
         bitmapPaint.alpha = 255
     }
 
-    private fun mastAndSailor(canvas: Canvas, x: Float, y: Float, heading: Float, look: ShipLook) {
-        sprite(canvas, Sprites.sprite("mast"), x, y - 8f, 0f)
+    private fun mastAndSailor(canvas: Canvas, x: Float, y: Float, heading: Float, p: Parts) {
+        sprite(canvas, p.mast, x, y - 8f, 0f)
         val up = -heading + PI.toFloat()
         val px = 3.2f * cos(up)
         val py = 3.2f * sin(up) + 4f
-        sprite(canvas, Sprites.sailor(look.sailor), x + px, y - py, 0f)
+        sprite(canvas, p.sailor, x + px, y - py, 0f)
     }
 
     private fun sail(canvas: Canvas, x: Float, y: Float, heading: Float, rotation: Float, bands: Array<IntArray>, alpha: Int) {
