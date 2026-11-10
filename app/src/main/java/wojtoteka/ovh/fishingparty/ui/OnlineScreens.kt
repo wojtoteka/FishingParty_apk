@@ -67,6 +67,7 @@ import kotlinx.coroutines.launch
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.online.OnlineManager
 import wojtoteka.ovh.fishingparty.online.OnlineResult
+import wojtoteka.ovh.fishingparty.online.PreviewRow
 import wojtoteka.ovh.fishingparty.online.RankingData
 import wojtoteka.ovh.fishingparty.online.RankingEntry
 import wojtoteka.ovh.fishingparty.online.RankingPreview
@@ -717,6 +718,73 @@ private fun GuestRankPreview() {
         Column(Modifier.fillMaxWidth()) {
             GuestRankText(points, RankingPreview.place(points, data.entries.map { it.points }, data.size))
         }
+    }
+}
+
+/**
+ * Jednorazowa zachęta do założenia konta (nowy gracz albo gracz bez konta po aktualizacji): po co jest konto,
+ * czołówka rankingu [top] i – gdy gracz ma już punkty – miejsce, które zająłby z kontem.
+ */
+@Composable
+fun AccountInviteDialog(top: RankingData, onAccount: () -> Unit, onClose: () -> Unit) {
+    val repo = LocalServices.current.repo
+    repo.revision.intValue
+    val points = repo.progress.rankingPoints()
+    val place = RankingPreview.place(points, top.entries.map { it.points }, top.size)
+    val rows = RankingPreview.leaders(top.entries, place, INVITE_LEADERS)
+    Overlay(onDismiss = onClose) {
+        PixelText(stringResource(R.string.invite_title), size = 4, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(5)
+        PixelText(stringResource(R.string.invite_info), size = 2, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        if (rows.isNotEmpty()) {
+            VSpace(5)
+            DarkCard(Modifier.fillMaxWidth()) {
+                Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(px(2))) {
+                    PixelText(stringResource(R.string.invite_leaders), size = 1, color = Pal.Gold)
+                    rows.forEachIndexed { i, row ->
+                        // Gość daleko za czołówką – przerwa między nią a jego miejscem.
+                        if (i > 0 && row.place > rows[i - 1].place + 1) PixelText("…", size = 1, color = Pal.Foam)
+                        InviteRow(row, points)
+                    }
+                    if (place == null && points > 0) GuestRankText(points, null)
+                }
+            }
+        }
+        VSpace(5)
+        PixelText(stringResource(R.string.invite_progress), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+        VSpace(8)
+        PixelButton(stringResource(R.string.register_button), onClick = onAccount, style = ButtonStyle.GREEN, modifier = Modifier.keyPrimary().fillMaxWidth())
+        VSpace(4)
+        PixelButton(stringResource(R.string.invite_later), onClick = onClose, style = ButtonStyle.SEA, size = 2, modifier = Modifier.fillMaxWidth())
+        VSpace(3)
+        PixelText(stringResource(R.string.invite_later_info), size = 1, color = Pal.WoodDark, outline = null, align = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+    }
+}
+
+/** Ile pierwszych miejsc rankingu pokazuje zachęta do konta. */
+private const val INVITE_LEADERS = 3
+
+/** Wiersz czołówki w zachęcie do konta – gracz z rankingu albo gość na miejscu, które zająłby z kontem. */
+@Composable
+private fun InviteRow(row: PreviewRow, guestPoints: Long) {
+    val e = row.entry
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.widthIn(min = px(24))) {
+            PixelText(
+                "#${row.place}",
+                size = 2,
+                color = when {
+                    e == null -> Pal.Sand
+                    row.place == 1 -> Pal.Gold
+                    row.place == 2 -> Pal.GreyLight
+                    row.place == 3 -> Pal.WoodLight
+                    else -> Pal.SeaLight
+                },
+            )
+        }
+        HSpace(3)
+        PixelText(e?.nick ?: stringResource(R.string.ranking_guest_row), size = 2, color = if (e == null) Pal.Sand else Pal.White, modifier = Modifier.weight(1f))
+        PixelText((e?.points ?: guestPoints).toString(), size = 2, color = Pal.Gold)
     }
 }
 

@@ -29,6 +29,7 @@ import wojtoteka.ovh.fishingparty.level.Tournament
 import wojtoteka.ovh.fishingparty.level.Tournaments
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.online.LevelLink
+import wojtoteka.ovh.fishingparty.online.RankingData
 
 private sealed interface Screen {
     data object Menu : Screen
@@ -90,6 +91,8 @@ private fun AppContent() {
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
     // Sterowanie wybiera się raz – nowy gracz przed samouczkiem, dotychczasowy po aktualizacji.
     var chooseControls by remember { mutableStateOf(!repo.save.controlsChosen) }
+    // Jednorazowa zachęta do założenia konta z pobraną wcześniej czołówką rankingu.
+    var accountInvite by remember { mutableStateOf<RankingData?>(null) }
 
     // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
     val currentScreen by rememberUpdatedState(screen)
@@ -161,6 +164,25 @@ private fun AppContent() {
             delay(600)
             showDaily = true
         }
+    }
+
+    // Menu bez żadnego okienka (stan czytany na bieżąco, także z wnętrza efektu).
+    fun menuIdle() = screen == Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null && sharedOpen == null &&
+        !chooseControls && !tamperNotice && accountInvite == null && services.online.announcements.isEmpty() &&
+        services.online.community.pendingLink == null
+
+    // Jednorazowa zachęta do założenia konta – w wolnym menu, po ofercie passy i nagrodzie dnia.
+    LaunchedEffect(screen, intro, showDaily, showRepair, challengeDialog, sharedOpen, chooseControls, tamperNotice, announcement, link) {
+        val newcomer = !repo.save.tutorialDone && repo.progress.highestUnlocked() == 1
+        val othersFirst = (!repairOffered && repo.progress.streakRepair() != null) || (!dailyOffered && repo.progress.dailyState().available)
+        if (!menuIdle() || newcomer || othersFirst || !services.online.accountInviteDue) return@LaunchedEffect
+        // Ranking przed okienkiem: bez serwera konta i tak nie da się założyć, a z rankingiem widać czołówkę i miejsce gracza.
+        val top = services.online.ranking().getOrNull() ?: return@LaunchedEffect
+        delay(600)
+        // W międzyczasie mogło się otworzyć inne okienko (np. nagroda dnia) – zachęta poczeka, aż się zamknie.
+        if (!menuIdle() || !services.online.accountInviteDue) return@LaunchedEffect
+        services.online.accountInviteDone()
+        accountInvite = top
     }
 
     BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null && sharedOpen == null) {
@@ -299,6 +321,16 @@ private fun AppContent() {
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
         if (announcement != null && screen !is Screen.Game && !chooseControls) {
             AnnouncementDialog(announcement, onClose = { services.online.dismissAnnouncement(announcement) })
+        }
+        accountInvite?.let { top ->
+            AccountInviteDialog(
+                top,
+                onAccount = {
+                    accountInvite = null
+                    screen = Screen.Account
+                },
+                onClose = { accountInvite = null },
+            )
         }
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {

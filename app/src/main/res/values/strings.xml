@@ -687,6 +687,12 @@
     <string name="ranking_guest_preview_points">With an account: %d ranking points (outside the top 100 for now).</string>
     <string name="ranking_guest_row">YOU (NO ACCOUNT)</string>
     <string name="ranking_guest_row_info">Your place after creating an account</string>
+    <string name="invite_title">JOIN THE RANKING!</string>
+    <string name="invite_info">Players with an account compete in the online ranking, the season ranking and weekend tournaments. Create an account and join them!</string>
+    <string name="invite_leaders">TOP OF THE RANKING</string>
+    <string name="invite_progress">An account also saves your progress – after changing your phone or reinstalling the game just log in. A nickname alone is enough to start.</string>
+    <string name="invite_later">NOT NOW</string>
+    <string name="invite_later_info">You can also create an account later in the menu: ACCOUNT.</string>
     <string name="set_section_legal">DOCUMENTS</string>
     <string name="set_privacy">PRIVACY POLICY</string>
     <string name="set_terms">TERMS</string>

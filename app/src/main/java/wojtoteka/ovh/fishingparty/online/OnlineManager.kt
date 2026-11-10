@@ -170,6 +170,18 @@ class OnlineManager(
     /** Ogłoszenia „przy każdym uruchomieniu” zamknięte od startu gry (po kolejnym uruchomieniu wracają). */
     private val shownThisLaunch = mutableSetOf<String>()
 
+    /**
+     * Zachęta do założenia konta czeka na pokazanie: gracz nie ma konta, a ten telefon jeszcze jej nie pokazał.
+     * Widzi ją raz każdy nowy gracz i każdy gracz bez konta po aktualizacji ze starszej wersji. Znacznik zostaje
+     * w telefonie, więc kolejne aktualizacje jej nie powtarzają – wraca dopiero po odinstalowaniu gry.
+     */
+    val accountInviteDue: Boolean get() = configured && !store.loggedIn && !launchPrefs.getBoolean(KEY_ACCOUNT_INVITE, false)
+
+    /** Zachęta pokazana albo gracz ma już konto – więcej się nie pojawi (także po wylogowaniu). */
+    fun accountInviteDone() {
+        if (!launchPrefs.getBoolean(KEY_ACCOUNT_INVITE, false)) launchPrefs.edit { putBoolean(KEY_ACCOUNT_INVITE, true) }
+    }
+
     /** Gra właśnie się uruchomiła – najbliższe udane sprawdzenie liczy się w statystykach jako uruchomienie. */
     private var newSession = true
     private var backgroundAt = 0L
@@ -180,6 +192,7 @@ class OnlineManager(
     init {
         if (store.loggedIn) {
             account = AccountInfo(store.nick, store.email, 0, null, false, 0, store.hasPassword)
+            accountInviteDone()
         }
         repo.onChanged = ::onLocalChange
         val cm = appContext.getSystemService(ConnectivityManager::class.java)
@@ -477,6 +490,7 @@ class OnlineManager(
         store.dirty = true
         repo.rememberSynced(null)
         applyProfile(profile)
+        accountInviteDone()
         val snapshot = res.optJSONObject("snapshot")
         val remote = snapshot?.optBoolean("exists") == true
         when {
@@ -1113,6 +1127,7 @@ class OnlineManager(
         private const val LAUNCH_PREFS = "launch"
         private const val KEY_SEEN = "seen_announcements"
         private const val KEY_STICKY = "sticky_announcements"
+        private const val KEY_ACCOUNT_INVITE = "account_invite_shown"
 
         /** Po takiej przerwie w tle powrót do gry liczy się jak nowe uruchomienie. */
         private const val NEW_SESSION_MS = 30 * 60_000L

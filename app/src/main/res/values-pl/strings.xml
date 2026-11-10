@@ -695,6 +695,12 @@
     <string name="ranking_guest_preview_points">Z kontem: %d pkt rankingowych (na razie poza top 100).</string>
     <string name="ranking_guest_row">TY (BEZ KONTA)</string>
     <string name="ranking_guest_row_info">Twoje miejsce po założeniu konta</string>
+    <string name="invite_title">DOŁĄCZ DO RANKINGU!</string>
+    <string name="invite_info">Gracze z kontem rywalizują w rankingu online, w rankingu sezonowym i w turniejach weekendowych. Załóż konto i dołącz do nich!</string>
+    <string name="invite_leaders">CZOŁÓWKA RANKINGU</string>
+    <string name="invite_progress">Konto zapisuje też twój postęp – po zmianie telefonu albo reinstalacji gry wystarczy się zalogować. Na start wystarczy sam nick.</string>
+    <string name="invite_later">NIE TERAZ</string>
+    <string name="invite_later_info">Konto założysz też później w menu: KONTO.</string>
     <string name="set_section_legal">DOKUMENTY</string>
     <string name="set_privacy">POLITYKA PRYWATNOŚCI</string>
     <string name="set_terms">REGULAMIN</string>
