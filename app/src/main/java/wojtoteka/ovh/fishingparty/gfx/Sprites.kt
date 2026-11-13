@@ -5,9 +5,11 @@ import android.content.res.AssetManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
+import android.util.Log
 import androidx.core.content.res.ResourcesCompat
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.level.Worlds
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Wszystkie grafiki gry to oryginalne sprity (i ich przemalowane wersje)
@@ -16,8 +18,10 @@ import wojtoteka.ovh.fishingparty.level.Worlds
  */
 object Sprites {
     private lateinit var assets: AssetManager
-    private val cache = HashMap<String, Bitmap>()
-    private val tileSets = HashMap<String, TileSet>()
+
+    // Współbieżne: palety wczytują się w tle ([preloadTiles]), a rysowanie sięga po nie z głównego wątku.
+    private val cache = ConcurrentHashMap<String, Bitmap>()
+    private val tileSets = ConcurrentHashMap<String, TileSet>()
     lateinit var font: Typeface
         private set
 
@@ -40,8 +44,13 @@ object Sprites {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap>) = size > 48
     }
 
-    fun get(path: String): Bitmap = cache[path] ?: ownBoats[path] ?: ownBoat(path)?.also { ownBoats[path] = it }
+    fun get(path: String): Bitmap = cache[path] ?: cachedOwnBoat(path)
         ?: sandTile(path)?.also { cache[path] = it } ?: load(path).also { cache[path] = it }
+
+    private fun cachedOwnBoat(path: String): Bitmap? {
+        synchronized(ownBoats) { ownBoats[path] }?.let { return it }
+        return ownBoat(path)?.also { synchronized(ownBoats) { ownBoats[path] = it } }
+    }
 
     /** Łódź z kreatora („sprites/boats/own-RRGGBB/część”): klasyczny kadłub w odcieniach wybranego koloru. */
     private fun ownBoat(path: String): Bitmap? {
@@ -95,6 +104,15 @@ object Sprites {
     fun sailor(id: String): Bitmap = get("sprites/sailors/$id")
 
     fun tiles(theme: String): TileSet = tileSets.getOrPut(theme) { TileSet(theme) }
+
+    /** Dekoduje z góry wszystkie palety, żeby przewijanie mapy nie robiło tego w trakcie rysowania (wołać poza głównym wątkiem). */
+    fun preloadTiles() {
+        try {
+            (Worlds.THEMES + Worlds.FINALE_THEME).forEach(::tiles)
+        } catch (e: Exception) {
+            Log.w("FishingParty", "Nie można wczytać palet z góry", e)
+        }
+    }
 }
 
 class TileSet(private val theme: String) {

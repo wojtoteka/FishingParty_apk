@@ -10,6 +10,8 @@ import android.security.keystore.KeyProperties
 import android.util.Log
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.security.KeyStore
 import java.security.SecureRandom
@@ -178,7 +180,7 @@ class GameRepository(context: Context) {
      * @return false, gdy telefon nie zna ostatniego wspólnego zapisu (wtedy gracz wybiera, który zostaje)
      * @throws Exception gdy dane z konta są uszkodzone – wtedy lokalny zapis zostaje bez zmian
      */
-    fun mergeSnapshot(bytes: ByteArray): Boolean {
+    suspend fun mergeSnapshot(bytes: ByteArray): Boolean {
         val base = syncedSnapshot() ?: return false
         replace(SaveMerge.merge(base, save, SaveCodec.decode(bytes)))
         return true
@@ -195,14 +197,15 @@ class GameRepository(context: Context) {
         }
     }
 
-    private fun syncedSnapshot(): SaveData? = io.submit<SaveData?> {
+    /** W kolejce [io], czyli po czekających [rememberSynced]; główny wątek w tym czasie nie stoi. */
+    private suspend fun syncedSnapshot(): SaveData? = withContext(io.asCoroutineDispatcher()) {
         try {
             if (synced.exists()) SaveCodec.decode(crypto.open(synced.readBytes())) else null
         } catch (e: Exception) {
             Log.w("FishingParty", "Nie można odczytać zapisu z konta", e)
             null
         }
-    }.get()
+    }
 
     private fun replace(restored: SaveData) {
         save = restored

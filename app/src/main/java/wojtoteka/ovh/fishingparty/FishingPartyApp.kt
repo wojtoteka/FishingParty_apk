@@ -6,6 +6,7 @@ import wojtoteka.ovh.fishingparty.data.GameRepository
 import wojtoteka.ovh.fishingparty.data.LevelDrafts
 import wojtoteka.ovh.fishingparty.gfx.Sprites
 import wojtoteka.ovh.fishingparty.online.OnlineManager
+import kotlin.concurrent.thread
 
 class FishingPartyApp : Application() {
     lateinit var repository: GameRepository
@@ -25,6 +26,7 @@ class FishingPartyApp : Application() {
     override fun onCreate() {
         super.onCreate()
         Sprites.init(this)
+        thread(name = "sprites", priority = Thread.MIN_PRIORITY) { Sprites.preloadTiles() }
         repository = GameRepository(this)
         drafts = LevelDrafts(filesDir)
         audio = AudioEngine(this).apply {

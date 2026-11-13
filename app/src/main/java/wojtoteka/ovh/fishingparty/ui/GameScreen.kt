@@ -30,6 +30,7 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,6 +51,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.data.Catalog
@@ -72,6 +74,7 @@ import wojtoteka.ovh.fishingparty.level.LevelConstants
 import wojtoteka.ovh.fishingparty.level.LevelGenerator
 import wojtoteka.ovh.fishingparty.level.LevelType
 import wojtoteka.ovh.fishingparty.level.RunResult
+import wojtoteka.ovh.fishingparty.level.Tournament
 import wojtoteka.ovh.fishingparty.level.UserLevel
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.level.Worlds
@@ -124,24 +127,27 @@ fun GameScreen(
     tutorial: Boolean = false,
     challenge: Challenge? = null,
     custom: CustomRun? = null,
+    tournament: Tournament? = null,
     onExit: (GameExit) -> Unit,
 ) {
     val services = LocalServices.current
     val repo = services.repo
     val audio = services.audio
     // Samouczek to osobny poziom (dwa etapy: ryby, potem potwory) – nie liczy się do wyników.
-    // Poziom dnia/tygodnia powstaje z seeda z serwera.
-    val plan = remember(level, tutorial, challenge, custom) {
+    // Poziom dnia/tygodnia i turniej powstają z seeda z serwera.
+    val plan = remember(level, tutorial, challenge, custom, tournament) {
         when {
             tutorial -> LevelGenerator.tutorialPlan()
             custom != null -> UserLevels.build(custom.level, custom.fromStage).plan
             challenge != null -> challenge.plan()
+            tournament != null -> tournament.plan()
             else -> LevelGenerator.plan(level)
         }
     }
     val title = when {
         custom != null -> custom.title
         challenge != null -> challengeTitle(challenge.kind)
+        tournament != null -> tournamentTitle(tournament)
         else -> stringResource(R.string.level_n, level)
     }
     val layout = remember(plan, attempt) {
@@ -180,6 +186,8 @@ fun GameScreen(
                 CustomMode.SHARED -> Unit
             }
             challenge != null -> reward = repo.progress.applyChallenge(result, plan, challenge)
+            // Lepszy wynik turnieju leci na serwer od razu (repo.changed – synchronizacja), słabszy tylko daje monety.
+            tournament != null -> reward = repo.progress.applyTournament(result, plan, tournament)
             else -> reward = repo.progress.applyRun(result, plan)
         }
         repo.changed()
@@ -230,7 +238,8 @@ fun GameScreen(
         finaleStages = if (finale) Worlds.FINALE_STAGE_WORLDS.map { worldNames[it].uppercase() } else emptyList(),
         spotted = stringResource(R.string.hud_spotted),
         levelTag = custom?.title?.take(CUSTOM_TAG)
-            ?: challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) },
+            ?: challenge?.let { stringResource(if (it.kind == ChallengeKind.DAILY) R.string.hud_daily else R.string.hud_weekly) }
+            ?: tournament?.let { stringResource(R.string.hud_tournament) },
     )
     val look = ShipLook(repo.save.boat, repo.save.sail, repo.save.sailor)
     val renderer = remember(attempt) { GameRenderer(hud, look) }
@@ -247,7 +256,9 @@ fun GameScreen(
     LaunchedEffect(world) {
         audio.play(Sfx.START)
         var last = 0L
+        var held = false
         while (isActive) {
+            var idle = false
             withFrameNanos { now ->
                 if (stick.active && stick.joystick) {
                     // Joystick: baza stoi w miejscu, gałka w środku zatrzymuje łódź.
@@ -277,10 +288,18 @@ fun GameScreen(
                 } else {
                     world.setInput(stick.active && stick.engaged, stick.angle)
                 }
-                world.paused = paused || welcome || outcome != null
+                val frozen = paused || welcome || outcome != null
+                world.paused = frozen
                 if (last != 0L) world.advance(min((now - last) / 1e9f, 0.1f))
                 last = now
-                frame.longValue = now
+                // Zatrzymany świat wygląda cały czas tak samo – zmienić się może tylko joystick pod palcem z jazdy.
+                if (!frozen || stick.active || held) frame.longValue = now
+                held = stick.active
+                idle = frozen && !stick.active
+            }
+            if (idle) {
+                snapshotFlow { paused || welcome || outcome != null }.first { !it }
+                last = 0L
             }
         }
     }
@@ -299,7 +318,7 @@ fun GameScreen(
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(lifecycle, attempt) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_PAUSE && outcome == null) paused = true
+            if (event == Lifecycle.Event.ON_PAUSE && outcome == null && !welcome) paused = true
         }
         lifecycle.addObserver(observer)
         onDispose {
@@ -386,12 +405,13 @@ fun GameScreen(
         when {
             current != null && current.result.completed && tutorial -> TutorialDonePanel(onExit)
             current != null && current.result.completed && custom != null -> CustomWinPanel(custom, title, current.result, reward, playAt, onExit)
-            current != null && current.result.completed -> WinPanel(level, title, challenge != null, current.result, reward, onExit)
+            current != null && current.result.completed -> WinPanel(level, title, challenge != null, current.result, reward, onExit, tournament = tournament != null)
             current != null -> LosePanel(
                 level = level,
                 title = title,
                 challenge = challenge != null,
                 custom = custom,
+                tournament = tournament != null,
                 world = world,
                 outcome = current,
                 onRevive = {
@@ -409,6 +429,7 @@ fun GameScreen(
                 title = title,
                 challenge = challenge != null,
                 custom = custom,
+                tournament = tournament != null,
                 tutorial = tutorial,
                 world = world,
                 onResume = { paused = false },
@@ -421,9 +442,17 @@ fun GameScreen(
 }
 
 @Composable
-private fun WinPanel(level: Int, title: String, challenge: Boolean, result: RunResult, reward: Reward?, onExit: (GameExit) -> Unit) {
+private fun WinPanel(
+    level: Int,
+    title: String,
+    challenge: Boolean,
+    result: RunResult,
+    reward: Reward?,
+    onExit: (GameExit) -> Unit,
+    tournament: Boolean = false,
+) {
     val audio = LocalServices.current.audio
-    val finale = !challenge && LevelGenerator.isFinale(level)
+    val finale = !challenge && !tournament && LevelGenerator.isFinale(level)
     var shownStars by remember { mutableIntStateOf(0) }
     var shownScore by remember { mutableIntStateOf(0) }
     LaunchedEffect(result) {
@@ -474,7 +503,9 @@ private fun WinPanel(level: Int, title: String, challenge: Boolean, result: RunR
         PixelText(stringResource(R.string.result_score), size = 2, color = Pal.Outline, outline = null)
         PixelText(shownScore.toString(), size = 5)
         if (reward?.newBest == true && shownScore == result.score) {
-            PixelText(stringResource(R.string.result_new_best), size = 2, color = Pal.Red)
+            PixelText(stringResource(if (tournament) R.string.tournament_new_best else R.string.result_new_best), size = 2, color = Pal.Red)
+        } else if (tournament && reward != null && reward.tournamentBest > 0) {
+            PixelText(stringResource(R.string.tournament_my_best, reward.tournamentBest), size = 2, color = Pal.Outline, outline = null)
         }
         VSpace(5)
         if (reward != null && reward.finaleBonus > 0) {
@@ -509,7 +540,21 @@ private fun WinPanel(level: Int, title: String, challenge: Boolean, result: RunR
             PixelText(stringResource(R.string.result_rejected), size = 1, color = Pal.Red, align = TextAlign.Center)
         }
         VSpace(8)
-        if (challenge) {
+        if (tournament) {
+            // W turnieju prób jest dowolnie wiele – można od razu powalczyć o lepszy wynik.
+            PixelButton(
+                stringResource(R.string.retry),
+                onClick = { onExit(GameExit.Retry(level)) },
+                style = ButtonStyle.CRIMSON,
+                size = 4,
+                modifier = Modifier.keyPrimary().fillMaxWidth(),
+            )
+            VSpace(4)
+            ButtonRow(gap = 3) {
+                PixelButton(stringResource(R.string.tournament_screen), onClick = { onExit(GameExit.ToMap) }, style = ButtonStyle.WOOD, size = 2)
+                PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.WOOD, size = 2)
+            }
+        } else if (challenge) {
             // Poziom dnia/tygodnia zalicza się raz – po wygranej tylko powrót do menu.
             PixelButton(stringResource(R.string.main_menu), onClick = { onExit(GameExit.ToMenu) }, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.fillMaxWidth())
         } else {
@@ -575,6 +620,7 @@ private fun LosePanel(
     outcome: Outcome,
     onRevive: () -> Unit,
     onExit: (GameExit) -> Unit,
+    tournament: Boolean = false,
 ) {
     val services = LocalServices.current
     val repo = services.repo
@@ -626,9 +672,14 @@ private fun LosePanel(
             }
             VSpace(4)
         }
-        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
+        ExitButtons(stringResource(R.string.retry), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = backText(custom, tournament))
     }
 }
+
+/** Napis przycisku powrotu: z turnieju – na ekran turnieju, z poziomu z kreatora – jak [customBack]. */
+@Composable
+private fun backText(custom: CustomRun?, tournament: Boolean): String? =
+    if (tournament) stringResource(R.string.tournament_screen) else customBack(custom)
 
 /** Napis przycisku powrotu z poziomu z kreatora: do kreatora albo do poziomów graczy (poziom z linku wraca przez MENU). */
 @Composable
@@ -648,6 +699,7 @@ private fun PausePanel(
     world: GameWorld,
     onResume: () -> Unit,
     onExit: (GameExit) -> Unit,
+    tournament: Boolean = false,
 ) {
     val services = LocalServices.current
     val repo = services.repo
@@ -696,7 +748,7 @@ private fun PausePanel(
         VSpace(8)
         PixelButton(stringResource(R.string.resume), onClick = onResume, style = ButtonStyle.GREEN, size = 4, modifier = Modifier.keyPrimary().fillMaxWidth())
         VSpace(4)
-        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = customBack(custom))
+        ExitButtons(stringResource(R.string.restart), level, onExit, showMap = !challenge && custom?.mode != CustomMode.SHARED, backText = backText(custom, tournament))
     }
 }
 

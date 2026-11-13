@@ -52,7 +52,7 @@ import wojtoteka.ovh.fishingparty.R
 import wojtoteka.ovh.fishingparty.gfx.ShipLook
 import wojtoteka.ovh.fishingparty.level.Worlds
 
-enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL, COMMUNITY, CREATOR }
+enum class Destination { MAP, SHOP, ACHIEVEMENTS, RANKING, ACCOUNT, SETTINGS, DAILY, REPAIR, DAILY_LEVEL, WEEKLY_LEVEL, COMMUNITY, CREATOR, TOURNAMENT }
 
 @Composable
 fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
@@ -208,6 +208,8 @@ fun MenuScreen(onPlay: (Int) -> Unit, onOpen: (Destination) -> Unit) {
                     ChallengeButton(ChallengeKind.DAILY, onClick = { onOpen(Destination.DAILY_LEVEL) })
                     ChallengeButton(ChallengeKind.WEEKLY, onClick = { onOpen(Destination.WEEKLY_LEVEL) })
                 }
+                // Turniej weekendowy (od wersji 2.5) – ogłasza go serwer, ranking turnieju i nagrody za miejsca.
+                TournamentButton(onClick = { onOpen(Destination.TOURNAMENT) }, modifier = Modifier.fillMaxWidth())
             }
             Box(Modifier.weight(0.5f))
             VSpace(BOTTOM_GAP)

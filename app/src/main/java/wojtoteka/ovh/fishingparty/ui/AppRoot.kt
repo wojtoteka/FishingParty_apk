@@ -25,8 +25,11 @@ import wojtoteka.ovh.fishingparty.game.Sfx
 import wojtoteka.ovh.fishingparty.level.Challenge
 import wojtoteka.ovh.fishingparty.level.ChallengeKind
 import wojtoteka.ovh.fishingparty.level.Challenges
+import wojtoteka.ovh.fishingparty.level.Tournament
+import wojtoteka.ovh.fishingparty.level.Tournaments
 import wojtoteka.ovh.fishingparty.level.UserLevels
 import wojtoteka.ovh.fishingparty.online.LevelLink
+import wojtoteka.ovh.fishingparty.online.RankingData
 
 private sealed interface Screen {
     data object Menu : Screen
@@ -38,6 +41,7 @@ private sealed interface Screen {
     data object Settings : Screen
     data object Community : Screen
     data object Creator : Screen
+    data object WeekendTournament : Screen
     data class Editor(val draftId: String) : Screen
     data class Game(
         val level: Int,
@@ -48,6 +52,8 @@ private sealed interface Screen {
         val challenge: Challenge? = null,
         /** Poziom z kreatora (test, przejście przed publikacją albo poziom gracza). */
         val custom: CustomRun? = null,
+        /** Poziom turnieju weekendowego. */
+        val tournament: Tournament? = null,
     ) : Screen
 }
 
@@ -85,6 +91,8 @@ private fun AppContent() {
     var tamperNotice by remember { mutableStateOf(repo.saveWasTampered) }
     // Sterowanie wybiera się raz – nowy gracz przed samouczkiem, dotychczasowy po aktualizacji.
     var chooseControls by remember { mutableStateOf(!repo.save.controlsChosen) }
+    // Jednorazowa zachęta do założenia konta z pobraną wcześniej czołówką rankingu.
+    var accountInvite by remember { mutableStateOf<RankingData?>(null) }
 
     // Zapis z konta (zmieniony na innym telefonie) podmieniamy tylko poza rozgrywką.
     val currentScreen by rememberUpdatedState(screen)
@@ -109,14 +117,14 @@ private fun AppContent() {
         screen = Screen.Game(UserLevels.LEVEL_NUMBER, Loadout(), attempts, custom = run)
     }
 
-    fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null) {
+    fun start(level: Int, selection: Set<PowerUp>, challenge: Challenge? = null, tournament: Tournament? = null) {
         lastSelection = selection
         val loadout = repo.progress.consume(selection)
         repo.changed()
         attempts++
         intro = null
         challengeDialog = null
-        screen = Screen.Game(level, loadout, attempts, challenge = challenge)
+        screen = Screen.Game(level, loadout, attempts, challenge = challenge, tournament = tournament)
     }
 
     // Ogłoszenie z panelu serwera (pierwsze z niezamkniętych) – poza rozgrywką i po wyborze sterowania.
@@ -158,6 +166,25 @@ private fun AppContent() {
         }
     }
 
+    // Menu bez żadnego okienka (stan czytany na bieżąco, także z wnętrza efektu).
+    fun menuIdle() = screen == Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null && sharedOpen == null &&
+        !chooseControls && !tamperNotice && accountInvite == null && services.online.announcements.isEmpty() &&
+        services.online.community.pendingLink == null
+
+    // Jednorazowa zachęta do założenia konta – w wolnym menu, po ofercie passy i nagrodzie dnia.
+    LaunchedEffect(screen, intro, showDaily, showRepair, challengeDialog, sharedOpen, chooseControls, tamperNotice, announcement, link) {
+        val newcomer = !repo.save.tutorialDone && repo.progress.highestUnlocked() == 1
+        val othersFirst = (!repairOffered && repo.progress.streakRepair() != null) || (!dailyOffered && repo.progress.dailyState().available)
+        if (!menuIdle() || newcomer || othersFirst || !services.online.accountInviteDue) return@LaunchedEffect
+        // Ranking przed okienkiem: bez serwera konta i tak nie da się założyć, a z rankingiem widać czołówkę i miejsce gracza.
+        val top = services.online.ranking().getOrNull() ?: return@LaunchedEffect
+        delay(600)
+        // W międzyczasie mogło się otworzyć inne okienko (np. nagroda dnia) – zachęta poczeka, aż się zamknie.
+        if (!menuIdle() || !services.online.accountInviteDue) return@LaunchedEffect
+        services.online.accountInviteDone()
+        accountInvite = top
+    }
+
     BackHandler(enabled = screen !is Screen.Game && screen != Screen.Menu && intro == null && !showDaily && !showRepair && challengeDialog == null && sharedOpen == null) {
         screen = Screen.Menu
     }
@@ -181,6 +208,7 @@ private fun AppContent() {
                         Destination.WEEKLY_LEVEL -> challengeDialog = ChallengeKind.WEEKLY
                         Destination.COMMUNITY -> screen = Screen.Community
                         Destination.CREATOR -> screen = Screen.Creator
+                        Destination.TOURNAMENT -> screen = Screen.WeekendTournament
                     }
                 },
             )
@@ -189,6 +217,11 @@ private fun AppContent() {
             Screen.Achievements -> AchievementsScreen(onBack = { screen = Screen.Menu })
             Screen.Ranking -> RankingScreen(onBack = { screen = Screen.Menu }, onAccount = { screen = Screen.Account })
             Screen.Account -> AccountScreen(onBack = { screen = Screen.Menu })
+            Screen.WeekendTournament -> TournamentScreen(
+                onBack = { screen = Screen.Menu },
+                onPlay = { t, selection -> start(Tournaments.LEVEL_NUMBER, selection, tournament = t) },
+                onAccount = { screen = Screen.Account },
+            )
             Screen.Settings -> SettingsScreen(
                 onBack = { screen = Screen.Menu },
                 // Powtórka samouczka nie zmienia zapisu – wyjście w połowie nie wymusza go przy kolejnym starcie.
@@ -221,9 +254,19 @@ private fun AppContent() {
                 },
                 onAccount = { screen = Screen.Account },
             )
-            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge, s.custom) { exit ->
+            is Screen.Game -> GameScreen(s.level, s.loadout, s.attempt, s.tutorial, s.challenge, s.custom, s.tournament) { exit ->
                 val challenge = s.challenge
                 val custom = s.custom
+                val tournament = s.tournament
+                if (tournament != null) {
+                    // Turniej nie leży na mapie – powrót na ekran turnieju; prób jest dowolnie wiele.
+                    when (exit) {
+                        GameExit.ToMenu -> screen = Screen.Menu
+                        is GameExit.Retry -> start(exit.level, lastSelection, tournament = tournament)
+                        GameExit.ToMap, is GameExit.Next -> screen = Screen.WeekendTournament
+                    }
+                    return@GameScreen
+                }
                 if (custom != null) {
                     when (exit) {
                         GameExit.ToMap -> screen = if (custom.mode == CustomMode.PLAY || custom.draftId == null) Screen.Community else Screen.Editor(custom.draftId)
@@ -278,6 +321,16 @@ private fun AppContent() {
         if (chooseControls) ControlsChooser(onDone = { chooseControls = false })
         if (announcement != null && screen !is Screen.Game && !chooseControls) {
             AnnouncementDialog(announcement, onClose = { services.online.dismissAnnouncement(announcement) })
+        }
+        accountInvite?.let { top ->
+            AccountInviteDialog(
+                top,
+                onAccount = {
+                    accountInvite = null
+                    screen = Screen.Account
+                },
+                onClose = { accountInvite = null },
+            )
         }
         if (tamperNotice) {
             Overlay(onDismiss = { tamperNotice = false }) {

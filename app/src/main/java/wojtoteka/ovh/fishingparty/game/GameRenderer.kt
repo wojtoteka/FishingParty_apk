@@ -206,7 +206,7 @@ class GameRenderer(private val strings: HudStrings, private val look: ShipLook) 
         canvas.scale(s, s)
         canvas.translate(-camX, -camY)
 
-        tiles.draw(
+        tiles.drawCached(
             canvas, world.grid, camX, camY, viewW, viewH, t,
             tilesForRow = rowTilesOf,
             doorOpen = doorOpenAt,
